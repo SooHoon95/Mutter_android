@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Mutter"
 include(":app")
+include(":domain")
