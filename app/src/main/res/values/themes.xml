@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 앱 윈도 테마(Compose 렌더 전 배경). 실제 UI 색은 Compose MutterTheme가 담당. -->
+    <style name="Theme.Mutter" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FFF8F0</item>
+        <item name="android:statusBarColor">#FFF8F0</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
