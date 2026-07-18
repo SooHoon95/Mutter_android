@@ -24,5 +24,8 @@ rootProject.name = "Mutter"
 include(":app")
 include(":domain")
 include(":core:network")
+include(":core:common")
+include(":core:designsystem")
+include(":core:navigation")
 include(":data")
 include(":feature:auth")
