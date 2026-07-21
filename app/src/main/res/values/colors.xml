@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 앱 워크스페이스 배경 (iOS Ivory #FFFDF2) -->
+    <color name="ivory">#FFFDF2</color>
+</resources>

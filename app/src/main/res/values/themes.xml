@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 앱 윈도 테마(Compose 렌더 전 배경). 실제 UI 색은 Compose MutterTheme가 담당. -->
+    <!-- 앱 윈도 테마(Compose 렌더 후). 실제 UI 색은 Compose MutterTheme가 담당. 아이보리 배경. -->
     <style name="Theme.Mutter" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#FFF8F0</item>
-        <item name="android:statusBarColor">#FFF8F0</item>
+        <item name="android:windowBackground">@color/ivory</item>
+        <item name="android:statusBarColor">@color/ivory</item>
+        <item name="android:navigationBarColor">@color/ivory</item>
         <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <!-- 런치스크린(core-splashscreen) — 아이보리 + Mutter 편지·음표 마크. 26~35 동일.
+         앱이 뜨면 postSplashScreenTheme로 전환되고, Compose가 곧바로 Lottie 스플래시를 재생한다. -->
+    <style name="Theme.Mutter.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ivory</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Mutter</item>
     </style>
 </resources>

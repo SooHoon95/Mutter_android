@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">Mutter</string>
+
+    <!-- 하단 탭 -->
+    <string name="tab_home">홈</string>
+    <string name="tab_threads">편지함</string>
+    <string name="tab_inbox">받은함</string>
+    <string name="tab_connections">연결</string>
+    <string name="tab_profile">프로필</string>
 </resources>

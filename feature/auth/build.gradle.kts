@@ -1,4 +1,6 @@
 // :feature:auth — 로그인/온보딩 화면(iOS AuthFeature 대응). Compose + Hilt ViewModel.
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -7,11 +9,23 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+val socialProps = Properties().apply {
+    listOf("local.properties", "secrets.properties").forEach { name ->
+        rootProject.file(name).takeIf { it.exists() }?.inputStream()?.use { load(it) }
+    }
+}
+
 android {
     namespace = "com.efreedom.mutter.feature.auth"
     compileSdk = 35
     defaultConfig {
         minSdk = 26
+        // Google id_token 발급용 Web 클라이언트 ID (Credential Manager serverClientId).
+        buildConfigField(
+            "String",
+            "GOOGLE_WEB_CLIENT_ID",
+            "\"${socialProps.getProperty("GOOGLE_WEB_CLIENT_ID", "")}\"",
+        )
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -22,11 +36,13 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
 dependencies {
     implementation(project(":domain"))
+    implementation(project(":core:designsystem"))
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
@@ -40,4 +56,11 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.ui.tooling.preview)
     debugImplementation(libs.androidx.ui.tooling)
+
+    // 소셜 로그인 — Google(Credential Manager) + Kakao SDK
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.google.identity.googleid)
+    implementation(libs.kakao.user)
+    implementation(libs.kotlinx.coroutines.core)
 }

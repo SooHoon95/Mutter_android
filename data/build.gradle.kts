@@ -9,10 +9,11 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-// 기존 Supabase 백엔드 키를 local.properties(gitignore)에서 읽어 BuildConfig로 주입.
+// 보안 값을 secrets.properties(+local.properties)에서 읽어 BuildConfig로 주입. 둘 다 gitignore.
 val localProps = Properties().apply {
-    val f = rootProject.file("local.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
+    listOf("local.properties", "secrets.properties").forEach { name ->
+        rootProject.file(name).takeIf { it.exists() }?.inputStream()?.use { load(it) }
+    }
 }
 
 android {

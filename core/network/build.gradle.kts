@@ -27,4 +27,6 @@ dependencies {
     api(libs.supabase.functions)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.kotlinx.serialization.json)
+    // 세션 영구 저장(SharedPreferences 기반 Settings) — 자동 로그인.
+    implementation("com.russhwolf:multiplatform-settings:1.3.0")
 }

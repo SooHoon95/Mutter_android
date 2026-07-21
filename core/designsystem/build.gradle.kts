@@ -24,4 +24,6 @@ dependencies {
     api(libs.androidx.material3)
     api(libs.androidx.ui.tooling.preview)
     debugImplementation(libs.androidx.ui.tooling)
+    // Lottie 스플래시(iOS SplashAnimation.json 그대로 재생)
+    api(libs.lottie.compose)
 }

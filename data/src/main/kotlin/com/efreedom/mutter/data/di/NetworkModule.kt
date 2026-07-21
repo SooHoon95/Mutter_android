@@ -1,10 +1,12 @@
 package com.efreedom.mutter.data.di
 
+import android.content.Context
 import com.efreedom.mutter.core.network.SupabaseProvider
 import com.efreedom.mutter.data.BuildConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -14,8 +16,9 @@ import javax.inject.Singleton
 object NetworkModule {
     @Provides
     @Singleton
-    fun provideSupabaseProvider(): SupabaseProvider =
+    fun provideSupabaseProvider(@ApplicationContext context: Context): SupabaseProvider =
         SupabaseProvider(
+            context = context,
             supabaseUrl = BuildConfig.SUPABASE_URL,
             supabaseKey = BuildConfig.SUPABASE_ANON_KEY,
         )

@@ -1,14 +1,11 @@
 package com.efreedom.mutter
 
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Inbox
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -21,15 +18,19 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.efreedom.mutter.core.designsystem.R as DsR
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.efreedom.mutter.core.designsystem.theme.Gold
-import com.efreedom.mutter.core.designsystem.theme.GoldSoft
 import com.efreedom.mutter.core.designsystem.theme.InkSoft
+import com.efreedom.mutter.core.designsystem.theme.Ivory
 import com.efreedom.mutter.core.navigation.FeatureRoute
 import com.efreedom.mutter.feature.compose.ComposeMode
 import com.efreedom.mutter.feature.compose.ComposeScreen
@@ -51,13 +52,17 @@ import kotlinx.serialization.Serializable
 @Serializable
 private data object MainTabs
 
-/** 하단 탭 정의 (라벨·아이콘). */
-private enum class AppTab(val label: String, val icon: ImageVector) {
-    HOME("홈", Icons.Default.Home),
-    THREADS("편지함", Icons.Default.Email),
-    INBOX("받은함", Icons.Default.Inbox),
-    CONNECTIONS("연결", Icons.Default.People),
-    PROFILE("프로필", Icons.Default.Person),
+/** 하단 탭 정의 — iOS 커스텀 탭 아이콘(라인/채움 페어) 사용. */
+private enum class AppTab(
+    @StringRes val label: Int,
+    @DrawableRes val icon: Int,
+    @DrawableRes val iconFill: Int,
+) {
+    HOME(R.string.tab_home, DsR.drawable.tab_home, DsR.drawable.tab_home_fill),
+    THREADS(R.string.tab_threads, DsR.drawable.tab_thread, DsR.drawable.tab_thread_fill),
+    INBOX(R.string.tab_inbox, DsR.drawable.tab_inbox, DsR.drawable.tab_inbox_fill),
+    CONNECTIONS(R.string.tab_connections, DsR.drawable.tab_people, DsR.drawable.tab_people_fill),
+    PROFILE(R.string.tab_profile, DsR.drawable.tab_profile, DsR.drawable.tab_profile_fill),
 }
 
 /**
@@ -172,19 +177,24 @@ private fun MainScaffold(
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = Ivory) {
                 tabs.forEachIndexed { index, tab ->
+                    val selected = selectedIndex == index
                     NavigationBarItem(
-                        selected = selectedIndex == index,
+                        selected = selected,
                         onClick = { selectedIndex = index },
                         icon = {
-                            Icon(imageVector = tab.icon, contentDescription = tab.label)
+                            Icon(
+                                painter = painterResource(if (selected) tab.iconFill else tab.icon),
+                                contentDescription = stringResource(tab.label),
+                                modifier = Modifier.size(24.dp),
+                            )
                         },
-                        label = { Text(tab.label) },
+                        label = { Text(stringResource(tab.label)) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Gold,
                             selectedTextColor = Gold,
-                            indicatorColor = GoldSoft,
+                            indicatorColor = Color.Transparent,
                             unselectedIconColor = InkSoft,
                             unselectedTextColor = InkSoft,
                         ),

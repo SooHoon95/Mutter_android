@@ -1,0 +1,65 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <!-- 편지 위로 떠오르는 음표 마크(배경/배지 제외). app_mark에서 추출. -->
+    <!-- 음표 기둥 2 + 빔 -->
+    <path
+        android:strokeColor="#FF4A2038"
+        android:strokeWidth="26"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M497 424V270"/>
+    <path
+        android:strokeColor="#FF4A2038"
+        android:strokeWidth="26"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M657 400V246"/>
+    <path
+        android:strokeColor="#FF4A2038"
+        android:strokeWidth="30"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M497 274L657 250"/>
+    <!-- 음표 머리 2 -->
+    <path
+        android:fillColor="#FF4A2038"
+        android:pathData="M465 394A44 34 0 1 0 465 462 44 34 0 1 0 465 394z"/>
+    <path
+        android:fillColor="#FF4A2038"
+        android:pathData="M625 370A44 34 0 1 0 625 438 44 34 0 1 0 625 370z"/>
+    <!-- 반짝이 2(라벤더/피치) -->
+    <path
+        android:fillColor="#FFD9C6F5"
+        android:pathData="M742 283A17 17 0 1 0 742 317 17 17 0 1 0 742 283z"/>
+    <path
+        android:fillColor="#FFFFD3B0"
+        android:pathData="M360 318A12 12 0 1 0 360 342 12 12 0 1 0 360 318z"/>
+    <!-- 파스텔 블러시 편지 -->
+    <group>
+        <path
+            android:pathData="M252 522c0-28.72 23.28-52 52-52h416c28.72 0 52 23.28 52 52v228c0 28.72-23.28 52-52 52h-416c-28.72 0-52-23.28-52-52z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="252"
+                    android:startY="470"
+                    android:endX="772"
+                    android:endY="802">
+                    <item android:color="#FFFFE0C7" android:offset="0"/>
+                    <item android:color="#FFFBC4D9" android:offset="0.5"/>
+                    <item android:color="#FFD9C6F5" android:offset="1"/>
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path
+            android:strokeColor="#6B4A2038"
+            android:strokeWidth="20"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M272 508L491 648a44 38 0 0 0 42 0L752 508"/>
+    </group>
+</vector>

@@ -9,6 +9,7 @@ import com.efreedom.mutter.domain.usecase.LetterUseCase
 import com.efreedom.mutter.domain.usecase.ReceiptUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,10 +50,13 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             try {
-                val lettersDeferred = async { letterUseCase.myLettersWithStatus() }
-                val opensDeferred = async { receiptUseCase.myLetterOpens() }
-                val letters = lettersDeferred.await()
-                val opens = opensDeferred.await()
+                // coroutineScope로 감싸야 async 자식 실패가 부모(viewModelScope)로 전파돼 앱이
+                // 죽지 않고, 이 try/catch에서 잡힌다(구조적 동시성 — async-in-launch 함정 회피).
+                val (letters, opens) = coroutineScope {
+                    val lettersDeferred = async { letterUseCase.myLettersWithStatus() }
+                    val opensDeferred = async { receiptUseCase.myLetterOpens() }
+                    lettersDeferred.await() to opensDeferred.await()
+                }
                 val openMap = opens.associateBy { it.letterId }
                 val rows = letters.map { lws ->
                     LetterRow(

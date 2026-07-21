@@ -1,6 +1,8 @@
 *.iml
 .gradle/
 /local.properties
+# 보안 값(iOS Sensitive.xcconfig 대응) — 템플릿(secrets.properties.template)만 커밋.
+/secrets.properties
 /.idea/
 .DS_Store
 /build/

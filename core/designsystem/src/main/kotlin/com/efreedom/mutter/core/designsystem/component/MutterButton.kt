@@ -1,6 +1,8 @@
 package com.efreedom.mutter.core.designsystem.component
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -11,8 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
@@ -52,10 +53,7 @@ enum class MutterButtonStyle {
 
 // ─── Gradient brush (iOS MutterGradient.gold 이식) ───────────────────────────
 
-/**
- * Mutter 시그니처 그라데이션: goldLight → blushPink → blushLavender (topStart→bottomEnd).
- * iOS LinearGradient의 topLeading→bottomTrailing와 동일 방향.
- */
+/** goldLight → blushPink → blushLavender (topStart→bottomEnd, iOS와 동일 방향). */
 private val GoldGradientBrush = Brush.linearGradient(
     colors = listOf(GoldLight, BlushPink, BlushLavender),
 )
@@ -65,13 +63,9 @@ private val GoldGradientBrush = Brush.linearGradient(
 /**
  * Mutter 기본 버튼 (iOS `MutterButton` 1:1 이식).
  *
- * @param text 버튼 레이블.
- * @param onClick 탭 액션.
- * @param modifier Modifier.
- * @param style 버튼 스타일. 기본값 [MutterButtonStyle.Primary].
- * @param enabled 활성화 여부. false이면 opacity 0.5.
- * @param isLoading 로딩 중이면 텍스트를 숨기고 [CircularProgressIndicator]를 표시.
- * @param leadingIcon 텍스트 왼쪽에 표시할 아이콘(선택).
+ * Material3 [androidx.compose.material3.Button] 대신 단일 [Box]로 구현한다.
+ * Material Button은 content padding + elevation 때문에 그라데이션 표면 주위로 회색 프레임이
+ * 생겨서, iOS처럼 배경(그라데이션/표면)이 버튼 전체를 채우도록 직접 그린다. 그림자 없음(flat).
  */
 @Composable
 fun MutterButton(
@@ -88,71 +82,43 @@ fun MutterButton(
 
     // 프레스 시 살짝 줄어드는 효과 (iOS PressableButtonStyle 대응)
     val scale = if (isPressed) 0.97f else 1f
+    val shape = RoundedCornerShape(12.dp) // MutterRadius.lg
+    val active = enabled && !isLoading
 
     val foregroundColor: Color = when (style) {
         MutterButtonStyle.Primary -> OnGold
         MutterButtonStyle.Secondary, MutterButtonStyle.Ghost -> Ink
     }
 
-    val shape = RoundedCornerShape(12.dp) // MutterRadius.lg
-
-    Button(
-        onClick = onClick,
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .height(54.dp)
-            .scale(scale),
-        enabled = enabled && !isLoading,
-        shape = shape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = when (style) {
-                MutterButtonStyle.Primary -> Color.Transparent // gradient via Modifier.background
-                MutterButtonStyle.Secondary -> GoldSoft
-                MutterButtonStyle.Ghost -> Color.Transparent
-            },
-            contentColor = foregroundColor,
-            disabledContainerColor = when (style) {
-                MutterButtonStyle.Primary -> Color.Transparent
-                MutterButtonStyle.Secondary -> GoldSoft.copy(alpha = 0.5f)
-                MutterButtonStyle.Ghost -> Color.Transparent
-            },
-            disabledContentColor = foregroundColor.copy(alpha = 0.5f),
-        ),
-        elevation = if (style == MutterButtonStyle.Primary && enabled) {
-            ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 0.dp)
-        } else {
-            ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-        },
-        interactionSource = interactionSource,
-        // Primary 스타일은 gradient를 직접 그린다
-        content = {
-            // Primary 그라데이션은 Button 내부 Box로 처리
-            if (style == MutterButtonStyle.Primary) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp)
-                        .clip(shape)
-                        .background(brush = GoldGradientBrush),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    ButtonContent(
-                        text = text,
-                        isLoading = isLoading,
-                        leadingIcon = leadingIcon,
-                        foregroundColor = foregroundColor,
-                    )
-                }
-            } else {
-                ButtonContent(
-                    text = text,
-                    isLoading = isLoading,
-                    leadingIcon = leadingIcon,
-                    foregroundColor = foregroundColor,
-                )
-            }
-        },
-    )
+            .scale(scale)
+            .clip(shape)
+            .then(
+                when (style) {
+                    MutterButtonStyle.Primary -> Modifier.background(GoldGradientBrush)
+                    MutterButtonStyle.Secondary -> Modifier.background(GoldSoft)
+                    MutterButtonStyle.Ghost -> Modifier
+                },
+            )
+            .clickable(
+                enabled = active,
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick,
+            )
+            .alpha(if (enabled) 1f else 0.5f),
+        contentAlignment = Alignment.Center,
+    ) {
+        ButtonContent(
+            text = text,
+            isLoading = isLoading,
+            leadingIcon = leadingIcon,
+            foregroundColor = foregroundColor,
+        )
+    }
 }
 
 @Composable
@@ -163,11 +129,7 @@ private fun ButtonContent(
     foregroundColor: Color,
 ) {
     Box(contentAlignment = Alignment.Center) {
-        // 텍스트/아이콘 row — 로딩 중엔 투명하게
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = if (isLoading) Modifier.then(Modifier) else Modifier,
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             if (leadingIcon != null && !isLoading) {
                 Icon(
                     imageVector = leadingIcon,
@@ -184,7 +146,6 @@ private fun ButtonContent(
             )
         }
 
-        // 로딩 스피너
         if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
