@@ -14,8 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.efreedom.mutter.core.designsystem.component.MutterSplashScreen
-import com.efreedom.mutter.core.designsystem.theme.MutterTheme
+import com.efreedom.mutter.uicomponent.component.MutterSplashScreen
+import com.efreedom.mutter.uicomponent.theme.MutterTheme
 import com.efreedom.mutter.feature.auth.AuthScreen
 import com.efreedom.mutter.feature.auth.NicknameOnboardScreen
 import dagger.hilt.android.AndroidEntryPoint

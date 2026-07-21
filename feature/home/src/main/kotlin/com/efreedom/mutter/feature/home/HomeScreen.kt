@@ -41,20 +41,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.efreedom.mutter.core.designsystem.component.MutterButton
-import com.efreedom.mutter.core.designsystem.theme.BlushLavender
-import com.efreedom.mutter.core.designsystem.theme.BlushPink
-import com.efreedom.mutter.core.designsystem.theme.Danger
-import com.efreedom.mutter.core.designsystem.theme.Gold
-import com.efreedom.mutter.core.designsystem.theme.GoldLight
-import com.efreedom.mutter.core.designsystem.theme.GoldSoft
-import com.efreedom.mutter.core.designsystem.theme.Ink
-import com.efreedom.mutter.core.designsystem.theme.InkFaint
-import com.efreedom.mutter.core.designsystem.theme.InkSoft
-import com.efreedom.mutter.core.designsystem.theme.Ivory
-import com.efreedom.mutter.core.designsystem.theme.MutterText
-import com.efreedom.mutter.core.designsystem.theme.OnGold
-import com.efreedom.mutter.core.designsystem.theme.Surface as MutterSurface
+import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.theme.BlushLavender
+import com.efreedom.mutter.uicomponent.theme.BlushPink
+import com.efreedom.mutter.uicomponent.theme.Danger
+import com.efreedom.mutter.uicomponent.theme.Gold
+import com.efreedom.mutter.uicomponent.theme.GoldLight
+import com.efreedom.mutter.uicomponent.theme.GoldSoft
+import com.efreedom.mutter.uicomponent.theme.Ink
+import com.efreedom.mutter.uicomponent.theme.InkFaint
+import com.efreedom.mutter.uicomponent.theme.InkSoft
+import com.efreedom.mutter.uicomponent.theme.Ivory
+import com.efreedom.mutter.uicomponent.theme.MutterText
+import com.efreedom.mutter.uicomponent.theme.OnGold
+import com.efreedom.mutter.uicomponent.theme.Surface as MutterSurface
 
 private enum class HomeTab { SENT, DRAFT }
 

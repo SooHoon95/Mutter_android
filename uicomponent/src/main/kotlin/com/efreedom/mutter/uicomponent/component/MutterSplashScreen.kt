@@ -1,4 +1,4 @@
-package com.efreedom.mutter.core.designsystem.component
+package com.efreedom.mutter.uicomponent.component
 
 import android.graphics.Typeface
 import androidx.compose.foundation.background
@@ -15,8 +15,8 @@ import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
-import com.efreedom.mutter.core.designsystem.R
-import com.efreedom.mutter.core.designsystem.theme.Ivory
+import com.efreedom.mutter.uicomponent.R
+import com.efreedom.mutter.uicomponent.theme.Ivory
 
 /**
  * 앱 스플래시 — iOS `MutterSplashView`와 동일하게 Lottie(`SplashAnimation.json`)를

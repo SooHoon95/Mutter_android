@@ -1,4 +1,4 @@
-package com.efreedom.mutter.core.designsystem.component
+package com.efreedom.mutter.uicomponent.component
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
@@ -19,8 +19,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
-import com.efreedom.mutter.core.designsystem.R
-import com.efreedom.mutter.core.designsystem.theme.InkSoft
+import com.efreedom.mutter.uicomponent.R
+import com.efreedom.mutter.uicomponent.theme.InkSoft
 
 // 워드마크 그라데이션 (iOS onboardingLogo iv-word: 로즈 → 모브 → 플럼)
 private val WordmarkBrush = Brush.linearGradient(

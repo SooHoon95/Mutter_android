@@ -1,4 +1,4 @@
-package com.efreedom.mutter.core.designsystem.theme
+package com.efreedom.mutter.uicomponent.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme

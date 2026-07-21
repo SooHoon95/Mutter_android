@@ -45,18 +45,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.efreedom.mutter.core.designsystem.component.MutterButton
-import com.efreedom.mutter.core.designsystem.component.MutterButtonStyle
-import com.efreedom.mutter.core.designsystem.theme.Gold
-import com.efreedom.mutter.core.designsystem.theme.GoldDeep
-import com.efreedom.mutter.core.designsystem.theme.GoldSoft
-import com.efreedom.mutter.core.designsystem.theme.Ink
-import com.efreedom.mutter.core.designsystem.theme.InkFaint
-import com.efreedom.mutter.core.designsystem.theme.InkSoft
-import com.efreedom.mutter.core.designsystem.theme.Ivory
-import com.efreedom.mutter.core.designsystem.theme.LetterTheme
-import com.efreedom.mutter.core.designsystem.theme.LetterThemes
-import com.efreedom.mutter.core.designsystem.theme.MutterText
+import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
+import com.efreedom.mutter.uicomponent.theme.Gold
+import com.efreedom.mutter.uicomponent.theme.GoldDeep
+import com.efreedom.mutter.uicomponent.theme.GoldSoft
+import com.efreedom.mutter.uicomponent.theme.Ink
+import com.efreedom.mutter.uicomponent.theme.InkFaint
+import com.efreedom.mutter.uicomponent.theme.InkSoft
+import com.efreedom.mutter.uicomponent.theme.Ivory
+import com.efreedom.mutter.uicomponent.theme.LetterTheme
+import com.efreedom.mutter.uicomponent.theme.LetterThemes
+import com.efreedom.mutter.uicomponent.theme.MutterText
 
 /**
  * 편지 제작 화면 — 편지지(테마) + 본문 + 음악 1곡 + 저장/발송.

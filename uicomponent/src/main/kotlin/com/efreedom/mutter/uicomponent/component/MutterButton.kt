@@ -1,4 +1,4 @@
-package com.efreedom.mutter.core.designsystem.component
+package com.efreedom.mutter.uicomponent.component
 
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -28,13 +28,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import com.efreedom.mutter.core.designsystem.theme.BlushLavender
-import com.efreedom.mutter.core.designsystem.theme.BlushPink
-import com.efreedom.mutter.core.designsystem.theme.GoldLight
-import com.efreedom.mutter.core.designsystem.theme.GoldSoft
-import com.efreedom.mutter.core.designsystem.theme.Ink
-import com.efreedom.mutter.core.designsystem.theme.MutterText
-import com.efreedom.mutter.core.designsystem.theme.OnGold
+import com.efreedom.mutter.uicomponent.theme.BlushLavender
+import com.efreedom.mutter.uicomponent.theme.BlushPink
+import com.efreedom.mutter.uicomponent.theme.GoldLight
+import com.efreedom.mutter.uicomponent.theme.GoldSoft
+import com.efreedom.mutter.uicomponent.theme.Ink
+import com.efreedom.mutter.uicomponent.theme.MutterText
+import com.efreedom.mutter.uicomponent.theme.OnGold
 
 // ─── Style enum ──────────────────────────────────────────────────────────────
 

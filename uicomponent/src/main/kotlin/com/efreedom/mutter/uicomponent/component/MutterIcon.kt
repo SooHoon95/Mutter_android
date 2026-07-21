@@ -1,4 +1,4 @@
-package com.efreedom.mutter.core.designsystem.component
+package com.efreedom.mutter.uicomponent.component
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
@@ -10,12 +10,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.efreedom.mutter.core.designsystem.theme.Ink
+import com.efreedom.mutter.uicomponent.theme.Ink
 
 /**
  * 단색 템플릿 아이콘 — [tint] 색으로 렌더한다(iOS `renderingMode(.template)` 대응).
  *
- * `core:designsystem`의 VectorDrawable(예: `R.drawable.tab_home`, `R.drawable.play`)을
+ * `uicomponent`의 VectorDrawable(예: `R.drawable.tab_home`, `R.drawable.play`)을
  * 받아 지정 크기·틴트로 그린다. 색이 있는 일러스트는 [MutterImage]를 쓴다.
  */
 @Composable

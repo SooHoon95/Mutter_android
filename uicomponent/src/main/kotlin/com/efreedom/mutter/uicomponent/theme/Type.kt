@@ -1,4 +1,4 @@
-package com.efreedom.mutter.core.designsystem.theme
+package com.efreedom.mutter.uicomponent.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
@@ -6,7 +6,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.efreedom.mutter.core.designsystem.R
+import com.efreedom.mutter.uicomponent.R
 
 // ─── Font family ─────────────────────────────────────────────────────────────
 

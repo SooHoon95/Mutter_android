@@ -1,4 +1,4 @@
-// :core:designsystem — 테마·Pretendard·공통 Compose 컴포넌트(iOS UIComponent 대응). Hilt 없음.
+// :uicomponent — 테마·Pretendard·공통 Compose 컴포넌트(iOS UIComponent 대응). Hilt 없음.
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.efreedom.mutter.core.designsystem"
+    namespace = "com.efreedom.mutter.uicomponent"
     compileSdk = 35
     defaultConfig { minSdk = 26 }
     compileOptions {

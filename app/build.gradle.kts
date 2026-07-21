@@ -57,7 +57,7 @@ dependencies {
     implementation(project(":data"))
 
     // core
-    implementation(project(":core:designsystem"))
+    implementation(project(":uicomponent"))
     implementation(project(":core:navigation"))
 
     // features

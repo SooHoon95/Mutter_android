@@ -29,14 +29,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.efreedom.mutter.core.designsystem.component.MutterButton
-import com.efreedom.mutter.core.designsystem.theme.Danger
-import com.efreedom.mutter.core.designsystem.theme.Gold
-import com.efreedom.mutter.core.designsystem.theme.Ink
-import com.efreedom.mutter.core.designsystem.theme.InkMid
-import com.efreedom.mutter.core.designsystem.theme.InkSoft
-import com.efreedom.mutter.core.designsystem.theme.Ivory
-import com.efreedom.mutter.core.designsystem.theme.MutterText
+import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.theme.Danger
+import com.efreedom.mutter.uicomponent.theme.Gold
+import com.efreedom.mutter.uicomponent.theme.Ink
+import com.efreedom.mutter.uicomponent.theme.InkMid
+import com.efreedom.mutter.uicomponent.theme.InkSoft
+import com.efreedom.mutter.uicomponent.theme.Ivory
+import com.efreedom.mutter.uicomponent.theme.MutterText
 
 // ─── 권리침해 신고 화면 ───────────────────────────────────────────────────────
 

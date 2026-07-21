@@ -39,20 +39,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.efreedom.mutter.core.designsystem.R as DsR
-import com.efreedom.mutter.core.designsystem.component.MutterButton
-import com.efreedom.mutter.core.designsystem.component.MutterButtonStyle
-import com.efreedom.mutter.core.designsystem.component.MutterImage
-import com.efreedom.mutter.core.designsystem.component.MutterWordmark
-import com.efreedom.mutter.core.designsystem.theme.Gold
-import com.efreedom.mutter.core.designsystem.theme.GoldDeep
-import com.efreedom.mutter.core.designsystem.theme.Hairline
-import com.efreedom.mutter.core.designsystem.theme.Ink
-import com.efreedom.mutter.core.designsystem.theme.InkFaint
-import com.efreedom.mutter.core.designsystem.theme.InkSoft
-import com.efreedom.mutter.core.designsystem.theme.Ivory
-import com.efreedom.mutter.core.designsystem.theme.MutterText
-import com.efreedom.mutter.core.designsystem.theme.Surface
+import com.efreedom.mutter.uicomponent.R as DsR
+import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
+import com.efreedom.mutter.uicomponent.component.MutterImage
+import com.efreedom.mutter.uicomponent.component.MutterWordmark
+import com.efreedom.mutter.uicomponent.theme.Gold
+import com.efreedom.mutter.uicomponent.theme.GoldDeep
+import com.efreedom.mutter.uicomponent.theme.Hairline
+import com.efreedom.mutter.uicomponent.theme.Ink
+import com.efreedom.mutter.uicomponent.theme.InkFaint
+import com.efreedom.mutter.uicomponent.theme.InkSoft
+import com.efreedom.mutter.uicomponent.theme.Ivory
+import com.efreedom.mutter.uicomponent.theme.MutterText
+import com.efreedom.mutter.uicomponent.theme.Surface
 
 private val KakaoYellow = Color(0xFFFEE500)
 private val KakaoLabel = Color(0xFF191600)

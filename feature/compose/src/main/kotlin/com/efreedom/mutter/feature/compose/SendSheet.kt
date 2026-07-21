@@ -43,18 +43,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.efreedom.mutter.core.designsystem.component.MutterButton
-import com.efreedom.mutter.core.designsystem.component.MutterButtonStyle
-import com.efreedom.mutter.core.designsystem.theme.Gold
-import com.efreedom.mutter.core.designsystem.theme.GoldDeep
-import com.efreedom.mutter.core.designsystem.theme.GoldSoft
-import com.efreedom.mutter.core.designsystem.theme.Hairline
-import com.efreedom.mutter.core.designsystem.theme.Ink
-import com.efreedom.mutter.core.designsystem.theme.InkFaint
-import com.efreedom.mutter.core.designsystem.theme.InkMid
-import com.efreedom.mutter.core.designsystem.theme.InkSoft
-import com.efreedom.mutter.core.designsystem.theme.MutterText
-import com.efreedom.mutter.core.designsystem.theme.Surface
+import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
+import com.efreedom.mutter.uicomponent.theme.Gold
+import com.efreedom.mutter.uicomponent.theme.GoldDeep
+import com.efreedom.mutter.uicomponent.theme.GoldSoft
+import com.efreedom.mutter.uicomponent.theme.Hairline
+import com.efreedom.mutter.uicomponent.theme.Ink
+import com.efreedom.mutter.uicomponent.theme.InkFaint
+import com.efreedom.mutter.uicomponent.theme.InkMid
+import com.efreedom.mutter.uicomponent.theme.InkSoft
+import com.efreedom.mutter.uicomponent.theme.MutterText
+import com.efreedom.mutter.uicomponent.theme.Surface
 import kotlinx.coroutines.delay
 
 /** 세그먼트 탭 — 링크 발급 / 연결 상대 직접 발송. */

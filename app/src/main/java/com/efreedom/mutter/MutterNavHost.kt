@@ -23,14 +23,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.efreedom.mutter.core.designsystem.R as DsR
+import com.efreedom.mutter.uicomponent.R as DsR
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.efreedom.mutter.core.designsystem.theme.Gold
-import com.efreedom.mutter.core.designsystem.theme.InkSoft
-import com.efreedom.mutter.core.designsystem.theme.Ivory
+import com.efreedom.mutter.uicomponent.theme.Gold
+import com.efreedom.mutter.uicomponent.theme.InkSoft
+import com.efreedom.mutter.uicomponent.theme.Ivory
 import com.efreedom.mutter.core.navigation.FeatureRoute
 import com.efreedom.mutter.feature.compose.ComposeMode
 import com.efreedom.mutter.feature.compose.ComposeScreen
