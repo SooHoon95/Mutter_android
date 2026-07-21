@@ -14,6 +14,7 @@ import com.efreedom.mutter.domain.model.Profile
 import com.efreedom.mutter.domain.model.ScValidation
 import com.efreedom.mutter.domain.model.SentLetterSummary
 import com.efreedom.mutter.domain.model.Session
+import com.efreedom.mutter.domain.model.SocialAuthResult
 import com.efreedom.mutter.domain.model.SocialProvider
 import com.efreedom.mutter.domain.model.ThreadLetter
 import java.time.Instant
@@ -25,7 +26,10 @@ interface AuthRepository {
     suspend fun verifyCode(email: String, code: String): Session
     suspend fun signIn(email: String, password: String): Session
     suspend fun signInApple(idToken: String, nonce: String): Session
-    suspend fun signInSocial(provider: SocialProvider, token: String): Session
+    /** 소셜 1단계 — idToken만 검증(checkOnly). 기존이면 세션 확립, 신규면 생성 없이 NeedsNickname. */
+    suspend fun startSocial(provider: SocialProvider, idToken: String): SocialAuthResult
+    /** 소셜 2단계 — 신규 회원을 닉네임과 함께 가입시키고 세션을 확립한다. */
+    suspend fun registerSocial(provider: SocialProvider, idToken: String, nickname: String): Session
     suspend fun signOut()
     suspend fun currentSession(): Session?
 }

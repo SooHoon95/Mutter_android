@@ -17,6 +17,7 @@ import com.efreedom.mutter.domain.model.Profile
 import com.efreedom.mutter.domain.model.ScValidation
 import com.efreedom.mutter.domain.model.SentLetterSummary
 import com.efreedom.mutter.domain.model.Session
+import com.efreedom.mutter.domain.model.SocialAuthResult
 import com.efreedom.mutter.domain.model.SocialProvider
 import com.efreedom.mutter.domain.model.ThreadLetter
 import com.efreedom.mutter.domain.model.TrackSourceSpec
@@ -43,7 +44,10 @@ class AuthUseCase @Inject constructor(private val repository: AuthRepository) {
     suspend fun verifyCode(email: String, code: String): Session = repository.verifyCode(email, code)
     suspend fun signIn(email: String, password: String): Session = repository.signIn(email, password)
     suspend fun signInApple(idToken: String, nonce: String): Session = repository.signInApple(idToken, nonce)
-    suspend fun signInSocial(provider: SocialProvider, token: String): Session = repository.signInSocial(provider, token)
+    suspend fun startSocial(provider: SocialProvider, idToken: String): SocialAuthResult =
+        repository.startSocial(provider, idToken)
+    suspend fun registerSocial(provider: SocialProvider, idToken: String, nickname: String): Session =
+        repository.registerSocial(provider, idToken, nickname)
     suspend fun signOut() = repository.signOut()
     suspend fun currentSession(): Session? = repository.currentSession()
 }

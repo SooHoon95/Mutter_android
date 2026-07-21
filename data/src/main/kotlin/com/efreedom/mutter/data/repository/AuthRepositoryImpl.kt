@@ -4,6 +4,7 @@ import com.efreedom.mutter.core.network.SupabaseProvider
 import com.efreedom.mutter.data.support.SupabaseErrorMapper
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Session
+import com.efreedom.mutter.domain.model.SocialAuthResult
 import com.efreedom.mutter.domain.model.SocialProvider
 import com.efreedom.mutter.domain.repository.AuthRepository
 import io.github.jan.supabase.auth.OtpType
@@ -64,25 +65,49 @@ class AuthRepositoryImpl @Inject constructor(
      * 서버가 검증·회원매핑 후 발급한 세션(access/refresh)으로 로그인 상태를 확립한다(iOS와 동일).
      * provider별 계정 분리를 위해 네이티브 OIDC가 아닌 Edge Function을 경유한다.
      */
-    override suspend fun signInSocial(provider: SocialProvider, token: String): Session {
+    /**
+     * 소셜 1단계 — idToken만 Edge Function으로 검증(checkOnly=true, 계정 생성 X).
+     * 기존 회원이면 세션을 확립해 [SocialAuthResult.Authenticated], 신규면 [SocialAuthResult.NeedsNickname].
+     * "닉네임 전 가입" 방지: 신규 회원은 여기서 아무 것도 만들지 않는다.
+     */
+    override suspend fun startSocial(provider: SocialProvider, idToken: String): SocialAuthResult {
+        val res = invokeSocial(provider, SocialLoginRequest(idToken = idToken, checkOnly = true))
+        val refresh = res.refreshToken
+        if (res.isNew || refresh == null) return SocialAuthResult.NeedsNickname
+        establishSession(refresh)
+        return SocialAuthResult.Authenticated(currentDomainSession() ?: throw MutterError.Unauthorized)
+    }
+
+    /** 소셜 2단계 — 신규 회원을 닉네임과 함께 가입(이때만 계정 생성)시키고 세션을 확립한다. */
+    override suspend fun registerSocial(provider: SocialProvider, idToken: String, nickname: String): Session {
+        val res = invokeSocial(provider, SocialLoginRequest(idToken = idToken, nickname = nickname))
+        val refresh = res.refreshToken ?: throw MutterError.Unauthorized
+        establishSession(refresh)
+        return currentDomainSession() ?: throw MutterError.Unauthorized
+    }
+
+    /** Edge Function(google-login/kakao-login) 호출 + 응답/에러 정규화. */
+    private suspend fun invokeSocial(provider: SocialProvider, request: SocialLoginRequest): SocialLoginResponse {
         val functionName = when (provider) {
             SocialProvider.GOOGLE -> "google-login"
             SocialProvider.KAKAO -> "kakao-login"
         }
         try {
-            val response = client.functions.invoke(functionName, SocialLoginRequest(idToken = token))
+            val response = client.functions.invoke(functionName, request)
             val raw = response.bodyAsText()
             if (!response.status.isSuccess()) throw mapEdgeError(raw, provider)
-            val res = json.decodeFromString(SocialLoginResponse.serializer(), raw)
-            // access/refresh로 세션 확립 — refresh로 완전한 세션을 받아 현재 세션으로 import(영구 저장).
-            val session = auth.refreshSession(res.refreshToken)
-            auth.importSession(session)
-            return currentDomainSession() ?: throw MutterError.Unauthorized
+            return json.decodeFromString(SocialLoginResponse.serializer(), raw)
         } catch (e: MutterError) {
             throw e
         } catch (e: Throwable) {
             throw SupabaseErrorMapper.map(e)
         }
+    }
+
+    /** access/refresh로 세션 확립 — refresh로 완전한 세션을 받아 현재 세션으로 import(영구 저장). */
+    private suspend fun establishSession(refreshToken: String) {
+        val session = auth.refreshSession(refreshToken)
+        auth.importSession(session)
     }
 
     private fun mapEdgeError(raw: String, provider: SocialProvider): MutterError {
@@ -118,13 +143,20 @@ class AuthRepositoryImpl @Inject constructor(
 // ─── Edge Function DTO (iOS Request/Response와 동일 키) ───────────────────────
 
 @Serializable
-private data class SocialLoginRequest(val idToken: String)
+private data class SocialLoginRequest(
+    val idToken: String,
+    // checkOnly=true → 신규 여부만 확인(생성 X). nickname 동반 → 그때 가입. null 필드는 직렬화에서 생략.
+    val checkOnly: Boolean? = null,
+    val nickname: String? = null,
+)
 
 @Serializable
 private data class SocialLoginResponse(
-    @SerialName("access_token") val accessToken: String,
-    @SerialName("refresh_token") val refreshToken: String,
+    // checkOnly-신규 응답은 { isNew:true }만 오므로 세션 토큰은 nullable.
+    @SerialName("access_token") val accessToken: String? = null,
+    @SerialName("refresh_token") val refreshToken: String? = null,
     @SerialName("user_id") val userId: String? = null,
+    val isNew: Boolean = false,
 )
 
 @Serializable

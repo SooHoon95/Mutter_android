@@ -108,6 +108,7 @@ fun AuthScreen(
                     AuthStep.ENTER_EMAIL -> EmailStep(state, viewModel)
                     AuthStep.ENTER_CODE -> CodeStep(state, viewModel)
                     AuthStep.ENTER_PASSWORD -> PasswordStep(state, viewModel)
+                    AuthStep.ENTER_SOCIAL_NICKNAME -> SocialNicknameStep(state, viewModel)
                 }
 
                 state.error?.let { message ->
@@ -121,14 +122,16 @@ fun AuthScreen(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
-
-            SocialSection(
-                enabled = !state.isLoading,
-                onGoogle = { viewModel.signInGoogle(context) },
-                onKakao = { viewModel.signInKakao(context) },
-                onApple = { viewModel.appleComingSoon() },
-            )
+            // 소셜 닉네임 입력 중엔 소셜 버튼을 숨긴다(이미 소셜 인증은 끝난 상태).
+            if (state.step != AuthStep.ENTER_SOCIAL_NICKNAME) {
+                Spacer(Modifier.height(20.dp))
+                SocialSection(
+                    enabled = !state.isLoading,
+                    onGoogle = { viewModel.signInGoogle(context) },
+                    onKakao = { viewModel.signInKakao(context) },
+                    onApple = { viewModel.appleComingSoon() },
+                )
+            }
         }
     }
 }
@@ -207,6 +210,42 @@ private fun PasswordStep(state: AuthUiState, vm: AuthViewModel) {
     )
     MutterButton(
         text = "인증코드로 로그인",
+        onClick = vm::backToEmail,
+        style = MutterButtonStyle.Ghost,
+    )
+}
+
+/** 신규 소셜 회원 — 닉네임 입력(이때 가입). 소셜 인증은 이미 끝났고 계정은 아직 없음. */
+@Composable
+private fun SocialNicknameStep(state: AuthUiState, vm: AuthViewModel) {
+    Text(
+        text = "어떻게 불러드릴까요?",
+        style = MutterText.title,
+        color = Ink,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Text(
+        text = "받는 사람에게 보일 이름이에요",
+        style = MutterText.caption,
+        color = InkSoft,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    MutterField(
+        value = state.nickname,
+        onValueChange = vm::onNicknameChange,
+        placeholder = "닉네임",
+        keyboardType = KeyboardType.Text,
+    )
+    MutterButton(
+        text = "시작하기",
+        onClick = vm::submitSocialNickname,
+        isLoading = state.isLoading,
+        enabled = vm.isNicknameValid,
+    )
+    MutterButton(
+        text = "다른 방법으로 로그인",
         onClick = vm::backToEmail,
         style = MutterButtonStyle.Ghost,
     )
