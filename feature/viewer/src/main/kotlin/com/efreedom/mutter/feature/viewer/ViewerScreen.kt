@@ -62,8 +62,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterEqualizer
+import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.SoundCloudAttribution
 import com.efreedom.mutter.uicomponent.theme.BlushLavender
 import com.efreedom.mutter.uicomponent.theme.BlushPink
@@ -146,6 +148,16 @@ fun ViewerScreen(
             is ViewerState.Ready -> {
                 if (isOpened) {
                     LetterReader(payload = s.payload, player = viewModel.player)
+                    // 받은함 자동 저장 표시(인증 + 토큰 수신 시). iOS ViewerView savedToInbox 대응.
+                    if (viewModel.savedToInbox) {
+                        SavedToInboxBadge(
+                            theme = LetterThemes.byId(s.payload.templateId),
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .statusBarsPadding()
+                                .padding(top = 8.dp),
+                        )
+                    }
                 } else {
                     OpenGate(payload = s.payload, onOpen = viewModel::open)
                 }
@@ -539,6 +551,23 @@ private fun ScrollPromptView(
             tint = foreground.copy(alpha = 0.6f),
             modifier = Modifier.size(28.dp),
         )
+    }
+}
+
+// ─── Saved-to-inbox badge ─────────────────────────────────────────────────────
+
+/** "받은함에 저장됨" 표시 — 편지 테마 색으로 상단에 얹는 알약(iOS savedToInbox 행 대응). */
+@Composable
+private fun SavedToInboxBadge(theme: LetterTheme, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .background(color = theme.background.copy(alpha = 0.92f), shape = RoundedCornerShape(999.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        MutterIcon(id = DsR.drawable.check_circle, contentDescription = null, tint = theme.accent, size = 14.dp)
+        Text(text = "받은함에 저장됨", style = MutterText.caption, color = theme.foreground)
     }
 }
 

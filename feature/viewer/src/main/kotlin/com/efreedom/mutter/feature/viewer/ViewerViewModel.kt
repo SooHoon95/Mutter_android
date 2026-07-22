@@ -10,6 +10,7 @@ import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.LetterPayload
 import com.efreedom.mutter.domain.usecase.AudioUseCase
+import com.efreedom.mutter.domain.usecase.AuthUseCase
 import com.efreedom.mutter.domain.usecase.DeliveryUseCase
 import com.efreedom.mutter.domain.usecase.LetterUseCase
 import com.efreedom.mutter.domain.usecase.ReceiptUseCase
@@ -55,6 +56,7 @@ class ViewerViewModel @Inject constructor(
     private val deliveryUseCase: DeliveryUseCase,
     private val receiptUseCase: ReceiptUseCase,
     private val letterUseCase: LetterUseCase,
+    private val authUseCase: AuthUseCase,
     audioUseCase: AudioUseCase,
 ) : ViewModel() {
 
@@ -72,6 +74,14 @@ class ViewerViewModel @Inject constructor(
 
     /** "열기 ▶" 게이트 통과 여부 — mutableStateOf로 Compose 리컴포즈 트리거. */
     var isOpened by mutableStateOf(false)
+        private set
+
+    /**
+     * 받은함 자동 저장 표시 — 인증된 사용자가 토큰 링크(/l/)를 열면 서버가 get_letter_by_token
+     * 사이드이펙트로 받은함에 자동 저장한다(마이그레이션 0022). iOS savedToInbox 대응 — 저장 API를
+     * 따로 호출하지 않고 인증 + 토큰 수신 + 로드 성공일 때만 표시한다.
+     */
+    var savedToInbox by mutableStateOf(false)
         private set
 
     private var source: Source? = null
@@ -121,7 +131,13 @@ class ViewerViewModel @Inject constructor(
 
     private suspend fun loadByToken(token: String) {
         runCatching { deliveryUseCase.open(token, password) }
-            .onSuccess { present(it) }
+            .onSuccess {
+                present(it)
+                // 로그인 상태면 서버가 받은함에 자동 저장했으므로 표시(익명 수신자는 표시 안 함).
+                if (runCatching { authUseCase.currentSession() }.getOrNull() != null) {
+                    savedToInbox = true
+                }
+            }
             .onFailure { e ->
                 _state.value = when (e) {
                     is MutterError.WrongPassword -> ViewerState.PasswordRequired
