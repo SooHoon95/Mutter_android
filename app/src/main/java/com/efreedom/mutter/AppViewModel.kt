@@ -3,6 +3,7 @@ package com.efreedom.mutter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.domain.SessionInvalidation
+import com.efreedom.mutter.domain.usecase.AppUpdateUseCase
 import com.efreedom.mutter.domain.usecase.AuthUseCase
 import com.efreedom.mutter.domain.usecase.ProfileUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,14 +39,28 @@ enum class AppState {
 class AppViewModel @Inject constructor(
     private val authUseCase: AuthUseCase,
     private val profileUseCase: ProfileUseCase,
+    private val appUpdateUseCase: AppUpdateUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AppState.LOADING)
     val state: StateFlow<AppState> = _state.asStateFlow()
 
+    /** 강제 업데이트 필요 여부 — true면 어떤 화면 위에도 차단 오버레이를 띄운다(iOS ForceUpdateView 대응). */
+    private val _forceUpdate = MutableStateFlow(false)
+    val forceUpdate: StateFlow<Boolean> = _forceUpdate.asStateFlow()
+
     init {
         refresh()
         observeSessionInvalidation()
+        checkForceUpdate()
+    }
+
+    /** 현재 버전이 서버 최소 지원 버전 미만이면 차단. 조회 실패는 fail-open(막지 않음). */
+    private fun checkForceUpdate() {
+        viewModelScope.launch {
+            _forceUpdate.value =
+                runCatching { appUpdateUseCase.isUpdateRequired(BuildConfig.VERSION_NAME) }.getOrDefault(false)
+        }
     }
 
     /** 세션 만료 신호를 구독해 자동 로그아웃(iOS SessionManager.observeUnauthorized 대응). */

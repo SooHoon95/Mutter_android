@@ -105,3 +105,9 @@ interface SoundCloudRepository {
 interface SessionProvider {
     val currentUserId: String?
 }
+
+/** 강제 업데이트용 최소 지원 버전 조회(iOS AppUpdateRepositorable 대응). */
+interface AppUpdateRepository {
+    /** 플랫폼("android")의 최소 지원 versionName. 값이 없거나 조회 실패면 null(fail-open). */
+    suspend fun minSupportedVersion(platform: String): String?
+}

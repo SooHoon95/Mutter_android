@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
             MutterTheme {
                 val appViewModel: AppViewModel = hiltViewModel()
                 val appState by appViewModel.state.collectAsStateWithLifecycle()
+                val forceUpdate by appViewModel.forceUpdate.collectAsStateWithLifecycle()
                 val deeplink by incomingDeeplink.collectAsStateWithLifecycle()
 
                 // 최소 스플래시 노출시간 — 세션 확인이 즉시 끝나도 로고가 잠깐 보이도록(iOS MainView 대응).
@@ -103,6 +104,9 @@ class MainActivity : ComponentActivity() {
                         BackHandler { letterToken = null }
                         ViewerScreen(token = token, onBack = { letterToken = null })
                     }
+
+                    // 강제 업데이트 — 최상위 차단 오버레이(편지 오버레이보다도 위).
+                    if (forceUpdate) ForceUpdateOverlay()
                 }
             }
         }

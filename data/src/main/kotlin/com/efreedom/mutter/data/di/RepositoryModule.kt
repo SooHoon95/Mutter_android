@@ -1,5 +1,6 @@
 package com.efreedom.mutter.data.di
 
+import com.efreedom.mutter.data.repository.AppUpdateRepositoryImpl
 import com.efreedom.mutter.data.repository.AuthRepositoryImpl
 import com.efreedom.mutter.data.repository.ConnectionRepositoryImpl
 import com.efreedom.mutter.data.repository.DeliveryRepositoryImpl
@@ -12,6 +13,7 @@ import com.efreedom.mutter.data.repository.SoundCloudRepositoryImpl
 import com.efreedom.mutter.data.repository.TakedownRepositoryImpl
 import com.efreedom.mutter.data.repository.ThreadRepositoryImpl
 import com.efreedom.mutter.data.service.SessionProviderImpl
+import com.efreedom.mutter.domain.repository.AppUpdateRepository
 import com.efreedom.mutter.domain.repository.AuthRepository
 import com.efreedom.mutter.domain.repository.ConnectionRepository
 import com.efreedom.mutter.domain.repository.DeliveryRepository
@@ -70,4 +72,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindSoundCloudRepository(impl: SoundCloudRepositoryImpl): SoundCloudRepository
+
+    @Binds @Singleton
+    abstract fun bindAppUpdateRepository(impl: AppUpdateRepositoryImpl): AppUpdateRepository
 }

@@ -21,6 +21,7 @@ import com.efreedom.mutter.domain.model.SocialAuthResult
 import com.efreedom.mutter.domain.model.SocialProvider
 import com.efreedom.mutter.domain.model.ThreadLetter
 import com.efreedom.mutter.domain.model.TrackSourceSpec
+import com.efreedom.mutter.domain.repository.AppUpdateRepository
 import com.efreedom.mutter.domain.repository.AuthRepository
 import com.efreedom.mutter.domain.repository.ConnectionRepository
 import com.efreedom.mutter.domain.repository.DeliveryRepository
@@ -113,6 +114,29 @@ class ThreadUseCase @Inject constructor(private val repository: ThreadRepository
 class PushTokenUseCase @Inject constructor(private val repository: PushTokenRepository) {
     suspend fun register(token: String, deviceId: String?) =
         repository.upsert(token = token, platform = "android", deviceId = deviceId)
+}
+
+class AppUpdateUseCase @Inject constructor(private val repository: AppUpdateRepository) {
+    /**
+     * 현재 앱 버전이 서버가 지정한 최소 지원 버전보다 낮으면 true(강제 업데이트 필요).
+     * 최소 버전이 없거나 조회/파싱 실패면 false — iOS와 동일하게 fail-open(사용자를 막지 않음).
+     */
+    suspend fun isUpdateRequired(currentVersion: String): Boolean {
+        val min = repository.minSupportedVersion("android") ?: return false
+        return compareVersions(currentVersion, min) < 0
+    }
+}
+
+/** 점(.) 구분 숫자 버전 비교. a<b면 음수, 같으면 0, a>b면 양수. 숫자 아닌 파트는 0으로 본다. */
+private fun compareVersions(a: String, b: String): Int {
+    val pa = a.split(".").map { it.trim().toIntOrNull() ?: 0 }
+    val pb = b.split(".").map { it.trim().toIntOrNull() ?: 0 }
+    for (i in 0 until maxOf(pa.size, pb.size)) {
+        val x = pa.getOrElse(i) { 0 }
+        val y = pb.getOrElse(i) { 0 }
+        if (x != y) return x.compareTo(y)
+    }
+    return 0
 }
 
 class AudioUseCase @Inject constructor(private val soundCloud: SoundCloudRepository) {
