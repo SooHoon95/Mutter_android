@@ -128,10 +128,14 @@ class AppUpdateUseCase @Inject constructor(private val repository: AppUpdateRepo
     }
 }
 
-/** 점(.) 구분 숫자 버전 비교. a<b면 음수, 같으면 0, a>b면 양수. 숫자 아닌 파트는 0으로 본다. */
+/**
+ * 점(.) 구분 숫자 버전 비교. a<b면 음수, 같으면 0, a>b면 양수.
+ * 각 파트의 선행 숫자만 취한다("1-beta" → 1) — 프리릴리스 접미사로 게이트가 과발동하지 않도록.
+ */
 private fun compareVersions(a: String, b: String): Int {
-    val pa = a.split(".").map { it.trim().toIntOrNull() ?: 0 }
-    val pb = b.split(".").map { it.trim().toIntOrNull() ?: 0 }
+    fun parts(v: String) = v.split(".").map { seg -> seg.trim().takeWhile { it.isDigit() }.toIntOrNull() ?: 0 }
+    val pa = parts(a)
+    val pb = parts(b)
     for (i in 0 until maxOf(pa.size, pb.size)) {
         val x = pa.getOrElse(i) { 0 }
         val y = pb.getOrElse(i) { 0 }
