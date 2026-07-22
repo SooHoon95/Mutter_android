@@ -1,5 +1,6 @@
 package com.efreedom.mutter.uicomponent.component
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,6 +28,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.efreedom.mutter.uicomponent.theme.BlushLavender
 import com.efreedom.mutter.uicomponent.theme.BlushPink
@@ -76,6 +78,8 @@ fun MutterButton(
     enabled: Boolean = true,
     isLoading: Boolean = false,
     leadingIcon: ImageVector? = null,
+    /** uicomponent VectorDrawable 리소스를 선행 아이콘으로(iOS `MutterButton(icon:)` 대응). foreground 색으로 틴트. */
+    @DrawableRes leadingIconRes: Int? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -116,6 +120,7 @@ fun MutterButton(
             text = text,
             isLoading = isLoading,
             leadingIcon = leadingIcon,
+            leadingIconRes = leadingIconRes,
             foregroundColor = foregroundColor,
         )
     }
@@ -126,6 +131,7 @@ private fun ButtonContent(
     text: String,
     isLoading: Boolean,
     leadingIcon: ImageVector?,
+    leadingIconRes: Int?,
     foregroundColor: Color,
 ) {
     Box(contentAlignment = Alignment.Center) {
@@ -133,6 +139,14 @@ private fun ButtonContent(
             if (leadingIcon != null && !isLoading) {
                 Icon(
                     imageVector = leadingIcon,
+                    contentDescription = null,
+                    tint = foregroundColor,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            } else if (leadingIconRes != null && !isLoading) {
+                Icon(
+                    painter = painterResource(leadingIconRes),
                     contentDescription = null,
                     tint = foregroundColor,
                     modifier = Modifier.size(18.dp),

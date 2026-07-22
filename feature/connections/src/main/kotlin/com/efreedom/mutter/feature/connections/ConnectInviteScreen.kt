@@ -23,6 +23,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
+import com.efreedom.mutter.uicomponent.component.MutterIcon
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
@@ -92,6 +94,12 @@ private fun InviteReadyContent(invite: ConnectInvite, onAccept: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            MutterIcon(
+                id = DsR.drawable.connect,
+                contentDescription = null,
+                tint = Gold,
+                size = 40.dp,
+            )
             Text(
                 text = "연결 초대",
                 style = MutterText.titleLarge,
@@ -146,6 +154,12 @@ private fun AcceptedContent() {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            MutterIcon(
+                id = DsR.drawable.check_circle,
+                contentDescription = null,
+                tint = GoldDeep,
+                size = 48.dp,
+            )
             Text(text = "연결 완료", style = MutterText.titleLarge, color = GoldDeep)
             Text(
                 text = "이제 편지를 주고받을 수 있어요.",
@@ -163,6 +177,12 @@ private fun FailedContent(message: String, onRetry: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth(),
     ) {
+        MutterIcon(
+            id = DsR.drawable.warning,
+            contentDescription = null,
+            tint = Danger,
+            size = 40.dp,
+        )
         Text(text = message, style = MutterText.bodyMedium, color = Danger)
         MutterButton(
             text = "다시 시도",

@@ -56,8 +56,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
+import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
@@ -152,7 +154,7 @@ fun ProfileScreen(
                 HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
 
                 SettingsRow(
-                    icon = { },
+                    icon = { MutterIcon(id = DsR.drawable.mood_tag, contentDescription = null, tint = InkSoft, size = 20.dp) },
                     label = "기본 편지지",
                     value = "봄날",
                     onClick = null,
@@ -161,7 +163,7 @@ fun ProfileScreen(
                 HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
 
                 SettingsRow(
-                    icon = { },
+                    icon = { MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = InkSoft, size = 20.dp) },
                     label = "비밀번호",
                     value = "사용 중",
                     onClick = null,

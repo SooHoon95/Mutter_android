@@ -37,8 +37,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
+import com.efreedom.mutter.uicomponent.component.MutterIcon
+import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
 import com.efreedom.mutter.uicomponent.theme.Ink
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.theme.InkMid
 import com.efreedom.mutter.uicomponent.theme.InkSoft
 import com.efreedom.mutter.uicomponent.theme.Ivory
@@ -147,6 +150,12 @@ private fun ConnectionsCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
+                    MutterIcon(
+                        id = DsR.drawable.connect,
+                        contentDescription = null,
+                        tint = Gold,
+                        size = 20.dp,
+                    )
                     Text(
                         text = connection.nickname ?: "이름 없음",
                         style = MutterText.bodyMedium,

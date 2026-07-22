@@ -31,6 +31,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.uicomponent.R as DsR
+import com.efreedom.mutter.uicomponent.component.MutterIcon
+import com.efreedom.mutter.uicomponent.component.MutterImage
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldSoft
 import com.efreedom.mutter.uicomponent.theme.Ink
@@ -134,7 +137,7 @@ private fun LetterCard(item: InboxItem, onClick: () -> Unit) {
                 .background(GoldSoft),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = "✉", style = MutterText.bodyMedium, color = Gold)
+            MutterIcon(id = DsR.drawable.envelope, contentDescription = null, tint = Gold, size = 20.dp)
         }
 
         Spacer(modifier = Modifier.size(12.dp))
@@ -173,7 +176,7 @@ private fun InboxEmptyState() {
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.padding(top = 60.dp),
     ) {
-        Text(text = "✉", style = MutterText.display, color = InkFaint)
+        MutterImage(id = DsR.drawable.empty_received, modifier = Modifier.size(120.dp))
         Text(
             text = "아직 보관한 편지가 없어요",
             style = MutterText.bodyLarge,

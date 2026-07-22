@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,7 +43,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.component.MutterIcon
+import com.efreedom.mutter.uicomponent.component.MutterImage
 import com.efreedom.mutter.uicomponent.theme.BlushLavender
 import com.efreedom.mutter.uicomponent.theme.BlushPink
 import com.efreedom.mutter.uicomponent.theme.Danger
@@ -84,7 +88,7 @@ fun HomeScreen(
     ) {
         StatCard(sentCount = state.sentCount, openedCount = state.openedCount)
 
-        MutterButton(text = "편지 쓰기", onClick = onCompose)
+        MutterButton(text = "편지 쓰기", onClick = onCompose, leadingIconRes = DsR.drawable.compose)
 
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             SegmentedButton(
@@ -116,11 +120,20 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = if (selectedTab == HomeTab.SENT) "보낸 편지가 없어요" else "임시저장 편지가 없어요",
-                        style = MutterText.bodyMedium,
-                        color = InkSoft,
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        MutterImage(
+                            id = DsR.drawable.empty_sent,
+                            modifier = Modifier.size(120.dp),
+                        )
+                        Text(
+                            text = if (selectedTab == HomeTab.SENT) "보낸 편지가 없어요" else "임시저장 편지가 없어요",
+                            style = MutterText.bodyMedium,
+                            color = InkSoft,
+                        )
+                    }
                 }
             }
 
@@ -222,6 +235,17 @@ private fun LetterCard(row: LetterRow, onClick: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val leadingIcon = when {
+                row.isSent && row.isOpened -> DsR.drawable.envelope_open
+                row.isSent -> DsR.drawable.envelope
+                else -> DsR.drawable.compose
+            }
+            MutterIcon(
+                id = leadingIcon,
+                contentDescription = null,
+                tint = if (row.isSent && row.isOpened) Gold else InkSoft,
+                size = 22.dp,
+            )
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = row.letter.title.ifEmpty { "(제목 없음)" },
@@ -247,12 +271,25 @@ private fun LetterCard(row: LetterRow, onClick: () -> Unit) {
                     color = if (row.isOpened) GoldSoft else GoldSoft.copy(alpha = 0.5f),
                     shape = RoundedCornerShape(50),
                 ) {
-                    Text(
-                        text = if (row.isOpened) "읽음" else "안읽음",
-                        style = MutterText.caption,
-                        color = if (row.isOpened) Gold else InkFaint,
+                    Row(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (row.isOpened) {
+                            MutterIcon(
+                                id = DsR.drawable.read,
+                                contentDescription = null,
+                                tint = Gold,
+                                size = 14.dp,
+                            )
+                        }
+                        Text(
+                            text = if (row.isOpened) "읽음" else "안읽음",
+                            style = MutterText.caption,
+                            color = if (row.isOpened) Gold else InkFaint,
+                        )
+                    }
                 }
             } else {
                 Surface(

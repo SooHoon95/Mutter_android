@@ -29,7 +29,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.Ink
@@ -169,7 +171,7 @@ private fun TakedownSubmittedView() {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(32.dp),
         ) {
-            Text(text = "✓", style = MutterText.display, color = Gold)
+            MutterIcon(id = DsR.drawable.check_circle, contentDescription = null, tint = Gold, size = 44.dp)
             Text(text = "신고가 접수됐어요", style = MutterText.title, color = Ink)
             Text(
                 text = "검토 후 조치 결과를 이메일로 알려드릴게요.",

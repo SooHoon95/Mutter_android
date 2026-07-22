@@ -36,8 +36,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
+import com.efreedom.mutter.uicomponent.component.MutterIcon
+import com.efreedom.mutter.uicomponent.component.MutterImage
 import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
@@ -90,9 +93,10 @@ fun ThreadsScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(24.dp),
-                    verticalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    MutterImage(id = DsR.drawable.empty_connections, modifier = Modifier.size(120.dp))
                     Text(text = "아직 주고받은 편지가 없어요", style = MutterText.bodyLarge, color = InkSoft)
                     Text(
                         text = "편지를 보내면 여기서 대화를 볼 수 있어요",
@@ -191,7 +195,7 @@ private fun CounterpartRow(counterpart: Counterpart, onClick: () -> Unit) {
                 )
             }
 
-            Text(text = "›", style = MutterText.bodyMedium, color = InkFaint)
+            MutterIcon(id = DsR.drawable.ic_chevron_right, contentDescription = null, tint = InkFaint, size = 16.dp)
         }
     }
 }
@@ -309,6 +313,7 @@ private fun ThreadSheetContent(
         MutterButton(
             text = buttonTitle,
             onClick = { onReply(counterpart) },
+            leadingIconRes = DsR.drawable.compose,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
         )
     }
@@ -337,22 +342,31 @@ private fun ThreadBubble(letter: ThreadLetter, onOpen: (String) -> Unit) {
                     } ?: Modifier,
                 ),
         ) {
-            Column(
+            Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = letter.title.ifEmpty { "편지" },
-                    style = MutterText.bodyMediumBold,
-                    color = Ink,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                MutterIcon(
+                    id = if (isSent) DsR.drawable.envelope_open else DsR.drawable.envelope,
+                    contentDescription = null,
+                    tint = if (isSent) GoldDeep else Gold,
+                    size = 16.dp,
                 )
-                Text(
-                    text = letter.sentAt.toRelativeDisplayTime(),
-                    style = MutterText.caption,
-                    color = InkFaint,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = letter.title.ifEmpty { "편지" },
+                        style = MutterText.bodyMediumBold,
+                        color = Ink,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = letter.sentAt.toRelativeDisplayTime(),
+                        style = MutterText.caption,
+                        color = InkFaint,
+                    )
+                }
             }
         }
 
