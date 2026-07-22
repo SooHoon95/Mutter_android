@@ -63,6 +63,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.component.MutterEqualizer
 import com.efreedom.mutter.uicomponent.component.SoundCloudAttribution
 import com.efreedom.mutter.uicomponent.theme.BlushLavender
 import com.efreedom.mutter.uicomponent.theme.BlushPink
@@ -564,12 +565,17 @@ private fun NowPlayingBar(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                Icons.Default.MusicNote,
-                contentDescription = null,
-                tint = Gold,
-                modifier = Modifier.size(18.dp),
-            )
+            // 재생 중이면 이퀄라이저 애니메이션, 정지 중이면 정적 음표 아이콘(iOS MusicPlayerBar 대응).
+            if (isPlaying) {
+                MutterEqualizer(barColor = Gold)
+            } else {
+                Icon(
+                    Icons.Default.MusicNote,
+                    contentDescription = null,
+                    tint = Gold,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(

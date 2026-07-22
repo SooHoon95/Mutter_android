@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.domain.model.MusicSource
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
+import com.efreedom.mutter.uicomponent.component.MutterEqualizer
 import com.efreedom.mutter.uicomponent.component.SoundCloudAttribution
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
@@ -387,6 +388,10 @@ private fun CuePlayerBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // 재생 중이면 이퀄라이저 애니메이션(iOS MusicPlayerBar 대응). GoldSoft 배경이라 진한 골드로.
+        if (isPlaying && !isUnavailable) {
+            MutterEqualizer(barColor = GoldDeep)
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
