@@ -399,9 +399,8 @@ private fun LetterReader(
     player: LetterAudioPlayer,
 ) {
     val theme = remember(payload.templateId) { LetterThemes.byId(payload.templateId) }
-    val paragraphs = remember(payload.body) {
-        payload.body.split("\n\n").filter { it.isNotBlank() }
-    }
+    // 줄 단위 등장(iOS per-line reveal) — 하드 개행(\n)으로 분할. 빈 줄은 문단 간격으로 렌더.
+    val lines = remember(payload.body) { payload.body.split("\n") }
     val hasPlayer = !payload.audioDisabled && payload.cue != null && !player.isUnavailable
 
     // 아이템 키 기반 등장 추적 — 한 번 보인 아이템은 사라지지 않는다.
@@ -436,6 +435,17 @@ private fun LetterReader(
             .fillMaxSize()
             .background(theme.background),
     ) {
+        // 종이 질감 — 편지 테마 accent를 5% 세로 그라데이션으로 얹는다(iOS LetterPaperTexture 대응).
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(theme.accent.copy(alpha = 0.05f), Color.Transparent),
+                    ),
+                ),
+        )
+
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
@@ -476,30 +486,35 @@ private fun LetterReader(
                 }
             }
 
-            // ── 단락별 계단식 등장 ─────────────────────────────────────────
-            itemsIndexed(paragraphs, key = { i, _ -> "para-$i" }) { index, paragraph ->
-                val itemKey = "para-$index"
-                val appeared = itemKey in appearedKeys
-                val alpha by animateFloatAsState(
-                    targetValue = if (appeared) 1f else 0f,
-                    animationSpec = tween(durationMillis = 600, delayMillis = 80),
-                    label = "para-alpha-$index",
-                )
-                val offsetY by animateDpAsState(
-                    targetValue = if (appeared) 0.dp else 20.dp,
-                    animationSpec = tween(durationMillis = 600, delayMillis = 80),
-                    label = "para-offset-$index",
-                )
-                Text(
-                    text = paragraph,
-                    style = bodyStyle,
-                    color = theme.foreground,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 8.dp)
-                        .alpha(alpha)
-                        .offset(y = offsetY),
-                )
+            // ── 줄별 계단식 등장 ───────────────────────────────────────────
+            itemsIndexed(lines, key = { i, _ -> "line-$i" }) { index, line ->
+                if (line.isBlank()) {
+                    // 빈 줄 = 문단 간격.
+                    Spacer(modifier = Modifier.height(10.dp))
+                } else {
+                    val itemKey = "line-$index"
+                    val appeared = itemKey in appearedKeys
+                    val alpha by animateFloatAsState(
+                        targetValue = if (appeared) 1f else 0f,
+                        animationSpec = tween(durationMillis = 600, delayMillis = 80),
+                        label = "line-alpha-$index",
+                    )
+                    val offsetY by animateDpAsState(
+                        targetValue = if (appeared) 0.dp else 20.dp,
+                        animationSpec = tween(durationMillis = 600, delayMillis = 80),
+                        label = "line-offset-$index",
+                    )
+                    Text(
+                        text = line,
+                        style = bodyStyle,
+                        color = theme.foreground,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 2.dp)
+                            .alpha(alpha)
+                            .offset(y = offsetY),
+                    )
+                }
             }
 
             // ── 하단 인셋 — 플레이어 바 높이만큼 확보 ─────────────────────

@@ -339,7 +339,8 @@ private fun ThreadBubble(letter: ThreadLetter, onOpen: (String) -> Unit) {
             // iOS는 받은 말풍선에만 헤어라인 테두리(strokeBorder hairline 0.5).
             border = if (!isSent) BorderStroke(0.5.dp, Hairline) else null,
             modifier = Modifier
-                .weight(0.75f, fill = false)
+                // 최대 폭 ~82%(나머지는 반대편 여백) — iOS Spacer(minLength:60) 대응(폰 폭 기준).
+                .weight(0.82f, fill = false)
                 .then(
                     letter.token?.takeIf { !isSent }?.let { token ->
                         Modifier.clickable { onOpen(token) }

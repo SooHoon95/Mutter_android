@@ -38,6 +38,8 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -249,6 +251,10 @@ private fun PaperSection(
             .fillMaxWidth()
             .clip(RoundedCornerShape(theme.cornerRadius))
             .background(theme.background)
+            // 종이 질감 — accent 5% 세로 그라데이션 오버레이(iOS LetterPaperTexture 대응).
+            .background(
+                Brush.verticalGradient(listOf(theme.accent.copy(alpha = 0.05f), Color.Transparent)),
+            )
             .border(1.dp, theme.border, RoundedCornerShape(theme.cornerRadius))
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),

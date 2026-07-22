@@ -146,7 +146,8 @@ class AuthViewModel @Inject constructor(
     }
 
     fun switchToPassword() {
-        _state.value = _state.value.copy(step = AuthStep.ENTER_PASSWORD, code = "", error = null)
+        // 입력한 코드는 유지(iOS 대응) — 비밀번호로 갔다가 돌아와도 코드가 남아 있게.
+        _state.value = _state.value.copy(step = AuthStep.ENTER_PASSWORD, error = null)
     }
 
     fun backToEmail() {

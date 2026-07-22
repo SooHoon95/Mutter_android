@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 // ─── Mode ────────────────────────────────────────────────────────────────────
@@ -168,8 +167,7 @@ class ComposeViewModel @Inject constructor(
 
     /**
      * SC URL 검증 후 큐 적용 — oEmbed canonical URL로 변환해 저장,
-     * 비공개·임베드 금지 트랙은 그 자리에서 거른다.
-     * 성공 시 player.prepare(cue)로 미리듣기 준비까지 수행.
+     * 비공개·임베드 금지 트랙은 그 자리에서 거른다. 미리듣기 준비는 재생 탭 시점으로 미룬다.
      */
     fun applySoundCloudUrl() {
         val url = _state.value.soundcloudUrl.trim()
@@ -187,9 +185,9 @@ class ComposeViewModel @Inject constructor(
                             author = result.author.takeIf { it.isNotEmpty() },
                             sourceUrl = url,
                         )
+                        // 큐만 적용하고 미리듣기 준비(WebView 스핀업)는 미룬다 —
+                        // iOS 대응: 재생을 누를 때 previewAudio가 prepare한다(불필요한 즉시 버퍼링 방지).
                         _state.value = _state.value.copy(cue = cue, soundcloudUrl = "")
-                        // WebView 생성·조작은 Main에서 — Attachment()가 트리에 마운트된 뒤 load 대기.
-                        withContext(Dispatchers.Main) { player.prepare(cue) }
                     }
                     is ScValidation.Fail -> {
                         _state.value = _state.value.copy(error = scErrorMessage(result.reason))
