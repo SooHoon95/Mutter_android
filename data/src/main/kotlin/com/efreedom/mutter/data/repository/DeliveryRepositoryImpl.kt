@@ -34,6 +34,7 @@ class DeliveryRepositoryImpl @Inject constructor(
                 letterId = letterId,
                 token = TokenGenerator.make(),
                 password = password,
+                expiresAt = null,
                 revealAt = revealAt?.toString(),
             ),
         ).decodeList<RpcDeliveryLinkRow>()

@@ -2,6 +2,7 @@ package com.efreedom.mutter
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.efreedom.mutter.domain.SessionInvalidation
 import com.efreedom.mutter.domain.usecase.AuthUseCase
 import com.efreedom.mutter.domain.usecase.ProfileUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,6 +45,17 @@ class AppViewModel @Inject constructor(
 
     init {
         refresh()
+        observeSessionInvalidation()
+    }
+
+    /** 세션 만료 신호를 구독해 자동 로그아웃(iOS SessionManager.observeUnauthorized 대응). */
+    private fun observeSessionInvalidation() {
+        viewModelScope.launch {
+            SessionInvalidation.events.collect {
+                runCatching { authUseCase.signOut() }
+                _state.value = AppState.SIGNED_OUT
+            }
+        }
     }
 
     fun refresh() {
@@ -54,8 +66,15 @@ class AppViewModel @Inject constructor(
                 return@launch
             }
             // 닉네임 게이트 — 프로필 조회는 읽기 전용(SELECT). 회원가입 쓰기 아님.
-            val profile = runCatching { profileUseCase.myProfile() }.getOrNull()
-            val needsNickname = profile?.nickname?.trim().isNullOrEmpty()
+            // 조회 실패(일시적 네트워크/500)는 기존 로그인 사용자를 닉네임 화면으로 내몰지 않는다.
+            // myProfile()은 행이 없으면 null(예외 아님) → 신규 사용자는 여전히 NEEDS_NICKNAME으로 게이트된다.
+            // iOS는 콜드스타트에서 닉네임을 재검사하지 않으므로, 실패 시엔 메인으로 진행한다.
+            val profileResult = runCatching { profileUseCase.myProfile() }
+            if (profileResult.isFailure) {
+                _state.value = AppState.READY
+                return@launch
+            }
+            val needsNickname = profileResult.getOrNull()?.nickname?.trim().isNullOrEmpty()
             _state.value = if (needsNickname) AppState.NEEDS_NICKNAME else AppState.READY
         }
     }

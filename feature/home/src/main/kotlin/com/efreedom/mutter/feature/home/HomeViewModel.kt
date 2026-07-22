@@ -8,6 +8,7 @@ import com.efreedom.mutter.domain.model.LetterOpenSummary
 import com.efreedom.mutter.domain.usecase.LetterUseCase
 import com.efreedom.mutter.domain.usecase.ReceiptUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,9 +53,20 @@ class HomeViewModel @Inject constructor(
             try {
                 // coroutineScope로 감싸야 async 자식 실패가 부모(viewModelScope)로 전파돼 앱이
                 // 죽지 않고, 이 try/catch에서 잡힌다(구조적 동시성 — async-in-launch 함정 회피).
+                // 읽음 통계(opens)는 부가 정보 — 실패해도 편지 목록은 보여준다(iOS는 둘 다 try?).
+                // 목록(letters)이 주 데이터이므로 실패 시엔 아래 catch로 에러를 노출한다.
                 val (letters, opens) = coroutineScope {
                     val lettersDeferred = async { letterUseCase.myLettersWithStatus() }
-                    val opensDeferred = async { receiptUseCase.myLetterOpens() }
+                    val opensDeferred = async {
+                        // 취소 신호는 삼키지 않고 전파(runCatching은 CancellationException까지 잡는 함정).
+                        try {
+                            receiptUseCase.myLetterOpens()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Throwable) {
+                            emptyList()
+                        }
+                    }
                     lettersDeferred.await() to opensDeferred.await()
                 }
                 val openMap = opens.associateBy { it.letterId }
