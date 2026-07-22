@@ -1,5 +1,13 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.efreedom.mutter.feature.profile
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,12 +33,14 @@ import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -68,10 +79,11 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
-    // 로그아웃/계정 삭제 완료 시 탐색
-    if (state.signedOut) {
-        onSignedOut()
+    // 로그아웃/계정 삭제 완료 시 탐색 — LaunchedEffect로 리컴포지션마다 재호출되는 것을 막는다.
+    LaunchedEffect(state.signedOut) {
+        if (state.signedOut) onSignedOut()
     }
 
     // 저장 완료 토스트 자동 해제
@@ -89,16 +101,18 @@ fun ProfileScreen(
     var isEditingNickname by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    Box(
+    PullToRefreshBox(
+        isRefreshing = state.isRefreshing,
+        onRefresh = viewModel::load,
         modifier = modifier
             .fillMaxSize()
             .background(Ivory),
-        contentAlignment = Alignment.TopCenter,
     ) {
         Column(
             modifier = Modifier
                 .widthIn(max = 480.dp)
                 .fillMaxWidth()
+                .align(Alignment.TopCenter)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -162,14 +176,11 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 문의 행 (mailto 생략 — 표시만)
-            Text(
-                text = "문의: dkehskeh@gmail.com",
-                style = MutterText.bodyMedium,
-                color = InkSoft,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+            // 문의하기 — iOS ProfileView 대응. 메일 앱을 열고, 없으면 이메일 복사 + 안내 토스트.
+            MutterButton(
+                text = "문의하기",
+                onClick = { openContactMail(context) },
+                style = MutterButtonStyle.Ghost,
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -233,6 +244,22 @@ fun ProfileScreen(
                 }
             },
         )
+    }
+}
+
+private const val CONTACT_EMAIL = "dkehskeh@gmail.com"
+
+/** 문의 메일 열기. 메일 앱이 없으면 이메일을 클립보드에 복사하고 토스트로 안내 — iOS 폴백 대응. */
+private fun openContactMail(context: Context) {
+    val intent = Intent(Intent.ACTION_SENDTO).apply {
+        data = Uri.parse("mailto:$CONTACT_EMAIL")
+        putExtra(Intent.EXTRA_SUBJECT, "Mutter 문의")
+    }
+    val opened = runCatching { context.startActivity(intent); true }.getOrDefault(false)
+    if (!opened) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("contact_email", CONTACT_EMAIL))
+        Toast.makeText(context, "메일 앱이 없어 이메일 주소를 복사했어요: $CONTACT_EMAIL", Toast.LENGTH_LONG).show()
     }
 }
 

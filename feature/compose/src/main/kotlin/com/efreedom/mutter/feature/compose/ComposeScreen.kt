@@ -45,8 +45,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.domain.model.MusicSource
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
+import com.efreedom.mutter.uicomponent.component.SoundCloudAttribution
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
 import com.efreedom.mutter.uicomponent.theme.GoldSoft
@@ -321,6 +323,8 @@ private fun MusicSection(
                 label = state.appliedCueLabel ?: "선택된 음악",
                 isPlaying = isPlaying,
                 isUnavailable = isUnavailable,
+                soundCloudUrl = state.cue?.takeIf { it.source == MusicSource.SOUNDCLOUD }
+                    ?.let { it.sourceUrl ?: it.ref },
                 onToggle = onPreview,
             )
         }
@@ -371,6 +375,7 @@ private fun CuePlayerBar(
     label: String,
     isPlaying: Boolean,
     isUnavailable: Boolean,
+    soundCloudUrl: String? = null,
     onToggle: () -> Unit,
 ) {
     Row(
@@ -382,12 +387,17 @@ private fun CuePlayerBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = label,
-            style = MutterText.bodySmall,
-            color = Ink,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MutterText.bodySmall,
+                color = Ink,
+            )
+            // SoundCloud 트랙이면 브랜드 표기 + 원곡 링크백(Widget 이용약관 준수). iOS MusicPlayerBar 대응.
+            if (soundCloudUrl != null) {
+                SoundCloudAttribution(sourceUrl = soundCloudUrl)
+            }
+        }
         if (!isUnavailable) {
             IconButton(
                 onClick = onToggle,

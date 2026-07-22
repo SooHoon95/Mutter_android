@@ -1,8 +1,11 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.efreedom.mutter.feature.connections
 
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,8 +18,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,9 +46,8 @@ import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.Surface as MutterSurface
 import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.Color
+import com.efreedom.mutter.domain.AppLink
 import com.efreedom.mutter.domain.model.Connection
-
-private const val INVITE_BASE_URL = "https://letter-app-nine-kohl.vercel.app"
 
 /** iOS ConnectionsView 대응. N:N 연결 목록 + 초대 링크 생성/복사/취소. */
 @Composable
@@ -57,38 +61,46 @@ fun ConnectionsScreen(
 
     LaunchedEffect(Unit) { viewModel.load() }
 
-    Column(
+    PullToRefreshBox(
+        isRefreshing = state.isRefreshing,
+        onRefresh = viewModel::load,
         modifier = modifier
             .fillMaxSize()
-            .background(Ivory)
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+            .background(Ivory),
     ) {
-        Text(
-            text = "연결",
-            style = MutterText.titleLarge,
-            color = Ink,
-        )
-
-        if (state.connections.isNotEmpty()) {
-            ConnectionsCard(
-                connections = state.connections,
-                onDisconnectRequest = { disconnectTarget = it },
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            Text(
+                text = "연결",
+                style = MutterText.titleLarge,
+                color = Ink,
             )
-        }
 
-        InviteCard(
-            inviteToken = state.inviteToken,
-            hasConnections = state.connections.isNotEmpty(),
-            isLoading = state.isLoading,
-            onCreateInvite = viewModel::createInvite,
-            onRevokeInvite = viewModel::revokeInvite,
-            onCopyLink = { link -> copyToClipboard(context, link) },
-        )
+            if (state.connections.isNotEmpty()) {
+                ConnectionsCard(
+                    connections = state.connections,
+                    onDisconnectRequest = { disconnectTarget = it },
+                )
+            }
 
-        state.error?.let {
-            Text(text = it, style = MutterText.caption, color = GoldDeep)
+            InviteCard(
+                inviteToken = state.inviteToken,
+                hasConnections = state.connections.isNotEmpty(),
+                isLoading = state.isLoading,
+                onCreateInvite = viewModel::createInvite,
+                onRevokeInvite = viewModel::revokeInvite,
+                onCopyLink = { link -> copyToClipboard(context, link) },
+                onShareLink = { link -> shareInvite(context, link) },
+            )
+
+            state.error?.let {
+                Text(text = it, style = MutterText.caption, color = GoldDeep)
+            }
         }
     }
 
@@ -158,6 +170,7 @@ private fun InviteCard(
     onCreateInvite: () -> Unit,
     onRevokeInvite: () -> Unit,
     onCopyLink: (String) -> Unit,
+    onShareLink: (String) -> Unit,
 ) {
     Surface(
         color = MutterSurface,
@@ -181,7 +194,7 @@ private fun InviteCard(
             )
 
             if (inviteToken != null) {
-                val link = "$INVITE_BASE_URL/connect/$inviteToken?from=app"
+                val link = AppLink.connectInvite(inviteToken)
 
                 Row(
                     modifier = Modifier
@@ -201,6 +214,9 @@ private fun InviteCard(
                     )
                     TextButton(onClick = { onCopyLink(link) }) {
                         Text("복사", style = MutterText.captionBold, color = GoldDeep)
+                    }
+                    TextButton(onClick = { onShareLink(link) }) {
+                        Text("공유", style = MutterText.captionBold, color = GoldDeep)
                     }
                 }
 
@@ -224,4 +240,13 @@ private fun InviteCard(
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText("invite_link", text))
+}
+
+/** iOS ShareLink 대응 — OS 공유 시트(메시지/카카오톡 등)로 초대 링크를 내보낸다. */
+private fun shareInvite(context: Context, link: String) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, link)
+    }
+    context.startActivity(Intent.createChooser(send, "초대 링크 공유"))
 }

@@ -19,6 +19,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -98,16 +99,21 @@ fun HomeScreen(
             ) { Text("임시저장") }
         }
 
+        PullToRefreshBox(
+            isRefreshing = state.isLoading && displayRows.isNotEmpty(),
+            onRefresh = viewModel::load,
+            modifier = Modifier.fillMaxWidth().weight(1f),
+        ) {
         when {
             state.isLoading && displayRows.isEmpty() -> {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Gold)
                 }
             }
 
             displayRows.isEmpty() -> {
                 Box(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -120,7 +126,7 @@ fun HomeScreen(
 
             else -> {
                 LazyColumn(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(displayRows, key = { it.id }) { row ->
@@ -163,6 +169,7 @@ fun HomeScreen(
                     }
                 }
             }
+        }
         }
 
         state.error?.let {

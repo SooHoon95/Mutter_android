@@ -63,6 +63,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.component.SoundCloudAttribution
 import com.efreedom.mutter.uicomponent.theme.BlushLavender
 import com.efreedom.mutter.uicomponent.theme.BlushPink
 import com.efreedom.mutter.uicomponent.theme.Gold
@@ -78,6 +79,7 @@ import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.OnGold
 import com.efreedom.mutter.domain.model.LetterPayload
 import com.efreedom.mutter.domain.model.MusicCue
+import com.efreedom.mutter.domain.model.MusicSource
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -583,6 +585,12 @@ private fun NowPlayingBar(
                         color = InkFaint,
                         maxLines = 1,
                     )
+                }
+                // SoundCloud 트랙이면 브랜드 표기 + 원곡 링크백(Widget 이용약관 준수). iOS MusicPlayerBar 대응.
+                val scUrl = cue?.takeIf { it.source == MusicSource.SOUNDCLOUD }
+                    ?.let { it.sourceUrl ?: it.ref }
+                if (scUrl != null) {
+                    SoundCloudAttribution(sourceUrl = scUrl)
                 }
             }
             IconButton(onClick = onToggle) {

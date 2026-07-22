@@ -16,6 +16,8 @@ data class ConnectionsUiState(
     val connections: List<Connection> = emptyList(),
     val inviteToken: String? = null,
     val isLoading: Boolean = false,
+    /** 당겨서 새로고침 진행 표시 — 초대 생성/취소 버튼의 isLoading과 분리. */
+    val isRefreshing: Boolean = false,
     val error: String? = null,
 )
 
@@ -28,8 +30,18 @@ class ConnectionsViewModel @Inject constructor(
     private val _state = MutableStateFlow(ConnectionsUiState())
     val state: StateFlow<ConnectionsUiState> = _state.asStateFlow()
 
-    fun load() = run {
-        _state.value = _state.value.copy(connections = connectionUseCase.myConnections())
+    fun load() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true, error = null)
+            try {
+                _state.value = _state.value.copy(connections = connectionUseCase.myConnections())
+            } catch (e: Throwable) {
+                val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
+                _state.value = _state.value.copy(error = message)
+            } finally {
+                _state.value = _state.value.copy(isRefreshing = false)
+            }
+        }
     }
 
     fun createInvite() = run {

@@ -22,6 +22,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,6 +72,11 @@ fun ThreadsScreen(
             .fillMaxSize()
             .background(Ivory),
     ) {
+        PullToRefreshBox(
+            isRefreshing = state.isLoading && state.counterparts.isNotEmpty(),
+            onRefresh = viewModel::load,
+            modifier = Modifier.fillMaxSize(),
+        ) {
         when {
             state.isLoading && state.counterparts.isEmpty() -> {
                 CircularProgressIndicator(
@@ -113,6 +119,7 @@ fun ThreadsScreen(
                     }
                 }
             }
+        }
         }
     }
 

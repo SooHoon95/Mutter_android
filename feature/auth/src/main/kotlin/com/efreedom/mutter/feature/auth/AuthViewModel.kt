@@ -45,7 +45,9 @@ class AuthViewModel @Inject constructor(
     private var pendingProvider: SocialProvider? = null
     private var pendingIdToken: String? = null
 
-    val isEmailValid: Boolean get() = _state.value.email.trim().contains("@")
+    // 이메일 형식 최소 검증 — iOS AuthModelData와 동일하게 '@'와 '.' 모두 포함해야 유효.
+    val isEmailValid: Boolean
+        get() = _state.value.email.trim().let { it.contains("@") && it.contains(".") }
     val isNicknameValid: Boolean get() = _state.value.nickname.trim().isNotEmpty()
 
     fun onEmailChange(value: String) {

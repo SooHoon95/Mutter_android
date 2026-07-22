@@ -21,6 +21,8 @@ data class DeliveryUiState(
     val useReveal: Boolean = false,
     val revealAt: Instant = Instant.now().plusSeconds(3600),
     val isLoading: Boolean = false,
+    /** 목록 새로고침(당겨서 새로고침) 진행 표시 — 발급/취소 버튼의 isLoading과 분리. */
+    val isRefreshing: Boolean = false,
     val error: String? = null,
     val lastIssuedToken: String? = null,
 ) {
@@ -47,7 +49,7 @@ class DeliveryViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+            _state.value = _state.value.copy(isRefreshing = true, error = null)
             try {
                 val links = deliveryUseCase.links(letterId)
                 _state.value = _state.value.copy(links = links)
@@ -55,7 +57,7 @@ class DeliveryViewModel @Inject constructor(
                 val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
                 _state.value = _state.value.copy(error = message)
             } finally {
-                _state.value = _state.value.copy(isLoading = false)
+                _state.value = _state.value.copy(isRefreshing = false)
             }
         }
     }
@@ -77,7 +79,9 @@ class DeliveryViewModel @Inject constructor(
                 load()
             } catch (e: Throwable) {
                 val message = (e as? MutterError)?.userMessage ?: "발급할 수 없었어요. 다시 시도해 주세요."
-                _state.value = _state.value.copy(error = message, isLoading = false)
+                _state.value = _state.value.copy(error = message)
+            } finally {
+                _state.value = _state.value.copy(isLoading = false)
             }
         }
     }
@@ -90,7 +94,9 @@ class DeliveryViewModel @Inject constructor(
                 load()
             } catch (e: Throwable) {
                 val message = (e as? MutterError)?.userMessage ?: "취소할 수 없었어요. 다시 시도해 주세요."
-                _state.value = _state.value.copy(error = message, isLoading = false)
+                _state.value = _state.value.copy(error = message)
+            } finally {
+                _state.value = _state.value.copy(isLoading = false)
             }
         }
     }

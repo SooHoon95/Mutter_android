@@ -16,6 +16,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,8 +49,9 @@ fun NicknameOnboardScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    if (state.done) {
-        onComplete()
+    // 완료 콜백은 LaunchedEffect에서 — 리컴포지션마다 재호출되는 것을 막는다.
+    LaunchedEffect(state.done) {
+        if (state.done) onComplete()
     }
 
     Box(

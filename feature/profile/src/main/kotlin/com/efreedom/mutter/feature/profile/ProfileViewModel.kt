@@ -15,6 +15,8 @@ import javax.inject.Inject
 data class ProfileUiState(
     val nickname: String = "",
     val isLoading: Boolean = false,
+    /** 당겨서 새로고침 진행 표시 — 저장/로그아웃 버튼의 isLoading과 분리. */
+    val isRefreshing: Boolean = false,
     val error: String? = null,
     val savedToast: Boolean = false,
     val signedOut: Boolean = false,
@@ -32,8 +34,12 @@ class ProfileViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true)
             val profile = runCatching { profileUseCase.myProfile() }.getOrNull()
-            _state.value = _state.value.copy(nickname = profile?.nickname.orEmpty())
+            _state.value = _state.value.copy(
+                nickname = profile?.nickname.orEmpty(),
+                isRefreshing = false,
+            )
         }
     }
 

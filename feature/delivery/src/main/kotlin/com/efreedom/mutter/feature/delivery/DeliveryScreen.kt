@@ -19,6 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -54,12 +56,13 @@ import com.efreedom.mutter.uicomponent.theme.InkSoft
 import com.efreedom.mutter.uicomponent.theme.Ivory
 import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.Surface as MutterSurface
+import com.efreedom.mutter.domain.AppLink
 import com.efreedom.mutter.domain.model.DeliveryLink
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-
-private const val DELIVERY_BASE_URL = "https://letter-app-nine-kohl.vercel.app"
 
 /** iOS DeliveryView 대응. 전달 링크 발급/관리 — 암호 기본 ON, 예약공개, revoke. */
 @Composable
@@ -92,47 +95,53 @@ fun DeliveryScreen(
             }
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing,
+            onRefresh = viewModel::load,
+            modifier = Modifier.fillMaxSize(),
         ) {
-            Text(text = "편지 보내기", style = MutterText.titleLarge, color = Ink)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                Text(text = "편지 보내기", style = MutterText.titleLarge, color = Ink)
 
-            MutterButton(
-                text = "미리보기",
-                onClick = onPreview,
-                style = MutterButtonStyle.Ghost,
-            )
-
-            IssueCard(
-                state = state,
-                onUsePasswordChange = viewModel::setUsePassword,
-                onPasswordChange = viewModel::setPassword,
-                onUseRevealChange = viewModel::setUseReveal,
-                onRevealAtChange = viewModel::setRevealAt,
-                onIssue = viewModel::issue,
-            )
-
-            state.lastIssuedToken?.let { token ->
-                IssuedLinkRow(
-                    token = token,
-                    onCopy = { copyToClipboard(context, "$DELIVERY_BASE_URL/l/$token") },
+                MutterButton(
+                    text = "미리보기",
+                    onClick = onPreview,
+                    style = MutterButtonStyle.Ghost,
                 )
-            }
 
-            if (state.links.isNotEmpty()) {
-                ExistingLinksSection(
-                    links = state.links,
-                    onCopy = { token -> copyToClipboard(context, "$DELIVERY_BASE_URL/l/$token") },
-                    onRevoke = viewModel::revoke,
+                IssueCard(
+                    state = state,
+                    onUsePasswordChange = viewModel::setUsePassword,
+                    onPasswordChange = viewModel::setPassword,
+                    onUseRevealChange = viewModel::setUseReveal,
+                    onRevealAtChange = viewModel::setRevealAt,
+                    onIssue = viewModel::issue,
                 )
-            }
 
-            state.error?.let {
-                Text(text = it, style = MutterText.caption, color = GoldDeep)
+                state.lastIssuedToken?.let { token ->
+                    IssuedLinkRow(
+                        token = token,
+                        onCopy = { copyToClipboard(context, AppLink.letter(token)) },
+                    )
+                }
+
+                if (state.links.isNotEmpty()) {
+                    ExistingLinksSection(
+                        links = state.links,
+                        onCopy = { token -> copyToClipboard(context, AppLink.letter(token)) },
+                        onRevoke = viewModel::revoke,
+                    )
+                }
+
+                state.error?.let {
+                    Text(text = it, style = MutterText.caption, color = GoldDeep)
+                }
             }
         }
     }
@@ -222,16 +231,29 @@ private fun IssueCard(
     }
 
     if (showDatePicker) {
+        // 오늘 이전(과거) 날짜는 선택 불가 — 예약 공개는 미래 시점만 유효. iOS DatePicker(in: Date()...) 대응.
+        val today = remember { LocalDate.now() }
+        val minMillis = remember { today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = state.revealAt.toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis >= minMillis
+                override fun isSelectableYear(year: Int): Boolean = year >= today.year
+            },
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        datePickerState.selectedDateMillis?.let {
-                            onRevealAtChange(Instant.ofEpochMilli(it))
+                        datePickerState.selectedDateMillis?.let { picked ->
+                            // 선택한 날짜 + 기존 시각(기본 now+1h)을 합쳐 시각 정밀도를 유지한다(iOS는 날짜·시각 모두 선택).
+                            val pickedDate = Instant.ofEpochMilli(picked)
+                                .atZone(ZoneOffset.UTC).toLocalDate()
+                            val keepTime = state.revealAt.atZone(ZoneId.systemDefault()).toLocalTime()
+                            onRevealAtChange(
+                                pickedDate.atTime(keepTime).atZone(ZoneId.systemDefault()).toInstant(),
+                            )
                         }
                         showDatePicker = false
                     },
@@ -248,7 +270,7 @@ private fun IssueCard(
 
 @Composable
 private fun IssuedLinkRow(token: String, onCopy: () -> Unit) {
-    val link = "$DELIVERY_BASE_URL/l/$token"
+    val link = AppLink.letter(token)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -324,7 +346,7 @@ private fun ExistingLinksSection(
 }
 
 private fun Instant.toDateDisplay(): String =
-    DateTimeFormatter.ofPattern("yyyy.MM.dd").withZone(ZoneId.systemDefault()).format(this)
+    DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm").withZone(ZoneId.systemDefault()).format(this)
 
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

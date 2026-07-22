@@ -25,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,8 +72,9 @@ fun AuthScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    if (state.authenticated) {
-        onAuthenticated()
+    // 인증 완료 콜백은 컴포지션 본문이 아닌 LaunchedEffect에서 — 리컴포지션마다 재호출되는 것을 막는다.
+    LaunchedEffect(state.authenticated) {
+        if (state.authenticated) onAuthenticated()
     }
 
     Box(

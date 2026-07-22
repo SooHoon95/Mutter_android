@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
+import com.efreedom.mutter.domain.AppLink
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Connection
 import com.efreedom.mutter.domain.model.LetterDraft
@@ -329,7 +330,7 @@ class ComposeViewModel @Inject constructor(
                     revealAt = null,
                 )
                 _state.value = _state.value.copy(
-                    issuedLink = "$LINK_BASE_URL/l/${link.token}",
+                    issuedLink = AppLink.letter(link.token),
                     password = "",
                 )
             } catch (e: Throwable) {
@@ -385,8 +386,4 @@ class ComposeViewModel @Inject constructor(
         ScValidationFailReason.EMBED_DISABLED -> "임베드가 허용되지 않은 트랙이에요."
     }
 
-    private companion object {
-        /** 전달 링크 기반 URL — iOS linkBaseURL 대응. */
-        const val LINK_BASE_URL = "https://mutter.app"
-    }
 }
