@@ -13,6 +13,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -76,8 +77,17 @@ private enum class AppTab(
 fun MutterNavHost(
     onSignedOut: () -> Unit,
     modifier: Modifier = Modifier,
+    pendingConnectToken: String? = null,
+    onConnectConsumed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+
+    // 로그인 후 메인이 뜬 시점에 보관해 둔 연결 초대 토큰을 소비 → ConnectInvite로 이동(iOS consumePendingConnect 대응).
+    LaunchedEffect(pendingConnectToken) {
+        val token = pendingConnectToken ?: return@LaunchedEffect
+        navController.navigate(FeatureRoute.ConnectInvite(token)) { launchSingleTop = true }
+        onConnectConsumed()
+    }
 
     NavHost(
         navController = navController,

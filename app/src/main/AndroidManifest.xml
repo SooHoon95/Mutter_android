@@ -20,10 +20,33 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Mutter.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+              편지/초대 딥링크 (https App Links). iOS Universal Link 대응.
+              주의: https 링크를 앱이 자동으로 열려면 도메인에 .well-known/assetlinks.json
+              (앱 패키지 + 서명 인증서 SHA-256)을 호스팅해야 한다(웹 측 작업). 없으면 브라우저로 폴백.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="letter-app-nine-kohl.vercel.app" />
+                <data android:pathPrefix="/l/" />
+                <data android:pathPrefix="/connect/" />
+            </intent-filter>
+
+            <!-- 커스텀 스킴 mutter:// (검증 불필요 — 테스트/폴백 경로) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="mutter" />
             </intent-filter>
         </activity>
 
