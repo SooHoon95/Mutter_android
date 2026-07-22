@@ -2,6 +2,7 @@
 
 package com.efreedom.mutter.feature.threads
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -157,6 +158,7 @@ private fun CounterpartRow(counterpart: Counterpart, onClick: () -> Unit) {
         color = MutterSurface,
         shape = RoundedCornerShape(12.dp),
         shadowElevation = 2.dp,
+        border = BorderStroke(0.5.dp, Hairline),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
@@ -334,6 +336,8 @@ private fun ThreadBubble(letter: ThreadLetter, onOpen: (String) -> Unit) {
                 bottomEnd = if (isSent) 4.dp else 12.dp,
             ),
             shadowElevation = 1.dp,
+            // iOS는 받은 말풍선에만 헤어라인 테두리(strokeBorder hairline 0.5).
+            border = if (!isSent) BorderStroke(0.5.dp, Hairline) else null,
             modifier = Modifier
                 .weight(0.75f, fill = false)
                 .then(
