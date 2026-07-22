@@ -45,6 +45,7 @@ class AuthUseCase @Inject constructor(private val repository: AuthRepository) {
     suspend fun verifyCode(email: String, code: String): Session = repository.verifyCode(email, code)
     suspend fun signIn(email: String, password: String): Session = repository.signIn(email, password)
     suspend fun signInApple(idToken: String, nonce: String): Session = repository.signInApple(idToken, nonce)
+    suspend fun signInAppleWeb() = repository.signInAppleWeb()
     suspend fun startSocial(provider: SocialProvider, idToken: String): SocialAuthResult =
         repository.startSocial(provider, idToken)
     suspend fun registerSocial(provider: SocialProvider, idToken: String, nickname: String): Session =

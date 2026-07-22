@@ -59,6 +59,7 @@ dependencies {
     // core
     implementation(project(":uicomponent"))
     implementation(project(":core:navigation"))
+    implementation(project(":core:network")) // OAuth 리다이렉트(handleDeeplinks) 처리용 SupabaseProvider 주입
 
     // features
     implementation(project(":feature:auth"))

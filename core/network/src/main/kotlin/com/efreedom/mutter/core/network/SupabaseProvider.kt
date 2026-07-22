@@ -1,10 +1,12 @@
 package com.efreedom.mutter.core.network
 
 import android.content.Context
+import android.content.Intent
 import com.russhwolf.settings.SharedPreferencesSettings
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.SettingsSessionManager
+import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest
@@ -39,5 +41,13 @@ class SupabaseProvider(
         }
         install(Postgrest)
         install(Functions)
+    }
+
+    /**
+     * OAuth 리다이렉트(예: Apple 웹 로그인 후 `mutter://login-callback`) 인텐트를 처리한다.
+     * 세션 확립에 성공하면 [onSession]을 호출한다(앱 루트가 상태를 갱신하도록). 비-OAuth 인텐트는 무시된다.
+     */
+    fun handleOAuthCallback(intent: Intent, onSession: () -> Unit) {
+        client.handleDeeplinks(intent) { onSession() }
     }
 }

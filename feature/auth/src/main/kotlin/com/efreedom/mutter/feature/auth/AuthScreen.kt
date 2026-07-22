@@ -131,7 +131,7 @@ fun AuthScreen(
                     enabled = !state.isLoading,
                     onGoogle = { viewModel.signInGoogle(context) },
                     onKakao = { viewModel.signInKakao(context) },
-                    onApple = { viewModel.appleComingSoon() },
+                    onApple = { viewModel.launchApple() },
                 )
             }
         }

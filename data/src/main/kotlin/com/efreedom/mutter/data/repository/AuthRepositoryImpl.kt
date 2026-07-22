@@ -60,6 +60,13 @@ class AuthRepositoryImpl @Inject constructor(
         currentDomainSession() ?: throw MutterError.Unauthorized
     }
 
+    // Apple 웹 OAuth — 브라우저(Custom Tab)로 Supabase Apple provider 인증 흐름을 연다.
+    // 세션은 리다이렉트(mutter://login-callback)를 MainActivity가 handleDeeplinks로 처리해 확립한다.
+    // 사전조건: Supabase 대시보드에 Apple provider(Services ID·키) 설정 + 리다이렉트 URL 허용.
+    override suspend fun signInAppleWeb() = wrap {
+        auth.signInWith(Apple, redirectUrl = "mutter://login-callback")
+    }
+
     /**
      * 소셜 로그인 — provider SDK가 받은 id_token을 우리 Edge Function으로 보내
      * 서버가 검증·회원매핑 후 발급한 세션(access/refresh)으로 로그인 상태를 확립한다(iOS와 동일).

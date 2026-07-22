@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.core.network.SupabaseProvider
 import com.efreedom.mutter.uicomponent.component.MutterSplashScreen
 import com.efreedom.mutter.uicomponent.theme.MutterTheme
 import com.efreedom.mutter.feature.auth.AuthScreen
@@ -28,6 +29,7 @@ import com.efreedom.mutter.feature.viewer.ViewerScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import javax.inject.Inject
 
 /** 루트가 그릴 화면(스플래시/로그인/닉네임/메인). */
 private enum class RootScreen { SPLASH, AUTH, NICKNAME, MAIN }
@@ -35,8 +37,13 @@ private enum class RootScreen { SPLASH, AUTH, NICKNAME, MAIN }
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    @Inject lateinit var supabaseProvider: SupabaseProvider
+
     // 들어온 딥링크 이벤트(콜드스타트 intent + onNewIntent 공통). 컴포즈가 소비 후 null로 되돌린다.
     private val incomingDeeplink = MutableStateFlow<Deeplink?>(null)
+
+    // OAuth 리다이렉트로 세션이 확립될 때마다 증가 → 컴포즈가 관찰해 루트 상태를 refresh().
+    private val oauthSessionBump = MutableStateFlow(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // 런치스크린(core-splashscreen) 설치 — super 이전에 호출. 첫 프레임 그려지면 자동 해제되고
@@ -47,6 +54,7 @@ class MainActivity : ComponentActivity() {
         // 최초 실행에서만 파싱 — 회전/다크모드 등 구성 변경 재생성 때 같은 링크를 재처리하지 않도록.
         if (savedInstanceState == null) {
             incomingDeeplink.value = Deeplink.parse(intent?.data)
+            intent?.let { supabaseProvider.handleOAuthCallback(it) { oauthSessionBump.value++ } }
         }
         setContent {
             MutterTheme {
@@ -54,6 +62,12 @@ class MainActivity : ComponentActivity() {
                 val appState by appViewModel.state.collectAsStateWithLifecycle()
                 val forceUpdate by appViewModel.forceUpdate.collectAsStateWithLifecycle()
                 val deeplink by incomingDeeplink.collectAsStateWithLifecycle()
+                val oauthBump by oauthSessionBump.collectAsStateWithLifecycle()
+
+                // OAuth(Apple 등) 리다이렉트로 세션이 확립되면 루트 상태를 갱신해 메인/닉네임으로 진입.
+                LaunchedEffect(oauthBump) {
+                    if (oauthBump > 0) appViewModel.refresh()
+                }
 
                 // 최소 스플래시 노출시간 — 세션 확인이 즉시 끝나도 로고가 잠깐 보이도록(iOS MainView 대응).
                 var minSplashDone by remember { mutableStateOf(false) }
@@ -116,5 +130,6 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         incomingDeeplink.value = Deeplink.parse(intent.data)
+        supabaseProvider.handleOAuthCallback(intent) { oauthSessionBump.value++ }
     }
 }

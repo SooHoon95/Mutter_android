@@ -26,6 +26,8 @@ interface AuthRepository {
     suspend fun verifyCode(email: String, code: String): Session
     suspend fun signIn(email: String, password: String): Session
     suspend fun signInApple(idToken: String, nonce: String): Session
+    /** Apple 웹 OAuth(브라우저) 시작 — Android는 네이티브 SDK가 없어 브라우저 리다이렉트로 로그인. 세션은 리다이렉트 처리 후 확립. */
+    suspend fun signInAppleWeb()
     /** 소셜 1단계 — idToken만 검증(checkOnly). 기존이면 세션 확립, 신규면 생성 없이 NeedsNickname. */
     suspend fun startSocial(provider: SocialProvider, idToken: String): SocialAuthResult
     /** 소셜 2단계 — 신규 회원을 닉네임과 함께 가입시키고 세션을 확립한다. */

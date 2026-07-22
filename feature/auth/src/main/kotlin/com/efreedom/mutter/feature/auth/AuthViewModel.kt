@@ -87,9 +87,23 @@ class AuthViewModel @Inject constructor(
     /** Kakao — 카카오 SDK로 id_token 획득 → checkOnly. */
     fun signInKakao(context: Context) = launchSocial(SocialProvider.KAKAO) { OauthClient.kakaoIdToken(context) }
 
-    /** Apple — 안드로이드 네이티브 미지원(후속: 웹 OAuth). */
-    fun appleComingSoon() {
-        _state.value = _state.value.copy(error = "Apple 로그인은 곧 지원됩니다.")
+    /**
+     * Apple — 안드로이드는 네이티브 SDK가 없어 브라우저 웹 OAuth로 로그인한다.
+     * signInAppleWeb()는 브라우저(Custom Tab)를 열기만 하고, 세션은 리다이렉트를
+     * MainActivity가 handleDeeplinks로 처리한 뒤 AppViewModel.refresh()로 반영된다.
+     */
+    fun launchApple() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoading = true, error = null)
+            try {
+                authUseCase.signInAppleWeb()
+            } catch (e: Throwable) {
+                val message = (e as? MutterError)?.userMessage ?: "Apple 로그인을 시작할 수 없어요."
+                _state.value = _state.value.copy(error = message)
+            } finally {
+                _state.value = _state.value.copy(isLoading = false)
+            }
+        }
     }
 
     /**
