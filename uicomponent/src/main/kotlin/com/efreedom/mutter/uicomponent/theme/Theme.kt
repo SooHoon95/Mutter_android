@@ -1,8 +1,10 @@
 package com.efreedom.mutter.uicomponent.theme
 
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 
 // ─── Color scheme ─────────────────────────────────────────────────────────────
 
@@ -54,6 +56,12 @@ fun MutterTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = MutterColorScheme,
         typography = MutterTypography,
-        content = content,
-    )
+    ) {
+        // 스타일을 명시하지 않은 Text()는 LocalTextStyle 기본값(=시스템/Roboto)으로 그려진다.
+        // 앱 전역 기본 폰트를 Pretendard로 지정해 어떤 텍스트도 Roboto로 새지 않게 한다(iOS Pretendard와 통일).
+        CompositionLocalProvider(
+            LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = PretendardFamily),
+            content = content,
+        )
+    }
 }
