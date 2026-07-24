@@ -13,14 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -43,8 +36,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
+import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
 import com.efreedom.mutter.uicomponent.theme.GoldSoft
@@ -195,7 +190,7 @@ private fun LinkTab(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(Icons.Filled.Lock, contentDescription = null, tint = Gold)
+            MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = Gold)
             Column(modifier = Modifier.weight(1f)) {
                 Text("암호 보호", style = MutterText.bodyMediumBold, color = Ink)
                 Text("수신자에게 암호를 전달해 주세요", style = MutterText.caption, color = InkSoft)
@@ -246,8 +241,8 @@ private fun LinkTab(
                     onClick = { onCopyLink(state.issuedLink) },
                     modifier = Modifier.size(24.dp),
                 ) {
-                    Icon(
-                        imageVector = if (linkCopied) Icons.Filled.Check else Icons.Filled.ContentCopy,
+                    MutterIcon(
+                        id = if (linkCopied) DsR.drawable.ic_check else DsR.drawable.copy,
                         contentDescription = if (linkCopied) "복사됨" else "복사",
                         tint = Gold,
                     )
@@ -260,7 +255,7 @@ private fun LinkTab(
             MutterButton(
                 text = if (linkCopied) "복사됐어요" else "링크 복사",
                 onClick = { onCopyLink(state.issuedLink) },
-                leadingIcon = if (linkCopied) Icons.Filled.Check else Icons.Filled.ContentCopy,
+                leadingIconRes = if (linkCopied) DsR.drawable.ic_check else DsR.drawable.copy,
             )
             MutterButton(
                 text = "완료",
@@ -273,7 +268,7 @@ private fun LinkTab(
                 onClick = onIssueLink,
                 isLoading = state.isIssuing,
                 enabled = state.canIssueLink,
-                leadingIcon = Icons.Filled.Link,
+                leadingIconRes = DsR.drawable.link,
             )
         }
     }
@@ -361,11 +356,7 @@ private fun ConnectionRow(
             onClick = onSend,
             enabled = !isSending,
         ) {
-            Icon(
-                imageVector = Icons.Filled.Send,
-                contentDescription = "보내기",
-                tint = Gold,
-            )
+            MutterIcon(id = DsR.drawable.send, contentDescription = "보내기", tint = Gold)
         }
     }
 }

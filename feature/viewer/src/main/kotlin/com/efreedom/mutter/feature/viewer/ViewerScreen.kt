@@ -24,16 +24,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -50,6 +41,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -171,11 +163,7 @@ fun ViewerScreen(
                 .padding(4.dp),
         ) {
             IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "뒤로",
-                    tint = backIconColor,
-                )
+                MutterIcon(id = DsR.drawable.ic_back, contentDescription = "뒤로", tint = backIconColor)
             }
         }
     }
@@ -245,12 +233,7 @@ private fun PasswordGate(onSubmit: (String) -> Unit) {
                     .background(GoldSoft, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Default.Lock,
-                    contentDescription = null,
-                    tint = Gold,
-                    modifier = Modifier.size(32.dp),
-                )
+                MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = Gold, size = 32.dp)
             }
 
             Column(
@@ -300,12 +283,7 @@ private fun RevealPendingContent(revealAt: Instant) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(32.dp),
         ) {
-            Icon(
-                Icons.Default.Lock,
-                contentDescription = null,
-                tint = Gold,
-                modifier = Modifier.size(28.dp),
-            )
+            MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = Gold, size = 28.dp)
             Text("아직 열 수 없어요", style = MutterText.title, color = Ivory)
             Text(
                 text = "${formatted}에 열려요",
@@ -347,12 +325,7 @@ private fun OpenGate(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Default.Email,
-                    contentDescription = null,
-                    tint = OnGold,
-                    modifier = Modifier.size(46.dp),
-                )
+                MutterIcon(id = DsR.drawable.envelope, contentDescription = null, tint = OnGold, size = 46.dp)
             }
 
             Column(
@@ -560,11 +533,12 @@ private fun ScrollPromptView(
             color = foreground.copy(alpha = 0.7f),
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Icon(
-            Icons.Default.KeyboardArrowDown,
+        MutterIcon(
+            id = DsR.drawable.ic_chevron_right,
             contentDescription = null,
             tint = foreground.copy(alpha = 0.6f),
-            modifier = Modifier.size(28.dp),
+            size = 28.dp,
+            modifier = Modifier.rotate(90f),
         )
     }
 }
@@ -613,12 +587,7 @@ private fun NowPlayingBar(
             if (isPlaying) {
                 MutterEqualizer(barColor = Gold)
             } else {
-                Icon(
-                    Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = Gold,
-                    modifier = Modifier.size(18.dp),
-                )
+                MutterIcon(id = DsR.drawable.note, contentDescription = null, tint = Gold, size = 18.dp)
             }
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -644,8 +613,8 @@ private fun NowPlayingBar(
                 }
             }
             IconButton(onClick = onToggle) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                MutterIcon(
+                    id = if (isPlaying) DsR.drawable.pause else DsR.drawable.play,
                     contentDescription = if (isPlaying) "일시정지" else "재생",
                     tint = Ivory,
                 )

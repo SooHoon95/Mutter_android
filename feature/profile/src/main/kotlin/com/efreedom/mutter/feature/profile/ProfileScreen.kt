@@ -27,15 +27,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Snackbar
@@ -144,7 +139,7 @@ fun ProfileScreen(
                     )
                 } else {
                     SettingsRow(
-                        icon = { Icon(Icons.Default.Person, contentDescription = null, tint = InkSoft, modifier = Modifier.size(20.dp)) },
+                        icon = { MutterIcon(id = DsR.drawable.person, contentDescription = null, tint = InkSoft, size = 20.dp) },
                         label = "닉네임",
                         value = state.nickname.ifEmpty { "—" },
                         onClick = { isEditingNickname = true },
@@ -313,7 +308,7 @@ private fun NicknameEditRow(
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Gold, strokeWidth = 2.dp)
             } else {
                 IconButton(onClick = onSave, enabled = nickname.isNotBlank()) {
-                    Icon(Icons.Default.Check, contentDescription = "저장", tint = Gold)
+                    MutterIcon(id = DsR.drawable.ic_check, contentDescription = "저장", tint = Gold)
                 }
             }
         },
@@ -351,7 +346,7 @@ private fun SettingsRow(
 
         if (onClick != null) {
             Spacer(modifier = Modifier.size(8.dp))
-            Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = InkFaint, modifier = Modifier.size(16.dp))
+            MutterIcon(id = DsR.drawable.ic_chevron_right, contentDescription = null, tint = InkFaint, size = 16.dp)
         }
     }
 }

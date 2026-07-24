@@ -14,14 +14,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -167,7 +164,7 @@ fun HomeScreen(
                                         .padding(end = 20.dp),
                                     contentAlignment = Alignment.CenterEnd,
                                 ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "삭제", tint = Danger)
+                                    MutterIcon(id = DsR.drawable.trash, contentDescription = "삭제", tint = Danger)
                                 }
                             },
                         ) {

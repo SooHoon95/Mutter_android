@@ -12,10 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -61,7 +58,7 @@ fun TakedownScreen(
             title = { Text(text = "권리침해 신고", style = MutterText.headline, color = Ink) },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로", tint = Ink)
+                    MutterIcon(id = DsR.drawable.ic_back, contentDescription = "뒤로", tint = Ink)
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Ivory),
@@ -235,7 +232,7 @@ fun LegalDocScreen(
             title = { Text(text = title, style = MutterText.headline, color = Ink) },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로", tint = Ink)
+                    MutterIcon(id = DsR.drawable.ic_back, contentDescription = "뒤로", tint = Ink)
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Ivory),
