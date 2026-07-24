@@ -1,0 +1,9 @@
+# 크로스플랫폼 스모크 — iOS 시뮬레이터 / Android 에뮬레이터 공용(appId 동일: com.efreedom.mutter).
+# 앱 실행 → 스플래시(Lottie ~2.3s) 종료 대기 → 첫 화면 스크린샷. 인증 상태와 무관하게 통과.
+appId: com.efreedom.mutter
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: 01-launch
