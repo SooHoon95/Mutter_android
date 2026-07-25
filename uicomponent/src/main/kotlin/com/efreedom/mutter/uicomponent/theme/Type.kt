@@ -22,19 +22,30 @@ val PretendardFamily = FontFamily(
     Font(R.font.pretendard_bold, FontWeight.Bold),
 )
 
+/**
+ * 나눔명조(Nanum Myeongjo) 패밀리 — 제목/디스플레이의 '명조 감성'용.
+ * FontFamily.Serif는 기기에 한국어 serif(명조)가 없으면 고딕으로 폴백해 iOS(시스템 명조)와 달라진다.
+ * iOS와 같은 명조 느낌을 내려고 명조 폰트를 직접 번들한다. res/font/nanum_myeongjo_{regular,bold,extrabold}.ttf.
+ */
+val MyeongjoFamily = FontFamily(
+    Font(R.font.nanum_myeongjo_regular, FontWeight.Normal),
+    Font(R.font.nanum_myeongjo_bold, FontWeight.Bold),
+    Font(R.font.nanum_myeongjo_extrabold, FontWeight.ExtraBold),
+)
+
 // ─── Named text styles (11 semantic tokens, iOS MutterFont 1:1) ──────────────
 
 /**
  * Mutter 타이포그래피 토큰.
  *
- * - display/titleLarge/title: FontFamily.Serif (명조 감성, iOS .serif design과 대응)
+ * - display/titleLarge/title: MyeongjoFamily (명조, iOS .serif design과 대응)
  * - 나머지: PretendardFamily (sans)
  * - lineHeight는 iOS 값을 그대로 이식.
  */
 object MutterText {
     /** 워드마크/히어로 — 명조 40 Bold */
     val display = TextStyle(
-        fontFamily = FontFamily.Serif,
+        fontFamily = MyeongjoFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 40.sp,
         lineHeight = 48.sp,
@@ -42,7 +53,7 @@ object MutterText {
 
     /** 편지 제목 / 화면 큰 제목 — 명조 24 Bold */
     val titleLarge = TextStyle(
-        fontFamily = FontFamily.Serif,
+        fontFamily = MyeongjoFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 24.sp,
         lineHeight = 32.sp,
@@ -50,7 +61,7 @@ object MutterText {
 
     /** 섹션 제목 — 명조 20 SemiBold */
     val title = TextStyle(
-        fontFamily = FontFamily.Serif,
+        fontFamily = MyeongjoFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 20.sp,
         lineHeight = 28.sp,
