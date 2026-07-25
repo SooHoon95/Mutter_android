@@ -13,6 +13,7 @@ import io.github.jan.supabase.auth.providers.Apple
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.providers.builtin.OTP
+import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.functions.functions
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
@@ -79,17 +80,19 @@ class AuthRepositoryImpl @Inject constructor(
      */
     override suspend fun startSocial(provider: SocialProvider, idToken: String): SocialAuthResult {
         val res = invokeSocial(provider, SocialLoginRequest(idToken = idToken, checkOnly = true))
+        val access = res.accessToken
         val refresh = res.refreshToken
-        if (res.isNew || refresh == null) return SocialAuthResult.NeedsNickname
-        establishSession(refresh)
+        if (res.isNew || access == null || refresh == null) return SocialAuthResult.NeedsNickname
+        establishSession(access, refresh, res.expiresAt)
         return SocialAuthResult.Authenticated(currentDomainSession() ?: throw MutterError.Unauthorized)
     }
 
     /** 소셜 2단계 — 신규 회원을 닉네임과 함께 가입(이때만 계정 생성)시키고 세션을 확립한다. */
     override suspend fun registerSocial(provider: SocialProvider, idToken: String, nickname: String): Session {
         val res = invokeSocial(provider, SocialLoginRequest(idToken = idToken, nickname = nickname))
+        val access = res.accessToken ?: throw MutterError.Unauthorized
         val refresh = res.refreshToken ?: throw MutterError.Unauthorized
-        establishSession(refresh)
+        establishSession(access, refresh, res.expiresAt)
         return currentDomainSession() ?: throw MutterError.Unauthorized
     }
 
@@ -111,10 +114,26 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    /** access/refresh로 세션 확립 — refresh로 완전한 세션을 받아 현재 세션으로 import(영구 저장). */
-    private suspend fun establishSession(refreshToken: String) {
-        val session = auth.refreshSession(refreshToken)
-        auth.importSession(session)
+    /**
+     * Edge Function이 발급한 세션(access/refresh)을 그대로 현재 세션으로 import(iOS setSession 대응, 영구 저장).
+     *
+     * refreshSession(추가 grant_type=refresh_token 교환)이나 expiresIn=0으로의 import는 supabase-kt가
+     * 세션을 "이미 만료됨"으로 보고 즉시 refresh를 돌리게 해, 서버가 방금 발급한 토큰을 못 찾는
+     * `refresh_token_not_found`로 실패한다(구글=매번, 카카오=간헐). 서버가 준 expires_at으로 미래 만료를
+     * 채워 즉시 refresh를 막고, retrieveUser로 유저를 채워 currentUserOrNull()이 바로 유효하게 한다.
+     */
+    private suspend fun establishSession(accessToken: String, refreshToken: String, expiresAtEpoch: Long?) {
+        val nowSec = System.currentTimeMillis() / 1000
+        val expiresIn = expiresAtEpoch?.let { it - nowSec }?.takeIf { it > 0 } ?: 3600L
+        val user = auth.retrieveUser(accessToken)
+        val session = UserSession(
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            expiresIn = expiresIn,
+            tokenType = "bearer",
+            user = user,
+        )
+        auth.importSession(session, autoRefresh = true)
     }
 
     private fun mapEdgeError(raw: String, provider: SocialProvider): MutterError {
@@ -169,6 +188,8 @@ private data class SocialLoginResponse(
     // checkOnly-신규 응답은 { isNew:true }만 오므로 세션 토큰은 nullable.
     @SerialName("access_token") val accessToken: String? = null,
     @SerialName("refresh_token") val refreshToken: String? = null,
+    // GoTrue 세션 만료(Unix 초). 세션 import 시 미래 만료로 채워 즉시 refresh를 막는 데 쓴다.
+    @SerialName("expires_at") val expiresAt: Long? = null,
     @SerialName("user_id") val userId: String? = null,
     val isNew: Boolean = false,
 )
