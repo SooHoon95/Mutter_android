@@ -23,14 +23,12 @@ val PretendardFamily = FontFamily(
 )
 
 /**
- * 나눔명조(Nanum Myeongjo) 패밀리 — 제목/디스플레이의 '명조 감성'용.
- * FontFamily.Serif는 기기에 한국어 serif(명조)가 없으면 고딕으로 폴백해 iOS(시스템 명조)와 달라진다.
- * iOS와 같은 명조 느낌을 내려고 명조 폰트를 직접 번들한다. res/font/nanum_myeongjo_{regular,bold,extrabold}.ttf.
+ * 제목/디스플레이용 세리프 패밀리 — 함렛(Hahmlet, OFL 가변 폰트).
+ * 나눔명조는 올드해 보여서, 또렷하고 모던한 세리프인 함렛으로 확정. res/font/hahmlet.ttf(가변, wght 축).
  */
 val MyeongjoFamily = FontFamily(
-    Font(R.font.nanum_myeongjo_regular, FontWeight.Normal),
-    Font(R.font.nanum_myeongjo_bold, FontWeight.Bold),
-    Font(R.font.nanum_myeongjo_extrabold, FontWeight.ExtraBold),
+    Font(R.font.hahmlet, FontWeight.Normal),
+    Font(R.font.hahmlet, FontWeight.Bold),
 )
 
 // ─── Named text styles (11 semantic tokens, iOS MutterFont 1:1) ──────────────
