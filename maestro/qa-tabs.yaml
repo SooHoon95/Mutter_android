@@ -1,0 +1,31 @@
+# 메인 5탭 순회 QA — iOS/Android 공용(로그인 상태에서 실행).
+# 탭 라벨이 플랫폼마다 달라(편지함↔주고받음 등) 텍스트 대신 하단바 위치(5등분)로 탭한다.
+appId: com.efreedom.mutter
+---
+- launchApp
+- waitForAnimationToEnd:
+    timeout: 8000
+- tapOn:
+    text: "지금 안 함"       # iOS 시스템 팝업 있으면 닫기
+    optional: true
+- takeScreenshot: 1-home
+- tapOn:
+    point: "30%,95%"        # 2번째 탭
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 2-threads
+- tapOn:
+    point: "50%,95%"        # 3번째 탭
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 3-inbox
+- tapOn:
+    point: "70%,95%"        # 4번째 탭
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 4-connections
+- tapOn:
+    point: "90%,95%"        # 5번째 탭
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 5-profile
