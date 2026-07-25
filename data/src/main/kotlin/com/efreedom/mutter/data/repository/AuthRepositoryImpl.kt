@@ -138,7 +138,14 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun signOut() = wrap { auth.signOut() }
 
     override suspend fun currentSession(): Session? =
-        runCatching { currentDomainSession() }.getOrNull()
+        runCatching {
+            // autoLoadFromStorage는 비동기다. 콜드스타트에서 저장된 세션 로드가 끝나기 전에 읽으면
+            // currentUserOrNull()이 null을 돌려줘 로그인돼 있어도 SIGNED_OUT으로 튄다.
+            // 초기화(스토리지 로드 + 최초 refresh)가 Authenticated/NotAuthenticated/RefreshError로
+            // 확정될 때까지 대기한 뒤 읽어야 자동 로그인이 유지된다.
+            auth.awaitInitialization()
+            currentDomainSession()
+        }.getOrNull()
 
     private fun currentDomainSession(): Session? =
         auth.currentUserOrNull()?.let { Session(userId = it.id, email = it.email) }
