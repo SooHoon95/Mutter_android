@@ -57,10 +57,12 @@ class DeliveryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun open(token: String, password: String?): LetterPayload = wrap {
+        // get_letter_by_token은 `returns json`(단일 객체)이다. decodeSingle은 decodeList().first()라
+        // 배열을 기대하므로 `{...}` 응답에서 역직렬화 예외가 나 편지가 안 열린다 → decodeAs를 쓴다.
         client.postgrest.rpc(
             "get_letter_by_token",
             OpenLinkParams(token = token, password = password),
-        ).decodeSingle<LetterPayloadDto>().toDomain()
+        ).decodeAs<LetterPayloadDto>().toDomain()
     }
 
     private inline fun <T> wrap(block: () -> T): T =
