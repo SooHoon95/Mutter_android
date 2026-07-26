@@ -33,10 +33,13 @@ android {
         manifestPlaceholders["kakaoNativeAppKey"] = kakaoKey
     }
 
-    // 업로드 키 서명. 키스토어는 저장소 밖에 두고 경로·비밀번호는 secrets.properties에서 읽는다(gitignore).
-    // 값이 없으면 signingConfig를 붙이지 않아 로컬 빌드는 그대로 동작한다.
+    // 업로드 키 서명. 키스토어는 /keystore(gitignore)에 두고 경로·비밀번호는 secrets.properties에서 읽는다.
+    // 상대경로는 루트 기준으로 해석한다(file()은 app 모듈 기준이라 어긋난다).
+    // 값이 없으면 signingConfig를 붙이지 않아 다른 머신에서도 빌드가 깨지지 않는다.
     val releaseStorePath = socialProps.getProperty("RELEASE_STORE_FILE", "")
-    val releaseStore = releaseStorePath.takeIf { it.isNotBlank() }?.let { file(it) }?.takeIf { it.exists() }
+    val releaseStore = releaseStorePath.takeIf { it.isNotBlank() }
+        ?.let { rootProject.file(it) }
+        ?.takeIf { it.exists() }
 
     signingConfigs {
         if (releaseStore != null) {
