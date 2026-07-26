@@ -18,22 +18,40 @@ val socialProps = Properties().apply {
 
 android {
     namespace = "com.efreedom.mutter"
-    compileSdk = 35
+    // Play 요구: 2026-08-31부터 신규 앱·업데이트는 API 36(Android 16) 타겟 필수.
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.efreedom.mutter"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
         val kakaoKey = socialProps.getProperty("KAKAO_NATIVE_APP_KEY", "")
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"$kakaoKey\"")
         // Kakao 리다이렉트 스킴(kakao{nativeKey}://oauth) — AuthCodeHandlerActivity용.
         manifestPlaceholders["kakaoNativeAppKey"] = kakaoKey
     }
 
+    // 업로드 키 서명. 키스토어는 저장소 밖에 두고 경로·비밀번호는 secrets.properties에서 읽는다(gitignore).
+    // 값이 없으면 signingConfig를 붙이지 않아 로컬 빌드는 그대로 동작한다.
+    val releaseStorePath = socialProps.getProperty("RELEASE_STORE_FILE", "")
+    val releaseStore = releaseStorePath.takeIf { it.isNotBlank() }?.let { file(it) }?.takeIf { it.exists() }
+
+    signingConfigs {
+        if (releaseStore != null) {
+            create("release") {
+                storeFile = releaseStore
+                storePassword = socialProps.getProperty("RELEASE_STORE_PASSWORD")
+                keyAlias = socialProps.getProperty("RELEASE_KEY_ALIAS")
+                keyPassword = socialProps.getProperty("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

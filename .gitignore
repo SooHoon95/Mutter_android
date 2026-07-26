@@ -13,3 +13,4 @@
 *.apk
 *.keystore
 !debug.keystore
+*.jks
