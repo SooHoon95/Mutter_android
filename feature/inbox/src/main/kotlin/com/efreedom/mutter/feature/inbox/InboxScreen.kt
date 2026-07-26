@@ -34,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.MutterImage
+import com.efreedom.mutter.uicomponent.component.PullableFullSizeBox
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldSoft
 import com.efreedom.mutter.uicomponent.theme.Ink
@@ -89,11 +90,8 @@ fun InboxScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             if (state.items.isEmpty() && !state.isLoading) {
-                // 빈 상태
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
+                // 빈 상태 — 당겨서 새로고침이 되도록 스크롤 컨테이너로 감싼다.
+                PullableFullSizeBox {
                     InboxEmptyState()
                 }
             } else {

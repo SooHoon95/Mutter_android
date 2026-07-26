@@ -42,6 +42,7 @@ import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.MutterImage
+import com.efreedom.mutter.uicomponent.component.PullableFullSizeBox
 import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
@@ -90,20 +91,21 @@ fun ThreadsScreen(
             }
 
             state.counterparts.isEmpty() -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    MutterImage(id = DsR.drawable.empty_connections, modifier = Modifier.size(120.dp))
-                    Text(text = "아직 주고받은 편지가 없어요", style = MutterText.bodyLarge, color = InkSoft)
-                    Text(
-                        text = "편지를 보내면 여기서 대화를 볼 수 있어요",
-                        style = MutterText.caption,
-                        color = InkFaint,
-                    )
+                // 빈 상태 — 당겨서 새로고침이 되도록 스크롤 컨테이너로 감싼다(중앙 정렬은 컨테이너가 담당).
+                PullableFullSizeBox {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        MutterImage(id = DsR.drawable.empty_connections, modifier = Modifier.size(120.dp))
+                        Text(text = "아직 주고받은 편지가 없어요", style = MutterText.bodyLarge, color = InkSoft)
+                        Text(
+                            text = "편지를 보내면 여기서 대화를 볼 수 있어요",
+                            style = MutterText.caption,
+                            color = InkFaint,
+                        )
+                    }
                 }
             }
 

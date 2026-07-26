@@ -44,6 +44,7 @@ import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.MutterImage
+import com.efreedom.mutter.uicomponent.component.PullableFullSizeBox
 import com.efreedom.mutter.uicomponent.theme.BlushLavender
 import com.efreedom.mutter.uicomponent.theme.BlushPink
 import com.efreedom.mutter.uicomponent.theme.Danger
@@ -113,10 +114,8 @@ fun HomeScreen(
             }
 
             displayRows.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
+                // 빈 상태도 당겨서 새로고침이 되도록 스크롤 컨테이너로 감싼다(PullableFullSizeBox 주석 참고).
+                PullableFullSizeBox {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp),
