@@ -1,5 +1,10 @@
 <resources>
-    <string name="app_name">Mutter</string>
+    <!-- 런처·설정에 표시되는 앱 이름. 스토어 등록명("뮤터 - 음악 편지, 노래 선물")의 앞부분과 맞춘다. -->
+    <string name="app_name">뮤터</string>
+
+    <!-- 푸시 알림 채널 (Android 8+ 필수) -->
+    <string name="push_channel_name">편지 알림</string>
+    <string name="push_channel_description">편지가 도착했을 때, 보낸 편지를 상대가 읽었을 때 알려드려요.</string>
 
     <!-- 하단 탭 -->
     <string name="tab_home">홈</string>

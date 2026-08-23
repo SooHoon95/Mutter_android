@@ -7,6 +7,8 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    // app/google-services.json을 읽어 FCM 설정을 리소스로 생성한다. 파일이 없으면 빌드 실패.
+    alias(libs.plugins.google.services)
 }
 
 // 소셜 키를 secrets.properties(+local.properties)에서 읽어 BuildConfig/매니페스트로 주입. 둘 다 gitignore.
@@ -25,7 +27,7 @@ android {
         applicationId = "com.efreedom.mutter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        versionCode = 2
         versionName = "1.0.0"
         val kakaoKey = socialProps.getProperty("KAKAO_NATIVE_APP_KEY", "")
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"$kakaoKey\"")
@@ -55,7 +57,10 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.findByName("release")
-            isMinifyEnabled = false
+            // R8 코드 축소·최적화(Play Console 권장 조치). 리소스 축소는 코드 축소가 켜져야 동작한다.
+            // 주의: 깨지면 릴리스 빌드에서만 재현된다 — 켠 뒤 반드시 실기기로 주요 흐름을 확인할 것.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -93,6 +98,10 @@ dependencies {
     implementation(project(":feature:viewer"))
     implementation(project(":feature:delivery"))
     implementation(project(":feature:legal"))
+
+    // FCM — 서버(send-push Edge Function)가 FCM HTTP v1로 보내므로 messaging만 필요하다.
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

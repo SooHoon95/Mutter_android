@@ -16,3 +16,6 @@
 *.jks
 # 릴리스 업로드 키(절대 커밋 금지). 백업은 이 폴더를 통째로 보관한다.
 /keystore/
+# FCM 설정(Firebase 프로젝트 mutter-1e8c3의 Android 앱). API 키를 담고 있어 커밋하지 않는다.
+# 없으면 google-services 플러그인이 빌드를 실패시킨다 → Firebase Console에서 다시 내려받을 것.
+/app/google-services.json

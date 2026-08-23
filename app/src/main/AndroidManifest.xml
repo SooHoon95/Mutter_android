@@ -3,6 +3,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Android 13+ 는 알림 표시에 런타임 권한이 필요하다(MainActivity에서 요청). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- KakaoTalk 로그인 가능 여부 확인/실행 (Android 11+ 패키지 가시성) -->
     <queries>
@@ -49,6 +51,27 @@
                 <data android:scheme="mutter" />
             </intent-filter>
         </activity>
+
+        <!--
+          FCM 수신. 서버(send-push Edge Function)가 FCM HTTP v1로 발송한다.
+          아래 meta-data는 앱이 백그라운드일 때 시스템이 자동 표시하는 경로에 쓰인다
+          (포그라운드 표시는 MutterMessagingService.onMessageReceived가 담당).
+        -->
+        <service
+            android:name=".push.MutterMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_push" />
+        <!-- PushNotifications.CHANNEL_ID 와 반드시 같은 값. 다르면 백그라운드 알림이 조용히 버려진다. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="mutter_default" />
 
         <!-- Kakao 로그인 리다이렉트(kakao{nativeKey}://oauth) -->
         <activity

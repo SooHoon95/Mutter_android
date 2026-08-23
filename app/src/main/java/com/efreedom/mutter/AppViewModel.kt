@@ -6,6 +6,7 @@ import com.efreedom.mutter.domain.SessionInvalidation
 import com.efreedom.mutter.domain.usecase.AppUpdateUseCase
 import com.efreedom.mutter.domain.usecase.AuthUseCase
 import com.efreedom.mutter.domain.usecase.ProfileUseCase
+import com.efreedom.mutter.push.PushTokenRegistrar
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +41,7 @@ class AppViewModel @Inject constructor(
     private val authUseCase: AuthUseCase,
     private val profileUseCase: ProfileUseCase,
     private val appUpdateUseCase: AppUpdateUseCase,
+    private val pushTokenRegistrar: PushTokenRegistrar,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AppState.LOADING)
@@ -91,11 +93,16 @@ class AppViewModel @Inject constructor(
             }
             val needsNickname = profileResult.getOrNull()?.nickname?.trim().isNullOrEmpty()
             _state.value = if (needsNickname) AppState.NEEDS_NICKNAME else AppState.READY
+            // 세션이 확인된 시점에 FCM 토큰을 등록한다. onNewToken은 토큰이 "바뀔 때"만 오므로
+            // 이미 토큰이 있는 기기에서 로그인하면 이 경로가 유일한 등록 기회다.
+            pushTokenRegistrar.register()
         }
     }
 
     fun signOut() {
         viewModelScope.launch {
+            // 서버 토큰 행이 남아 다음 사용자가 이전 계정 알림을 받는 것을 막는다(로그아웃 전에 폐기).
+            pushTokenRegistrar.unregister()
             runCatching { authUseCase.signOut() }
             refresh()
         }

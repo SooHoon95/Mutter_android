@@ -1,11 +1,16 @@
 package com.efreedom.mutter
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -44,6 +49,23 @@ class MainActivity : ComponentActivity() {
 
     // OAuth 리다이렉트로 세션이 확립될 때마다 증가 → 컴포즈가 관찰해 루트 상태를 refresh().
     private val oauthSessionBump = MutableStateFlow(0)
+
+    // 알림 권한 요청 런처. 거부돼도 앱은 그대로 동작한다(알림만 안 옴) → 결과를 쓰지 않는다.
+    private val notificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    /**
+     * Android 13+ 는 POST_NOTIFICATIONS 런타임 권한이 없으면 알림이 표시되지 않는다.
+     * 로그인 전에 물으면 맥락 없이 뜨므로, 메인에 진입한 뒤 한 번만 요청한다.
+     */
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // 런치스크린(core-splashscreen) 설치 — super 이전에 호출. 첫 프레임 그려지면 자동 해제되고
@@ -97,6 +119,11 @@ class MainActivity : ComponentActivity() {
                     else -> RootScreen.MAIN
                 }
 
+                // 메인에 처음 도달했을 때만 알림 권한을 묻는다(로그인 전에는 맥락이 없다).
+                LaunchedEffect(screen) {
+                    if (screen == RootScreen.MAIN) requestNotificationPermissionIfNeeded()
+                }
+
                 Box(modifier = Modifier.fillMaxSize()) {
                     Crossfade(targetState = screen, animationSpec = tween(300), label = "app-root") { s ->
                         when (s) {
@@ -115,8 +142,9 @@ class MainActivity : ComponentActivity() {
                     // get_letter_by_token은 anon 허용이라 미로그인에서도 열람 가능. 뒤로가기로 오버레이 해제.
                     letterToken?.let { token ->
                         // 오버레이는 NavHost 백스택 밖이므로 시스템 뒤로가기를 직접 가로채 해제한다.
+                        // ViewerScreen에는 화면 내 뒤로 버튼이 없으므로 이 BackHandler가 유일한 이탈 경로다.
                         BackHandler { letterToken = null }
-                        ViewerScreen(token = token, onBack = { letterToken = null })
+                        ViewerScreen(token = token)
                     }
 
                     // 강제 업데이트 — 최상위 차단 오버레이(편지 오버레이보다도 위).
