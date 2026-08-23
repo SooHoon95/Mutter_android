@@ -85,6 +85,7 @@ class DeliveryUseCase @Inject constructor(private val repository: DeliveryReposi
 class InboxUseCase @Inject constructor(private val repository: InboxRepository) {
     suspend fun save(token: String) = repository.save(token)
     suspend fun myInbox(): List<InboxItem> = repository.myInbox()
+    suspend fun remove(letterId: String) = repository.remove(letterId)
 }
 
 class LetterUseCase @Inject constructor(private val repository: LetterRepository) {

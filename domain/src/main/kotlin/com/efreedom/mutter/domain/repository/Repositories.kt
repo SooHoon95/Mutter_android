@@ -62,6 +62,7 @@ interface DeliveryRepository {
 interface InboxRepository {
     suspend fun save(token: String)
     suspend fun myInbox(): List<InboxItem>
+    suspend fun remove(letterId: String)
 }
 
 interface LetterRepository {

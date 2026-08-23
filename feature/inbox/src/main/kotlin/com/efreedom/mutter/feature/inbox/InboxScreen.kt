@@ -18,9 +18,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -35,6 +39,7 @@ import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.MutterImage
 import com.efreedom.mutter.uicomponent.component.PullableFullSizeBox
+import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldSoft
 import com.efreedom.mutter.uicomponent.theme.Ink
@@ -104,11 +109,61 @@ fun InboxScreen(
                     ),
                 ) {
                     items(state.items, key = { it.id }) { item ->
-                        LetterCard(item = item, onClick = { onOpen(item.token) })
+                        SwipeToDeleteContainer(
+                            onDelete = { viewModel.delete(item) },
+                            modifier = Modifier.animateItem(),
+                        ) {
+                            LetterCard(item = item, onClick = { onOpen(item.token) })
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+// ─── 스와이프 삭제 ────────────────────────────────────────────────────────────
+
+/** 끝→시작(오른쪽→왼쪽) 스와이프로 삭제. 배경은 카드와 같은 라운드의 Danger 면 + 휴지통 아이콘. */
+@Composable
+private fun SwipeToDeleteContainer(
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else {
+                false
+            }
+        },
+    )
+    SwipeToDismissBox(
+        state = dismissState,
+        modifier = modifier,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Danger)
+                    .padding(end = 20.dp),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                MutterIcon(
+                    id = DsR.drawable.trash,
+                    contentDescription = "삭제",
+                    tint = Color.White,
+                    size = 20.dp,
+                )
+            }
+        },
+    ) {
+        content()
     }
 }
 

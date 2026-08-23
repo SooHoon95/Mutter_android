@@ -28,6 +28,13 @@ class InboxRepositoryImpl @Inject constructor(
             .map { it.toDomain() }
     }
 
+    // 삭제는 RPC 없이 inbox 테이블 직접 delete — RLS(inbox_self_rw)가 본인 행으로 한정한다.
+    override suspend fun remove(letterId: String) = wrap {
+        client.postgrest.from("inbox")
+            .delete { filter { eq("letter_id", letterId) } }
+        Unit
+    }
+
     private inline fun <T> wrap(block: () -> T): T =
         try { block() } catch (e: Throwable) { throw SupabaseErrorMapper.map(e) }
 }

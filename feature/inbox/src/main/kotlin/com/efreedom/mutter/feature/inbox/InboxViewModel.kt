@@ -38,4 +38,24 @@ class InboxViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * 스와이프 삭제 — 낙관적으로 목록에서 먼저 제거하고, 서버 삭제 실패 시 그 항목만 되살린다.
+     * (전체 스냅샷 복원은 연속 삭제 중 다른 항목까지 부활시키는 레이스가 있어 항목 단위로 롤백한다.)
+     */
+    fun delete(item: InboxItem) {
+        val current = _state.value.items
+        val index = current.indexOfFirst { it.id == item.id }
+        if (index < 0) return
+        _state.value = _state.value.copy(items = current.filterNot { it.id == item.id })
+        viewModelScope.launch {
+            try {
+                inboxUseCase.remove(item.letterId)
+            } catch (_: Throwable) {
+                val latest = _state.value.items.toMutableList()
+                latest.add(index.coerceAtMost(latest.size), item)
+                _state.value = _state.value.copy(items = latest)
+            }
+        }
+    }
 }
