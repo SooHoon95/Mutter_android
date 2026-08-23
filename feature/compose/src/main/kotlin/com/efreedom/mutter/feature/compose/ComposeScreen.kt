@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -102,9 +103,14 @@ fun ComposeScreen(
             key(source) { source.Attachment() }
         }
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            ComposeTopBar(onBack = onDone)
-
+        // 상단 뒤로 헤더는 두지 않는다 — 안드로이드는 시스템 뒤로(제스처/버튼)로 이 화면을 벗어난다.
+        // NavHost 목적지라 시스템 뒤로가 popBackStack을 그대로 수행하므로 별도 처리가 필요 없다.
+        // 시스템 바 영역은 여기서 피한다. 배경(Ivory)은 위 Box가 화면 전체를 칠하고 콘텐츠만 들인다.
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding(),
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -147,23 +153,6 @@ fun ComposeScreen(
                 )
                 Spacer(modifier = Modifier.height(40.dp))
             }
-        }
-    }
-}
-
-// ─── TopBar ───────────────────────────────────────────────────────────────────
-
-@Composable
-private fun ComposeTopBar(onBack: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Ivory)
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) {
-            MutterIcon(id = DsR.drawable.ic_back, contentDescription = "뒤로", tint = Ink)
         }
     }
 }

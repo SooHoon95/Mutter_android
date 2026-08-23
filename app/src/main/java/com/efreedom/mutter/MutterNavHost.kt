@@ -124,17 +124,11 @@ fun MutterNavHost(
         // ─── 편지 열람 ─────────────────────────────────────────────────────
         composable<FeatureRoute.ViewerToken> { entry ->
             val route = entry.toRoute<FeatureRoute.ViewerToken>()
-            ViewerScreen(
-                token = route.token,
-                onBack = { navController.popBackStack() },
-            )
+            ViewerScreen(token = route.token)
         }
         composable<FeatureRoute.ViewerMyLetter> { entry ->
             val route = entry.toRoute<FeatureRoute.ViewerMyLetter>()
-            ViewerScreen(
-                letterId = route.letterId,
-                onBack = { navController.popBackStack() },
-            )
+            ViewerScreen(letterId = route.letterId)
         }
 
         // ─── 전달 관리 ─────────────────────────────────────────────────────
@@ -142,7 +136,6 @@ fun MutterNavHost(
             val route = entry.toRoute<FeatureRoute.Delivery>()
             DeliveryScreen(
                 letterId = route.letterId,
-                onBack = { navController.popBackStack() },
                 onPreview = { navController.navigate(FeatureRoute.ViewerMyLetter(route.letterId)) },
             )
         }
@@ -158,13 +151,13 @@ fun MutterNavHost(
 
         // ─── 법적 문서 ─────────────────────────────────────────────────────
         composable<FeatureRoute.Takedown> {
-            TakedownScreen(onBack = { navController.popBackStack() })
+            TakedownScreen()
         }
         composable<FeatureRoute.Terms> {
-            LegalDocScreen(title = "이용약관", onBack = { navController.popBackStack() })
+            LegalDocScreen(title = "이용약관")
         }
         composable<FeatureRoute.Privacy> {
-            LegalDocScreen(title = "개인정보처리방침", onBack = { navController.popBackStack() })
+            LegalDocScreen(title = "개인정보처리방침")
         }
     }
 }
@@ -237,6 +230,9 @@ private fun MainScaffold(
                 AppTab.CONNECTIONS -> ConnectionsScreen(modifier = Modifier.fillMaxSize())
                 AppTab.PROFILE -> ProfileScreen(
                     onSignedOut = onSignedOut,
+                    onReport = { navController.navigate(FeatureRoute.Takedown) },
+                    onTerms = { navController.navigate(FeatureRoute.Terms) },
+                    onPrivacy = { navController.navigate(FeatureRoute.Privacy) },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -68,7 +69,6 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun DeliveryScreen(
     letterId: String,
-    onBack: () -> Unit,
     onPreview: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DeliveryViewModel = hiltViewModel(),
@@ -81,20 +81,13 @@ fun DeliveryScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Ivory),
+            .background(Ivory)
+            // background 뒤에 둬야 배경은 화면 전체를 칠하고 콘텐츠만 인셋만큼 들어간다.
+            // 아래 상단 바는 순수 Row라(M3 TopAppBar가 아니라) 직접 넣지 않으면 상태바와 겹친다.
+            .systemBarsPadding(),
     ) {
-        // 상단 바
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(onClick = onBack) {
-                Text("‹ 뒤로", style = MutterText.bodyMedium, color = Ink)
-            }
-        }
-
+        // 상단 뒤로 헤더는 두지 않는다 — 안드로이드는 시스템 뒤로(제스처/버튼)로 이 화면을 벗어난다.
+        // NavHost 목적지라 시스템 뒤로가 popBackStack을 그대로 수행한다.
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
             onRefresh = viewModel::load,

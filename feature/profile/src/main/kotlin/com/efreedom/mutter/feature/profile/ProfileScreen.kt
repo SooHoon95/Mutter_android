@@ -68,10 +68,18 @@ import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.Surface
 import kotlinx.coroutines.delay
 
-/** 프로필 탭 화면. 닉네임 수정, 로그아웃, 계정 삭제. */
+/**
+ * 프로필 탭 화면. 닉네임 수정, 법적 고지·신고, 로그아웃, 계정 삭제.
+ *
+ * [onReport]는 권리침해 신고 화면으로의 유일한 진입점이다. 편지 본문은 사용자 생성 콘텐츠라
+ * 스토어 정책상 인앱 신고 수단이 도달 가능해야 하므로 이 행을 제거하면 안 된다.
+ */
 @Composable
 fun ProfileScreen(
     onSignedOut: () -> Unit,
+    onReport: () -> Unit,
+    onTerms: () -> Unit,
+    onPrivacy: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
@@ -169,6 +177,42 @@ fun ProfileScreen(
             state.error?.let { message ->
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(text = message, style = MutterText.caption, color = Danger)
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 법적 고지·신고 카드 — 세 화면 모두 여기서만 진입한다.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Surface)
+                    .border(width = 0.5.dp, color = Hairline, shape = RoundedCornerShape(16.dp)),
+            ) {
+                SettingsRow(
+                    icon = { MutterIcon(id = DsR.drawable.note, contentDescription = null, tint = InkSoft, size = 20.dp) },
+                    label = "권리침해 신고",
+                    value = "",
+                    onClick = onReport,
+                )
+
+                HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
+
+                SettingsRow(
+                    icon = { MutterIcon(id = DsR.drawable.paper, contentDescription = null, tint = InkSoft, size = 20.dp) },
+                    label = "이용약관",
+                    value = "",
+                    onClick = onTerms,
+                )
+
+                HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
+
+                SettingsRow(
+                    icon = { MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = InkSoft, size = 20.dp) },
+                    label = "개인정보처리방침",
+                    value = "",
+                    onClick = onPrivacy,
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))

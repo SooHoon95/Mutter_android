@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -43,7 +42,6 @@ import com.efreedom.mutter.uicomponent.theme.MutterText
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TakedownScreen(
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LegalViewModel = hiltViewModel(),
 ) {
@@ -54,13 +52,10 @@ fun TakedownScreen(
             .fillMaxSize()
             .background(Ivory),
     ) {
+        // navigationIcon 없음 — 화면 이탈은 시스템 뒤로(제스처/버튼)로만 한다.
+        // 제목은 페이지 이름이라 남긴다.
         TopAppBar(
             title = { Text(text = "권리침해 신고", style = MutterText.headline, color = Ink) },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    MutterIcon(id = DsR.drawable.ic_back, contentDescription = "뒤로", tint = Ink)
-                }
-            },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Ivory),
         )
 
@@ -220,7 +215,6 @@ Mutter(이하 "서비스")는 개인정보보호법에 따라 이용자의 개�
 fun LegalDocScreen(
     title: String,
     text: String = if (title.contains("개인정보")) PRIVACY_PLACEHOLDER else TERMS_PLACEHOLDER,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -228,13 +222,9 @@ fun LegalDocScreen(
             .fillMaxSize()
             .background(Ivory),
     ) {
+        // navigationIcon 없음 — 화면 이탈은 시스템 뒤로(제스처/버튼)로만 한다.
         TopAppBar(
             title = { Text(text = title, style = MutterText.headline, color = Ink) },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    MutterIcon(id = DsR.drawable.ic_back, contentDescription = "뒤로", tint = Ink)
-                }
-            },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Ivory),
         )
 

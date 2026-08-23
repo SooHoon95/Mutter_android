@@ -89,13 +89,12 @@ import java.util.Locale
  * - 딥링크 수신: [token] 전달 (password는 암호 게이트에서 사용자 입력)
  * - 내 편지 미리보기: [letterId] 전달
  *
- * 내비게이션은 [onBack] 콜백 하나로 처리한다. Feature 간 import 없음.
+ * 화면을 벗어나는 건 시스템 뒤로(제스처/버튼)뿐이다 — 화면 내 뒤로 버튼은 두지 않는다.
  */
 @Composable
 fun ViewerScreen(
     token: String? = null,
     letterId: String? = null,
-    onBack: () -> Unit,
     viewModel: ViewerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -109,13 +108,6 @@ fun ViewerScreen(
             else -> return@LaunchedEffect
         }
         viewModel.start(src)
-    }
-
-    // 뒤로가기 버튼 색상 — 배경에 맞춰 조정 (iOS navColors 대응).
-    val backIconColor = when (val s = state) {
-        is ViewerState.RevealPending -> Ivory
-        is ViewerState.Ready -> if (isOpened) LetterThemes.byId(s.payload.templateId).foreground else Ink
-        else -> Ink
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -156,16 +148,8 @@ fun ViewerScreen(
             }
         }
 
-        // ── 뒤로가기 버튼 오버레이 ────────────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(4.dp),
-        ) {
-            IconButton(onClick = onBack) {
-                MutterIcon(id = DsR.drawable.ic_back, contentDescription = "뒤로", tint = backIconColor)
-            }
-        }
+        // 뒤로가기 오버레이는 두지 않는다 — 시스템 뒤로(제스처/버튼)로 이 화면을 벗어난다.
+        // NavHost 목적지라 시스템 뒤로가 popBackStack을 그대로 수행하며, 편지를 가리는 요소도 없어진다.
     }
 }
 
@@ -490,9 +474,22 @@ private fun LetterReader(
                 }
             }
 
-            // ── 하단 인셋 — 플레이어 바 높이만큼 확보 ─────────────────────
+            // ── 하단 여백 ────────────────────────────────────────────────
+            // 플레이어 바 높이 + 뷰포트의 1/4.
+            //
+            // 뒤에 여백을 더 두는 이유: 인트로 안내가 뷰포트 한 개를 차지하므로 최대 스크롤량은
+            // '편지 높이'와 같다. 그래서 편지가 한 화면보다 짧으면 끝까지 내려도 편지가 화면
+            // 하단에 붙고 위쪽이 안내의 잔여 여백으로 남는다. 뒤에 여백을 주면 그만큼 더 올라온다.
+            //
+            // 1/4인 이유: 절반을 주면 이번엔 편지가 화면 위로 붙어 아래가 비었다. 짧은 편지가
+            // 대략 화면 중앙에 놓이는 값이다. 편지 길이와 무관하게 '정확히' 중앙에 맞추려면
+            // 제목+본문을 한 아이템으로 묶어 최소 높이를 뷰포트로 주고 세로 중앙 정렬해야 하는데,
+            // 그러면 줄 단위 등장 애니메이션(아이템 가시성 기반)이 한꺼번에 터진다 → 여백으로 해결.
             item(key = "spacer") {
-                Spacer(modifier = Modifier.height(if (hasPlayer) 96.dp else 40.dp))
+                Column {
+                    Spacer(modifier = Modifier.height(if (hasPlayer) 96.dp else 40.dp))
+                    Spacer(modifier = Modifier.fillParentMaxHeight(0.25f))
+                }
             }
         }
 
@@ -515,7 +512,10 @@ private fun LetterReader(
 
 /**
  * 열람 첫 화면을 가득 채우는 스크롤 안내 — 편지를 아래로 밀어낸다.
- * [Modifier.fillParentMaxHeight]로 LazyColumn 뷰포트 높이를 차지한다.
+ * 높이는 호출부가 [Modifier.fillParentMaxHeight]로 LazyColumn 뷰포트만큼 준다.
+ *
+ * 폭은 여기서 채운다. CenterHorizontally는 Column '안에서'만 정렬하므로,
+ * 폭을 채우지 않으면 Column이 텍스트 너비로 줄어들어 안내가 화면 왼쪽에 붙는다.
  */
 @Composable
 private fun ScrollPromptView(
@@ -523,7 +523,7 @@ private fun ScrollPromptView(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
