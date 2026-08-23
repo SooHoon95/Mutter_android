@@ -1,5 +1,6 @@
 package com.efreedom.mutter.data.repository
 
+import com.efreedom.mutter.core.network.OAUTH_REDIRECT_URL
 import com.efreedom.mutter.core.network.SupabaseProvider
 import com.efreedom.mutter.data.support.SupabaseErrorMapper
 import com.efreedom.mutter.domain.error.MutterError
@@ -63,9 +64,10 @@ class AuthRepositoryImpl @Inject constructor(
 
     // Apple 웹 OAuth — 브라우저(Custom Tab)로 Supabase Apple provider 인증 흐름을 연다.
     // 세션은 리다이렉트(mutter://login-callback)를 MainActivity가 handleDeeplinks로 처리해 확립한다.
-    // 사전조건: Supabase 대시보드에 Apple provider(Services ID·키) 설정 + 리다이렉트 URL 허용.
+    // 사전조건(콘솔 작업): Apple Services ID·.p8 시크릿 + Supabase Apple provider + 리다이렉트 URL 허용.
+    // iOS 네이티브(Bundle ID)와 별개 설정이다 — 절차는 docs/apple-signin-setup.md 참고.
     override suspend fun signInAppleWeb() = wrap {
-        auth.signInWith(Apple, redirectUrl = "mutter://login-callback")
+        auth.signInWith(Apple, redirectUrl = OAUTH_REDIRECT_URL)
     }
 
     /**

@@ -27,6 +27,8 @@ dependencies {
     api(libs.supabase.functions)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.kotlinx.serialization.json)
+    // OAuth 콜백을 자체 스코프에서 처리한다(SupabaseProvider.handleOAuthCallback).
+    implementation(libs.kotlinx.coroutines.core)
     // 세션 영구 저장(SharedPreferences 기반 Settings) — 자동 로그인.
     implementation("com.russhwolf:multiplatform-settings:1.3.0")
 }

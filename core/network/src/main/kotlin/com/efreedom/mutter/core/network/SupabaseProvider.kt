@@ -6,10 +6,21 @@ import com.russhwolf.settings.SharedPreferencesSettings
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.SettingsSessionManager
-import io.github.jan.supabase.auth.handleDeeplinks
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.parseSessionFromFragment
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
+/** Apple 웹 OAuth 리다이렉트 주소. AuthRepository의 `signInAppleWeb()`가 넘기는 값과 같아야 한다. */
+const val OAUTH_REDIRECT_URL = "mutter://login-callback"
+
+private const val OAUTH_SCHEME = "mutter"
+private const val OAUTH_HOST = "login-callback"
 
 /**
  * Supabase 접속의 단일 진입점(iOS SupabaseProvider 대응).
@@ -29,11 +40,17 @@ class SupabaseProvider(
         context.getSharedPreferences("mutter_supabase_auth", Context.MODE_PRIVATE),
     )
 
+    // OAuth 콜백 전용 스코프. SupervisorJob으로 실패를 격리한다 —
+    // supabase-kt의 내부 authScope는 SupervisorJob도 예외 핸들러도 없어 예외 하나가 프로세스를 죽인다.
+    private val callbackScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     val client: SupabaseClient = createSupabaseClient(
         supabaseUrl = supabaseUrl,
         supabaseKey = supabaseKey,
     ) {
         install(Auth) {
+            // scheme/host는 일부러 두지 않는다 — supabase-kt의 handleDeeplinks를 쓰지 않기 때문(아래 참고).
+            // 채우면 defaultRedirectUrl()이 딥링크로 바뀌어 이메일 OTP 메일의 링크 목적지까지 함께 바뀐다.
             sessionManager = SettingsSessionManager(authSettings)
             alwaysAutoRefresh = true
             autoLoadFromStorage = true
@@ -44,10 +61,31 @@ class SupabaseProvider(
     }
 
     /**
-     * OAuth 리다이렉트(예: Apple 웹 로그인 후 `mutter://login-callback`) 인텐트를 처리한다.
-     * 세션 확립에 성공하면 [onSession]을 호출한다(앱 루트가 상태를 갱신하도록). 비-OAuth 인텐트는 무시된다.
+     * Apple 웹 OAuth 리다이렉트(`mutter://login-callback#access_token=...`)를 세션으로 확립한다.
+     * 성공 시에만 [onSession]을 호출한다. 우리 콜백이 아닌 인텐트(편지·초대 딥링크 등)는 무시된다.
+     *
+     * supabase-kt의 `handleDeeplinks`를 쓰지 않는 이유 — 정상 토큰이 아닌 콜백에서 앱이 죽는다:
+     *  1. 사용자가 Apple 화면에서 취소하면 `#error=access_denied`로 돌아오는데,
+     *     `parseSessionFromFragment`가 "No access token found"로 **메인 스레드에서** throw한다.
+     *     (fragment 세그먼트에 '='가 없으면 IndexOutOfBounds도 난다.)
+     *  2. 토큰이 만료·위조면 `retrieveUser`가 supabase-kt 내부 authScope에서 throw하는데,
+     *     그 시점엔 `handleDeeplinks`가 이미 리턴한 뒤라 **호출부 try/catch로도 잡히지 않는다.**
+     *
+     * 취소는 에러가 아니므로 조용히 삼키고 로그인 화면을 유지한다.
      */
     fun handleOAuthCallback(intent: Intent, onSession: () -> Unit) {
-        client.handleDeeplinks(intent) { onSession() }
+        val data = intent.data ?: return
+        if (data.scheme != OAUTH_SCHEME || data.host != OAUTH_HOST) return
+        val fragment = data.fragment ?: return
+
+        // 동기 파싱 — 취소/에러 콜백은 여기서 걸러진다.
+        val session = runCatching { client.auth.parseSessionFromFragment(fragment) }.getOrNull() ?: return
+
+        callbackScope.launch {
+            runCatching {
+                val user = client.auth.retrieveUser(session.accessToken)
+                client.auth.importSession(session.copy(user = user), autoRefresh = true)
+            }.onSuccess { onSession() }
+        }
     }
 }
