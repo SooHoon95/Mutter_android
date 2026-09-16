@@ -46,6 +46,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
+import com.efreedom.mutter.uicomponent.component.shareText
 import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
@@ -58,6 +59,7 @@ import com.efreedom.mutter.uicomponent.theme.Ivory
 import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.Surface as MutterSurface
 import com.efreedom.mutter.domain.AppLink
+import com.efreedom.mutter.domain.LetterShareMessage
 import com.efreedom.mutter.domain.model.DeliveryLink
 import java.time.Instant
 import java.time.LocalDate
@@ -117,10 +119,11 @@ fun DeliveryScreen(
                     onIssue = viewModel::issue,
                 )
 
-                state.lastIssuedToken?.let { token ->
+                state.lastIssuedLink?.let { link ->
                     IssuedLinkRow(
-                        token = token,
-                        onCopy = { copyToClipboard(context, AppLink.letter(token)) },
+                        link = link,
+                        onCopy = { copyToClipboard(context, AppLink.letter(link.token)) },
+                        onShare = { shareText(context, shareMessage(link)) },
                     )
                 }
 
@@ -128,6 +131,7 @@ fun DeliveryScreen(
                     ExistingLinksSection(
                         links = state.links,
                         onCopy = { token -> copyToClipboard(context, AppLink.letter(token)) },
+                        onShare = { link -> shareText(context, shareMessage(link)) },
                         onRevoke = viewModel::revoke,
                     )
                 }
@@ -261,9 +265,17 @@ private fun IssueCard(
     }
 }
 
+/** 공유 시트용 동봉 문구(암호·예약 반영) + 링크. iOS `LetterShareMessage` 대응. */
+private fun shareMessage(link: DeliveryLink): String =
+    LetterShareMessage.text(
+        url = AppLink.letter(link.token),
+        hasPassword = link.hasPassword,
+        revealAt = link.revealAt,
+    )
+
 @Composable
-private fun IssuedLinkRow(token: String, onCopy: () -> Unit) {
-    val link = AppLink.letter(token)
+private fun IssuedLinkRow(link: DeliveryLink, onCopy: () -> Unit, onShare: () -> Unit) {
+    val url = AppLink.letter(link.token)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -273,13 +285,17 @@ private fun IssuedLinkRow(token: String, onCopy: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = link,
+            text = url,
             style = MutterText.caption,
             color = InkMid,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        // 공유(동봉 문구 포함)가 1순위, 복사는 병기.
+        TextButton(onClick = onShare) {
+            Text("공유", style = MutterText.captionBold, color = GoldDeep)
+        }
         TextButton(onClick = onCopy) {
             Text("복사", style = MutterText.captionBold, color = GoldDeep)
         }
@@ -290,6 +306,7 @@ private fun IssuedLinkRow(token: String, onCopy: () -> Unit) {
 private fun ExistingLinksSection(
     links: List<DeliveryLink>,
     onCopy: (String) -> Unit,
+    onShare: (DeliveryLink) -> Unit,
     onRevoke: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -323,6 +340,9 @@ private fun ExistingLinksSection(
                     }
 
                     if (!link.revoked) {
+                        TextButton(onClick = { onShare(link) }) {
+                            Text("공유", style = MutterText.caption, color = Gold)
+                        }
                         TextButton(onClick = { onCopy(link.token) }) {
                             Text("복사", style = MutterText.caption, color = Gold)
                         }

@@ -7,6 +7,7 @@ import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.domain.AppLink
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Connection
+import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.LetterDraft
 import com.efreedom.mutter.domain.model.MusicCue
 import com.efreedom.mutter.domain.model.MusicSource
@@ -52,12 +53,15 @@ data class ComposeUiState(
     val sentLetterId: String? = null,
     val usePassword: Boolean = true,
     val password: String = "",
-    val issuedLink: String? = null,
+    /** 발급된 전달 링크. 암호·예약 여부가 공유 문구에 쓰인다. URL은 [issuedLinkUrl]로 파생. */
+    val issuedLink: DeliveryLink? = null,
     val connections: List<Connection> = emptyList(),
     val isSending: Boolean = false,
     val isIssuing: Boolean = false,
     val navigateUp: Boolean = false,
 ) {
+    val issuedLinkUrl: String? get() = issuedLink?.let { AppLink.letter(it.token) }
+
     /** 전달 링크 발급 가능 여부(암호 ON이면 암호 입력 필수). */
     val canIssueLink: Boolean get() = if (usePassword) password.isNotEmpty() else true
 
@@ -328,7 +332,7 @@ class ComposeViewModel @Inject constructor(
                     revealAt = null,
                 )
                 _state.value = _state.value.copy(
-                    issuedLink = AppLink.letter(link.token),
+                    issuedLink = link,
                     password = "",
                 )
             } catch (e: Throwable) {

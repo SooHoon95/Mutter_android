@@ -5,7 +5,6 @@ package com.efreedom.mutter.feature.connections
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -35,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.uicomponent.component.shareText
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.MutterIcon
@@ -98,7 +98,7 @@ fun ConnectionsScreen(
                 onCreateInvite = viewModel::createInvite,
                 onRevokeInvite = viewModel::revokeInvite,
                 onCopyLink = { link -> copyToClipboard(context, link) },
-                onShareLink = { link -> shareInvite(context, link) },
+                onShareLink = { link -> shareText(context, link) },
             )
 
             state.error?.let {
@@ -252,10 +252,3 @@ private fun copyToClipboard(context: Context, text: String) {
 }
 
 /** iOS ShareLink 대응 — OS 공유 시트(메시지/카카오톡 등)로 초대 링크를 내보낸다. */
-private fun shareInvite(context: Context, link: String) {
-    val send = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, link)
-    }
-    context.startActivity(Intent.createChooser(send, "초대 링크 공유"))
-}

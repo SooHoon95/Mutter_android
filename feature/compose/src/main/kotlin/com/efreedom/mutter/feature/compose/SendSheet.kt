@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -40,6 +41,8 @@ import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.MutterIcon
+import com.efreedom.mutter.uicomponent.component.shareText
+import com.efreedom.mutter.domain.LetterShareMessage
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
 import com.efreedom.mutter.uicomponent.theme.GoldSoft
@@ -69,6 +72,7 @@ internal fun SendSheet(
     var method by remember { mutableStateOf(SendMethod.LINK) }
     var linkCopied by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
 
     // linkCopied 자동 복구 (2초 후 원복). 시트는 닫지 않는다 — 닫기는 "완료"가 담당.
     LaunchedEffect(linkCopied) {
@@ -107,6 +111,7 @@ internal fun SendSheet(
                         clipboard.setText(AnnotatedString(link))
                         linkCopied = true
                     },
+                    onShare = { text -> shareText(context, text) },
                     onDone = viewModel::finishSend,
                 )
                 SendMethod.CONNECTION -> ConnectionTab(
@@ -176,8 +181,13 @@ private fun LinkTab(
     onPasswordChange: (String) -> Unit,
     onIssueLink: () -> Unit,
     onCopyLink: (String) -> Unit,
+    onShare: (String) -> Unit,
     onDone: () -> Unit,
 ) {
+    // issuedLink(backing field가 있는 val)는 스마트캐스트되지만 파생 getter(issuedLinkUrl)는 안 되므로 지역 변수로 고정.
+    val issued = state.issuedLink
+    val issuedUrl = state.issuedLinkUrl
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // 암호 보호 카드
         Row(
@@ -219,7 +229,7 @@ private fun LinkTab(
         }
 
         // 발급된 링크 미리보기
-        if (state.issuedLink != null) {
+        if (issuedUrl != null) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -231,14 +241,14 @@ private fun LinkTab(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    text = state.issuedLink,
+                    text = issuedUrl,
                     style = MutterText.caption,
                     color = InkMid,
                     maxLines = 1,
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(
-                    onClick = { onCopyLink(state.issuedLink) },
+                    onClick = { onCopyLink(issuedUrl) },
                     modifier = Modifier.size(24.dp),
                 ) {
                     MutterIcon(
@@ -250,11 +260,25 @@ private fun LinkTab(
             }
         }
 
-        // CTA 버튼
-        if (state.issuedLink != null) {
+        // CTA 3단 — 공유(동봉 문구+링크) > 복사(문구가 부담스러운 사용자용, 시트 유지) > 완료. iOS SendSheet 대응.
+        if (issued != null && issuedUrl != null) {
+            MutterButton(
+                text = "공유하기",
+                onClick = {
+                    onShare(
+                        LetterShareMessage.text(
+                            url = issuedUrl,
+                            hasPassword = issued.hasPassword,
+                            revealAt = issued.revealAt,
+                        ),
+                    )
+                },
+                leadingIconRes = DsR.drawable.share,
+            )
             MutterButton(
                 text = if (linkCopied) "복사됐어요" else "링크 복사",
-                onClick = { onCopyLink(state.issuedLink) },
+                onClick = { onCopyLink(issuedUrl) },
+                style = MutterButtonStyle.Secondary,
                 leadingIconRes = if (linkCopied) DsR.drawable.ic_check else DsR.drawable.copy,
             )
             MutterButton(

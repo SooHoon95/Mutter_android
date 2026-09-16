@@ -24,7 +24,8 @@ data class DeliveryUiState(
     /** 목록 새로고침(당겨서 새로고침) 진행 표시 — 발급/취소 버튼의 isLoading과 분리. */
     val isRefreshing: Boolean = false,
     val error: String? = null,
-    val lastIssuedToken: String? = null,
+    /** 방금 발급한 링크. 암호·예약 여부가 공유 문구에 쓰인다. */
+    val lastIssuedLink: DeliveryLink? = null,
 ) {
     val canIssue: Boolean get() = if (usePassword) password.isNotEmpty() else true
 }
@@ -73,7 +74,7 @@ class DeliveryViewModel @Inject constructor(
                     revealAt = if (st.useReveal) st.revealAt else null,
                 )
                 _state.value = _state.value.copy(
-                    lastIssuedToken = link.token,
+                    lastIssuedLink = link,
                     password = "",
                 )
                 load()
