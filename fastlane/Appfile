@@ -1,0 +1,4 @@
+# Play Console 서비스 계정 JSON 키 경로는 env로 받는다(키는 절대 커밋하지 않는다).
+#   export PLAY_JSON_KEY_PATH="$HOME/keys/play-service-account.json"
+json_key_file(ENV["PLAY_JSON_KEY_PATH"])
+package_name("com.efreedom.mutter")

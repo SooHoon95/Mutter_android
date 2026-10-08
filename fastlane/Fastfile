@@ -1,0 +1,66 @@
+# Fastfile — Mutter Android 배포 자동화 (Play Console)
+#
+# ── 사전 준비 (최초 1회) ──────────────────────────────────────────────────────
+# 1) Google Cloud에서 서비스 계정을 만들고 JSON 키를 내려받는다.
+#    Play Console → 사용자 및 권한 → 새 사용자 초대 → 서비스 계정 이메일 추가
+#    → 앱 권한: com.efreedom.mutter, "출시 관리"(트랙 업로드) 권한 부여.
+# 2) export PLAY_JSON_KEY_PATH="$HOME/keys/play-service-account.json"  (커밋 금지)
+# 3) secrets.properties에 RELEASE_* 서명 값, keystore/mutter-upload.jks 존재 확인.
+#
+# ── 실행 ─────────────────────────────────────────────────────────────────────
+#   fastlane android verify      # 서비스 계정 키 유효성만 확인(업로드 없음)
+#   fastlane android bundle      # 서명된 AAB 빌드만
+#   fastlane android internal    # 내부 테스트 트랙 업로드
+#   fastlane android production  # 프로덕션 트랙 업로드(검토 제출)
+#
+# 릴리스 노트는 fastlane/metadata/android/ko-KR/changelogs/<versionCode>.txt 를 쓴다.
+# 스토어 문구·스크린샷은 Play Console에서 관리하므로 업로드하지 않는다.
+
+default_platform(:android)
+
+PROJECT_ROOT = File.expand_path("..", __dir__)
+AAB_PATH     = File.join(PROJECT_ROOT, "app/build/outputs/bundle/release/app-release.aab")
+# 시스템 기본 JDK(26)는 Gradle 8.11이 거부한다 — 17을 강제한다.
+JAVA_17      = "/opt/homebrew/opt/openjdk@17"
+
+platform :android do
+  desc "서비스 계정 키로 Play API 접근 확인(업로드 없음)"
+  lane :verify do
+    validate_play_store_json_key(json_key: ENV["PLAY_JSON_KEY_PATH"])
+    UI.success("Play 서비스 계정 키 OK")
+  end
+
+  desc "서명된 릴리스 AAB 빌드"
+  lane :bundle do
+    # gradle 액션 대신 sh로 실행한다 — JAVA_HOME을 17로 고정해야 하기 때문이다.
+    sh("cd #{PROJECT_ROOT} && JAVA_HOME=#{JAVA_17} ./gradlew clean :app:bundleRelease --no-daemon")
+    UI.user_error!("AAB가 없다: #{AAB_PATH}") unless File.exist?(AAB_PATH)
+    UI.success("AAB 빌드 완료 → #{AAB_PATH}")
+  end
+
+  desc "내부 테스트 트랙 업로드"
+  lane :internal do
+    bundle
+    upload(track: "internal")
+  end
+
+  desc "프로덕션 트랙 업로드 — 업로드 즉시 Google 검토로 들어간다"
+  lane :production do
+    bundle
+    upload(track: "production")
+  end
+
+  private_lane :upload do |options|
+    upload_to_play_store(
+      track: options[:track],
+      aab: AAB_PATH,
+      metadata_path: File.join(PROJECT_ROOT, "fastlane/metadata/android"),
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: false,
+      release_status: "completed"
+    )
+    UI.success("#{options[:track]} 트랙 업로드 완료 — Play Console에서 상태를 확인하세요.")
+  end
+end
