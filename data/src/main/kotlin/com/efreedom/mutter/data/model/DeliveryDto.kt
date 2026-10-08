@@ -84,7 +84,7 @@ data class LetterPayloadDto(
     fun toDomain(): LetterPayload = LetterPayload(
         id = id,
         title = title,
-        body = LetterContentCodec.body(paragraphs),
+        blocks = LetterContentCodec.blocks(paragraphs),
         templateId = templateId,
         cue = LetterContentCodec.cue(paragraphs),
         audioDisabled = audioDisabled,

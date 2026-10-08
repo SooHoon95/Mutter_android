@@ -31,7 +31,7 @@ class LetterRepositoryImpl @Inject constructor(
                 LetterInsertDto(
                     ownerId = uid(),
                     title = draft.title,
-                    paragraphs = LetterContentCodec.paragraphs(draft.body, draft.cue),
+                    paragraphs = LetterContentCodec.paragraphs(draft.blocks, draft.cue),
                     templateId = draft.templateId,
                 ),
             ) { select() }
@@ -44,7 +44,7 @@ class LetterRepositoryImpl @Inject constructor(
             .update(
                 LetterUpdateDto(
                     title = draft.title,
-                    paragraphs = LetterContentCodec.paragraphs(draft.body, draft.cue),
+                    paragraphs = LetterContentCodec.paragraphs(draft.blocks, draft.cue),
                     templateId = draft.templateId,
                     updatedAt = Instant.now().toString(),
                 ),

@@ -7,6 +7,8 @@ import com.efreedom.mutter.domain.model.Counterpart
 import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.InboxItem
 import com.efreedom.mutter.domain.model.Letter
+import com.efreedom.mutter.domain.model.LetterBlock
+import com.efreedom.mutter.domain.model.LetterBlocks
 import com.efreedom.mutter.domain.model.LetterDraft
 import com.efreedom.mutter.domain.model.LetterOpenSummary
 import com.efreedom.mutter.domain.model.LetterPayload
@@ -14,6 +16,7 @@ import com.efreedom.mutter.domain.model.LetterWithStatus
 import com.efreedom.mutter.domain.model.MusicCue
 import com.efreedom.mutter.domain.model.MusicSource
 import com.efreedom.mutter.domain.model.Profile
+import com.efreedom.mutter.domain.model.SavedLetter
 import com.efreedom.mutter.domain.model.ScValidation
 import com.efreedom.mutter.domain.model.SentLetterSummary
 import com.efreedom.mutter.domain.model.Session
@@ -26,6 +29,7 @@ import com.efreedom.mutter.domain.repository.AuthRepository
 import com.efreedom.mutter.domain.repository.ConnectionRepository
 import com.efreedom.mutter.domain.repository.DeliveryRepository
 import com.efreedom.mutter.domain.repository.InboxRepository
+import com.efreedom.mutter.domain.repository.LetterPhotoRepository
 import com.efreedom.mutter.domain.repository.LetterRepository
 import com.efreedom.mutter.domain.repository.ProfileRepository
 import com.efreedom.mutter.domain.repository.PushTokenRepository
@@ -88,13 +92,70 @@ class InboxUseCase @Inject constructor(private val repository: InboxRepository) 
     suspend fun remove(letterId: String) = repository.remove(letterId)
 }
 
-class LetterUseCase @Inject constructor(private val repository: LetterRepository) {
-    suspend fun create(draft: LetterDraft): Letter = repository.create(draft)
+class LetterUseCase @Inject constructor(
+    private val repository: LetterRepository,
+    private val photos: LetterPhotoRepository,
+) {
+    suspend fun create(draft: LetterDraft): Letter = repository.create(withoutPendingPhotos(draft))
     suspend fun update(id: String, draft: LetterDraft) = repository.update(id, draft)
     suspend fun letter(id: String): Letter? = repository.letter(id)
     suspend fun myLetters(): List<Letter> = repository.myLetters()
     suspend fun myLettersWithStatus(): List<LetterWithStatus> = repository.myLettersWithStatus()
-    suspend fun delete(id: String) = repository.delete(id)
+
+    /** 편지를 지운 뒤 그 폴더의 사진도 지운다(best effort — 실패해도 편지 삭제는 성공으로 본다). */
+    suspend fun delete(id: String) {
+        repository.delete(id)
+        runCatching { photos.deleteAll(id) }
+    }
+
+    /**
+     * 사진 포함 저장(계약 §5). 순서가 중요하다 — Storage 경로에 letterId가 들어가므로 id가 먼저 있어야 한다.
+     *  1. 새 편지면 먼저 생성해 id를 확보한다(이때는 아직 경로가 없는 사진을 뺀 채로 저장).
+     *     생성 직후 [onCreated]로 id를 알린다 — 뒤 단계가 실패해도 호출부가 edit 모드로 승격해 중복 생성을 막게.
+     *  2. 대기 중인 사진을 업로드해 path를 받는다. 하나라도 실패하면 throw(저장 실패). 이미 올라간 객체는
+     *     남겨 둔다 — 다음 저장의 4단계가 정리한다.
+     *  3. path가 채워진 paragraphs로 update한다.
+     *  4. [previousPhotoPaths]에 있었지만 지금은 없는 경로를 지운다(best effort).
+     */
+    suspend fun saveWithPhotos(
+        letterId: String?,
+        draft: LetterDraft,
+        previousPhotoPaths: Set<String>,
+        onCreated: (String) -> Unit = {},
+    ): SavedLetter {
+        val hasPending = draft.blocks.any { it is LetterBlock.Photo && it.photo.path == null }
+        val id = letterId ?: repository.create(withoutPendingPhotos(draft)).id.also(onCreated)
+
+        val resolved = draft.blocks.map { block ->
+            if (block is LetterBlock.Photo && block.photo.path == null) {
+                val jpeg = block.photo.pendingJpeg
+                    ?: throw MutterError.Server("사진을 올릴 수 없었어요. 다시 시도해 주세요.")
+                val path = photos.upload(id, jpeg)
+                LetterBlock.Photo(block.photo.copy(path = path, pendingJpeg = null))
+            } else {
+                block
+            }
+        }
+        // 새 편지이고 올릴 사진도 없으면 1단계 생성 내용이 이미 최종본이다 — 같은 내용을 다시 update하지 않는다.
+        if (letterId != null || hasPending) {
+            repository.update(id, draft.copy(blocks = resolved))
+        }
+
+        val removed = previousPhotoPaths - LetterBlocks.photoPaths(resolved)
+        if (removed.isNotEmpty()) runCatching { photos.delete(removed) }
+        return SavedLetter(id = id, blocks = resolved)
+    }
+
+    /** 아직 업로드 전(path 없음) 사진 블록을 뺀다 — paragraphs에는 경로가 있는 사진만 들어갈 수 있다. */
+    private fun withoutPendingPhotos(draft: LetterDraft): LetterDraft =
+        draft.copy(blocks = draft.blocks.filterNot { it is LetterBlock.Photo && it.photo.path == null })
+}
+
+/** 사진 서명 URL 조회(뷰어·이어쓰기 썸네일). 서명 URL은 1시간 유효라 화면 진입 때 한 번만 받는다. */
+class LetterPhotoUseCase @Inject constructor(private val repository: LetterPhotoRepository) {
+    suspend fun signedUrls(token: String, password: String?): Map<String, String> =
+        repository.signedUrls(token, password)
+    suspend fun signedUrls(letterId: String): Map<String, String> = repository.signedUrls(letterId)
 }
 
 class ReceiptUseCase @Inject constructor(private val repository: ReceiptRepository) {

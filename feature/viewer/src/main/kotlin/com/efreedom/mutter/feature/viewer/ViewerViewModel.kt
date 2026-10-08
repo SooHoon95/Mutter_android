@@ -8,10 +8,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.domain.error.MutterError
+import com.efreedom.mutter.domain.model.LetterBlocks
 import com.efreedom.mutter.domain.model.LetterPayload
 import com.efreedom.mutter.domain.usecase.AudioUseCase
 import com.efreedom.mutter.domain.usecase.AuthUseCase
 import com.efreedom.mutter.domain.usecase.DeliveryUseCase
+import com.efreedom.mutter.domain.usecase.LetterPhotoUseCase
 import com.efreedom.mutter.domain.usecase.LetterUseCase
 import com.efreedom.mutter.domain.usecase.ReceiptUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -57,6 +59,7 @@ class ViewerViewModel @Inject constructor(
     private val receiptUseCase: ReceiptUseCase,
     private val letterUseCase: LetterUseCase,
     private val authUseCase: AuthUseCase,
+    private val letterPhotoUseCase: LetterPhotoUseCase,
     audioUseCase: AudioUseCase,
 ) : ViewModel() {
 
@@ -82,6 +85,13 @@ class ViewerViewModel @Inject constructor(
      * 따로 호출하지 않고 인증 + 토큰 수신 + 로드 성공일 때만 표시한다.
      */
     var savedToInbox by mutableStateOf(false)
+        private set
+
+    /**
+     * 사진 path → 서명 URL(1시간 유효). 본문을 받은 직후 같은 모드로 한 번만 받는다.
+     * 실패하면 비어 있고 사진 자리는 플레이스홀더로 남는다 — 본문 표시는 이것과 무관하다.
+     */
+    var photoUrls by mutableStateOf<Map<String, String>>(emptyMap())
         private set
 
     private var source: Source? = null
@@ -159,7 +169,7 @@ class ViewerViewModel @Inject constructor(
                     LetterPayload(
                         id = letter.id,
                         title = letter.title,
-                        body = letter.body,
+                        blocks = letter.blocks,
                         templateId = letter.templateId,
                         cue = letter.cue,
                         audioDisabled = false,
@@ -174,6 +184,18 @@ class ViewerViewModel @Inject constructor(
             }
     }
 
+    /** 수신 링크면 토큰(+입력한 암호), 내 편지 미리보기면 letterId(사용자 JWT)로 서명 URL을 받는다. */
+    private suspend fun loadPhotoUrls() {
+        val urls = runCatching {
+            when (val src = source) {
+                is Source.Token -> letterPhotoUseCase.signedUrls(src.token, password)
+                is Source.MyLetter -> letterPhotoUseCase.signedUrls(src.letterId)
+                null -> emptyMap()
+            }
+        }.getOrDefault(emptyMap())
+        photoUrls = urls
+    }
+
     /**
      * 상태를 Ready로 전환하고, 오디오가 활성화된 편지라면 큐를 준비한다.
      * SoundCloud 소스는 [player.prepare] 이전에 [player.currentSource] 가 노출되고,
@@ -181,6 +203,10 @@ class ViewerViewModel @Inject constructor(
      */
     private suspend fun present(payload: LetterPayload) {
         _state.value = ViewerState.Ready(payload)
+        // 오디오 준비(prepare)는 오래 걸릴 수 있어 서명 URL 요청을 따로 띄운다 — 사진이 음악을 기다리지 않게.
+        if (LetterBlocks.photoPaths(payload.blocks).isNotEmpty()) {
+            viewModelScope.launch { loadPhotoUrls() }
+        }
         val cue = payload.cue
         if (!payload.audioDisabled && cue != null) {
             player.prepare(cue)

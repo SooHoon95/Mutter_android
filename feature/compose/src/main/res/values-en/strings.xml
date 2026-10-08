@@ -1,0 +1,13 @@
+<resources>
+    <string name="compose_soundcloud_browse">Find on SoundCloud</string>
+    <string name="compose_soundcloud_picker_title">Pick from SoundCloud</string>
+    <string name="compose_soundcloud_picker_hint">Open a track page to add it</string>
+    <string name="compose_soundcloud_picker_ready">Add this track to your letter?</string>
+    <string name="compose_soundcloud_pick">Add this track</string>
+    <!-- Letter photos (between paragraphs, up to 5). -->
+    <string name="compose_photo_add">Add photo (%1$d/%2$d)</string>
+    <string name="compose_photo_adding">Preparing photo…</string>
+    <string name="compose_photo_remove">Remove photo</string>
+    <string name="compose_photo_failed">Couldn\'t load that photo. Please choose another one.</string>
+    <string name="compose_photo_description">Letter photo</string>
+</resources>

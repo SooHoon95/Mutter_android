@@ -25,6 +25,8 @@ dependencies {
     api(libs.supabase.auth)
     api(libs.supabase.postgrest)
     api(libs.supabase.functions)
+    // 편지 사진(비공개 버킷 letter-photos) 업로드·삭제.
+    api(libs.supabase.storage)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.kotlinx.serialization.json)
     // OAuth 콜백을 자체 스코프에서 처리한다(SupabaseProvider.handleOAuthCallback).

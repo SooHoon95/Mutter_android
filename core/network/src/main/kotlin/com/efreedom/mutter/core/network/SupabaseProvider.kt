@@ -11,6 +11,7 @@ import io.github.jan.supabase.auth.parseSessionFromFragment
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.storage.Storage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,6 +59,7 @@ class SupabaseProvider(
         }
         install(Postgrest)
         install(Functions)
+        install(Storage)
     }
 
     /**

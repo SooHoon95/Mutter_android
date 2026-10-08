@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -55,6 +56,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.uicomponent.R as DsR
+import com.efreedom.mutter.uicomponent.component.LetterPhotoImage
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterEqualizer
 import com.efreedom.mutter.uicomponent.component.MutterIcon
@@ -72,7 +74,9 @@ import com.efreedom.mutter.uicomponent.theme.LetterTheme
 import com.efreedom.mutter.uicomponent.theme.LetterThemes
 import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.OnGold
+import com.efreedom.mutter.domain.model.LetterBlock
 import com.efreedom.mutter.domain.model.LetterPayload
+import com.efreedom.mutter.domain.model.LetterPhoto
 import com.efreedom.mutter.domain.model.MusicCue
 import com.efreedom.mutter.domain.model.MusicSource
 import java.time.Instant
@@ -131,7 +135,7 @@ fun ViewerScreen(
             is ViewerState.Failed -> FailedContent(s.message)
             is ViewerState.Ready -> {
                 if (isOpened) {
-                    LetterReader(payload = s.payload, player = viewModel.player)
+                    LetterReader(payload = s.payload, player = viewModel.player, photoUrls = viewModel.photoUrls)
                     // 받은함 자동 저장 표시(인증 + 토큰 수신 시). iOS ViewerView savedToInbox 대응.
                     if (viewModel.savedToInbox) {
                         SavedToInboxBadge(
@@ -354,10 +358,12 @@ private fun OpenGate(
 private fun LetterReader(
     payload: LetterPayload,
     player: LetterAudioPlayer,
+    photoUrls: Map<String, String>,
 ) {
     val theme = remember(payload.templateId) { LetterThemes.byId(payload.templateId) }
-    // 줄 단위 등장(iOS per-line reveal) — 하드 개행(\n)으로 분할. 빈 줄은 문단 간격으로 렌더.
-    val lines = remember(payload.body) { payload.body.split("\n") }
+    // 줄 단위 등장(iOS per-line reveal) — 텍스트 블록을 하드 개행(\n)으로 분할, 빈 줄은 문단 간격.
+    // 사진 블록은 제자리에서 한 아이템으로 끼워 같은 등장 애니메이션을 탄다.
+    val items = remember(payload.blocks) { readerItems(payload.blocks) }
     val hasPlayer = !payload.audioDisabled && payload.cue != null && !player.isUnavailable
 
     // 아이템 키 기반 등장 추적 — 한 번 보인 아이템은 사라지지 않는다.
@@ -444,8 +450,30 @@ private fun LetterReader(
             }
 
             // ── 줄별 계단식 등장 ───────────────────────────────────────────
-            itemsIndexed(lines, key = { i, _ -> "line-$i" }) { index, line ->
-                if (line.isBlank()) {
+            itemsIndexed(items, key = { i, _ -> "line-$i" }) { index, item ->
+                val line = (item as? ReaderItem.Line)?.text
+                if (item is ReaderItem.Photo) {
+                    val appeared = "line-$index" in appearedKeys
+                    val alpha by animateFloatAsState(
+                        targetValue = if (appeared) 1f else 0f,
+                        animationSpec = tween(durationMillis = 600, delayMillis = 80),
+                        label = "photo-alpha-$index",
+                    )
+                    val photo = item.photo
+                    LetterPhotoImage(
+                        // 서명 URL은 열 때마다 바뀌므로 캐시 키는 path.
+                        cacheKey = photo.path ?: photo.id,
+                        url = photo.path?.let { photoUrls[it] },
+                        bytes = null,
+                        width = photo.width,
+                        height = photo.height,
+                        placeholderColor = theme.accent.copy(alpha = 0.08f),
+                        contentDescription = stringResource(R.string.viewer_photo_description),
+                        modifier = Modifier
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                            .alpha(alpha),
+                    )
+                } else if (line.isNullOrBlank()) {
                     // 빈 줄 = 문단 간격.
                     Spacer(modifier = Modifier.height(10.dp))
                 } else {
@@ -505,6 +533,19 @@ private fun LetterReader(
                     .padding(bottom = 12.dp),
             )
         }
+    }
+}
+
+/** 열람 아이템 — 본문 한 줄 또는 사진 한 장. */
+private sealed interface ReaderItem {
+    data class Line(val text: String) : ReaderItem
+    data class Photo(val photo: LetterPhoto) : ReaderItem
+}
+
+private fun readerItems(blocks: List<LetterBlock>): List<ReaderItem> = blocks.flatMap { block ->
+    when (block) {
+        is LetterBlock.Text -> block.text.split("\n").map { ReaderItem.Line(it) }
+        is LetterBlock.Photo -> listOf(ReaderItem.Photo(block.photo))
     }
 }
 

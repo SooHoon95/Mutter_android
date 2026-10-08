@@ -39,7 +39,7 @@ data class LetterRow(
     fun toDomain(): Letter = Letter(
         id = id,
         title = title,
-        body = LetterContentCodec.body(paragraphs),
+        blocks = LetterContentCodec.blocks(paragraphs),
         templateId = templateId,
         cue = LetterContentCodec.cue(paragraphs),
     )
@@ -61,7 +61,7 @@ data class LetterWithStatusRow(
         letter = Letter(
             id = letterId,
             title = title,
-            body = LetterContentCodec.body(paragraphs),
+            blocks = LetterContentCodec.blocks(paragraphs),
             templateId = templateId,
             cue = LetterContentCodec.cue(paragraphs),
         ),

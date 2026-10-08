@@ -1,5 +1,8 @@
 package com.efreedom.mutter.feature.compose
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,7 +25,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -34,20 +40,24 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.domain.model.LetterPhoto
 import com.efreedom.mutter.domain.model.MusicSource
 import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.MutterEqualizer
+import com.efreedom.mutter.uicomponent.component.LetterPhotoImage
 import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.SoundCloudAttribution
 import com.efreedom.mutter.uicomponent.theme.Gold
@@ -92,6 +102,18 @@ fun ComposeScreen(
         )
     }
 
+    // 시스템 Photo Picker(이미지만) — 권한 요청 없이 고른 한 장만 앱에 넘어온다.
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let(viewModel::addPhoto)
+    }
+
+    if (state.showSoundCloudPicker) {
+        SoundCloudPickerSheet(
+            onPick = viewModel::applyPickedSoundCloud,
+            onClose = { viewModel.setShowSoundCloudPicker(false) },
+        )
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -126,15 +148,31 @@ fun ComposeScreen(
                 PaperSection(
                     theme = theme,
                     title = state.title,
-                    content = state.content,
+                    blocks = state.blocks,
+                    photoUrls = state.photoUrls,
                     onTitleChange = viewModel::onTitleChange,
-                    onContentChange = viewModel::onContentChange,
+                    onTextChange = viewModel::onTextBlockChange,
+                    onTextFocused = viewModel::onTextBlockFocused,
+                    onRemovePhoto = viewModel::removePhoto,
+                )
+                MutterButton(
+                    text = if (state.isAddingPhoto) {
+                        stringResource(R.string.compose_photo_adding)
+                    } else {
+                        stringResource(R.string.compose_photo_add, state.photoCount, LetterPhoto.MAX_PER_LETTER)
+                    },
+                    onClick = {
+                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    style = MutterButtonStyle.Secondary,
+                    enabled = state.canAddPhoto,
                 )
                 MusicSection(
                     state = state,
                     isPlaying = viewModel.player.isPlaying,
                     isUnavailable = viewModel.player.isUnavailable,
                     onUrlChange = viewModel::onSoundcloudUrlChange,
+                    onBrowse = { viewModel.setShowSoundCloudPicker(true) },
                     onApply = viewModel::applySoundCloudUrl,
                     onPreview = viewModel::previewAudio,
                 )
@@ -204,16 +242,19 @@ private fun ThemePicker(
 
 /**
  * 선택된 테마를 배경·폰트·색상에 반영한 편집 영역.
- * 제목 + 구분선 + 본문. BasicTextField로 Material 데코 없이 테마 스타일 적용.
- * iOS paper 섹션 이식.
+ * 제목 + 구분선 + 본문 블록(텍스트 칸·사진 카드 교차). BasicTextField로 Material 데코 없이 테마 스타일 적용.
+ * iOS paper 섹션 + 블록 편집기 이식.
  */
 @Composable
 private fun PaperSection(
     theme: LetterTheme,
     title: String,
-    content: String,
+    blocks: List<ComposeBlock>,
+    photoUrls: Map<String, String>,
     onTitleChange: (String) -> Unit,
-    onContentChange: (String) -> Unit,
+    onTextChange: (String, String) -> Unit,
+    onTextFocused: (String) -> Unit,
+    onRemovePhoto: (String) -> Unit,
 ) {
     val titleStyle = TextStyle(
         fontFamily = theme.fontFamily,
@@ -260,24 +301,82 @@ private fun PaperSection(
 
         HorizontalDivider(color = theme.border, thickness = 0.5.dp)
 
-        // 본문 필드
-        BasicTextField(
-            value = content,
-            onValueChange = onContentChange,
-            textStyle = bodyStyle,
-            cursorBrush = SolidColor(theme.accent),
-            modifier = Modifier
-                .fillMaxWidth()
-                .defaultMinSize(minHeight = 260.dp),
-            decorationBox = { innerTextField ->
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    if (content.isEmpty()) {
-                        Text("편지를 써보세요.", style = bodyStyle.copy(color = theme.muted))
-                    }
-                    innerTextField()
+        // 본문 블록 — 사진이 없으면 예전처럼 큰 텍스트 칸 하나, 있으면 사진 사이 칸은 한 줄 높이부터.
+        val singleBlock = blocks.size == 1
+        val lastTextId = blocks.lastOrNull { it is ComposeBlock.Text }?.id
+        blocks.forEach { block ->
+            key(block.id) {
+                when (block) {
+                    is ComposeBlock.Text -> BasicTextField(
+                        value = block.text,
+                        onValueChange = { onTextChange(block.id, it) },
+                        textStyle = bodyStyle,
+                        cursorBrush = SolidColor(theme.accent),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(
+                                minHeight = when {
+                                    singleBlock -> 260.dp
+                                    block.id == lastTextId -> 120.dp
+                                    else -> 28.dp
+                                },
+                            )
+                            .onFocusChanged { if (it.isFocused) onTextFocused(block.id) },
+                        decorationBox = { innerTextField ->
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                if (singleBlock && block.text.isEmpty()) {
+                                    Text("편지를 써보세요.", style = bodyStyle.copy(color = theme.muted))
+                                }
+                                innerTextField()
+                            }
+                        },
+                    )
+                    is ComposeBlock.Photo -> PhotoCard(
+                        photo = block.photo,
+                        url = block.photo.path?.let { photoUrls[it] },
+                        theme = theme,
+                        onRemove = { onRemovePhoto(block.id) },
+                    )
                 }
-            },
+            }
+        }
+    }
+}
+
+/** 본문 사이 사진 카드 + 우상단 삭제 버튼. 업로드 전이면 대기 바이트로, 이후엔 서명 URL로 그린다. */
+@Composable
+private fun PhotoCard(
+    photo: LetterPhoto,
+    url: String?,
+    theme: LetterTheme,
+    onRemove: () -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        LetterPhotoImage(
+            cacheKey = photo.path ?: photo.id,
+            url = url,
+            bytes = photo.pendingJpeg,
+            width = photo.width,
+            height = photo.height,
+            placeholderColor = theme.accent.copy(alpha = 0.08f),
+            contentDescription = stringResource(R.string.compose_photo_description),
         )
+        IconButton(
+            onClick = onRemove,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(6.dp)
+                .size(32.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Ink.copy(alpha = 0.55f)),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = stringResource(R.string.compose_photo_remove),
+                tint = Ivory,
+                modifier = Modifier.size(18.dp),
+            )
+        }
     }
 }
 
@@ -293,6 +392,7 @@ private fun MusicSection(
     isPlaying: Boolean,
     isUnavailable: Boolean,
     onUrlChange: (String) -> Unit,
+    onBrowse: () -> Unit,
     onApply: () -> Unit,
     onPreview: () -> Unit,
 ) {
@@ -317,6 +417,12 @@ private fun MusicSection(
                 onToggle = onPreview,
             )
         }
+
+        MutterButton(
+            text = stringResource(R.string.compose_soundcloud_browse),
+            onClick = onBrowse,
+            style = MutterButtonStyle.Secondary,
+        )
 
         // URL 입력 + 적용 버튼
         Row(

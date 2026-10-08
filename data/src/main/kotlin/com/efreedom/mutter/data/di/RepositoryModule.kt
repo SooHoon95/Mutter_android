@@ -5,6 +5,7 @@ import com.efreedom.mutter.data.repository.AuthRepositoryImpl
 import com.efreedom.mutter.data.repository.ConnectionRepositoryImpl
 import com.efreedom.mutter.data.repository.DeliveryRepositoryImpl
 import com.efreedom.mutter.data.repository.InboxRepositoryImpl
+import com.efreedom.mutter.data.repository.LetterPhotoRepositoryImpl
 import com.efreedom.mutter.data.repository.LetterRepositoryImpl
 import com.efreedom.mutter.data.repository.ProfileRepositoryImpl
 import com.efreedom.mutter.data.repository.PushTokenRepositoryImpl
@@ -18,6 +19,7 @@ import com.efreedom.mutter.domain.repository.AuthRepository
 import com.efreedom.mutter.domain.repository.ConnectionRepository
 import com.efreedom.mutter.domain.repository.DeliveryRepository
 import com.efreedom.mutter.domain.repository.InboxRepository
+import com.efreedom.mutter.domain.repository.LetterPhotoRepository
 import com.efreedom.mutter.domain.repository.LetterRepository
 import com.efreedom.mutter.domain.repository.ProfileRepository
 import com.efreedom.mutter.domain.repository.PushTokenRepository
@@ -48,6 +50,9 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindLetterRepository(impl: LetterRepositoryImpl): LetterRepository
+
+    @Binds @Singleton
+    abstract fun bindLetterPhotoRepository(impl: LetterPhotoRepositoryImpl): LetterPhotoRepository
 
     @Binds @Singleton
     abstract fun bindDeliveryRepository(impl: DeliveryRepositoryImpl): DeliveryRepository

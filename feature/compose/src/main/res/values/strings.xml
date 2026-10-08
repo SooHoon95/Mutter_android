@@ -1,0 +1,14 @@
+<resources>
+    <!-- 인앱 SoundCloud 탐색(편지 음악 고르기). 기본(values)은 한국어 — app 모듈 관례와 동일. iOS compose.soundcloud.* 대응. -->
+    <string name="compose_soundcloud_browse">SoundCloud에서 찾기</string>
+    <string name="compose_soundcloud_picker_title">SoundCloud에서 고르기</string>
+    <string name="compose_soundcloud_picker_hint">곡 페이지를 열면 이 곡을 넣을 수 있어요</string>
+    <string name="compose_soundcloud_picker_ready">이 곡을 편지에 넣을까요?</string>
+    <string name="compose_soundcloud_pick">이 곡 넣기</string>
+    <!-- 편지 사진(본문 사이사이, 최대 5장). iOS compose.photo.* 대응. -->
+    <string name="compose_photo_add">사진 넣기 (%1$d/%2$d)</string>
+    <string name="compose_photo_adding">사진 준비 중…</string>
+    <string name="compose_photo_remove">사진 빼기</string>
+    <string name="compose_photo_failed">사진을 불러올 수 없었어요. 다른 사진을 골라 주세요.</string>
+    <string name="compose_photo_description">편지 사진</string>
+</resources>

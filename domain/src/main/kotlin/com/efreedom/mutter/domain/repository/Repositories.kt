@@ -74,6 +74,22 @@ interface LetterRepository {
     suspend fun delete(id: String)
 }
 
+/**
+ * 편지 사진 저장소(Storage 버킷 `letter-photos`) + 서명 URL 발급(Edge Function `letter-photo-urls`).
+ * 버킷이 비공개라 사진은 항상 서명 URL로만 본다. iOS LetterPhotoRepository 대응.
+ */
+interface LetterPhotoRepository {
+    /** JPEG을 `<uid>/<letterId>/<uuid>.jpg`에 올리고 그 경로를 돌려준다. */
+    suspend fun upload(letterId: String, jpeg: ByteArray): String
+    suspend fun delete(paths: Collection<String>)
+    /** `<uid>/<letterId>/` 아래 객체를 모두 지운다(편지 삭제 시). */
+    suspend fun deleteAll(letterId: String)
+    /** 수신자 모드 — 링크 토큰(+암호)으로 path→서명 URL. */
+    suspend fun signedUrls(token: String, password: String?): Map<String, String>
+    /** 소유자 모드 — 로그인 사용자 JWT + letterId로 path→서명 URL. */
+    suspend fun signedUrls(letterId: String): Map<String, String>
+}
+
 interface ReceiptRepository {
     suspend fun recordOpen(token: String)
     suspend fun myLetterOpens(): List<LetterOpenSummary>
