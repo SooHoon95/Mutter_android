@@ -24,6 +24,21 @@ AAB_PATH     = File.join(PROJECT_ROOT, "app/build/outputs/bundle/release/app-rel
 JAVA_17      = "/opt/homebrew/opt/openjdk@17"
 
 platform :android do
+  # app/build.gradle.kts의 versionName(스토어 표시 버전).
+  def version_name
+    File.read(File.join(PROJECT_ROOT, "app/build.gradle.kts"))[/versionName\s*=\s*"([\d.]+)"/, 1]
+  end
+
+  # 업로드 성공 후 Supabase app_config.latest_version 갱신(웹 저장소 스크립트 재사용).
+  # min_version(강제 업데이트)은 건드리지 않는다 — 검토 통과 전에 올리면 사용자가 받을 수 없는 버전으로 강제된다.
+  # 실패해도 업로드는 이미 끝났으니 경고만 남긴다.
+  def set_latest_version(platform, version)
+    web_dir = ENV["MUTTER_WEB_DIR"] || File.expand_path("../letter-app", PROJECT_ROOT)
+    sh("#{web_dir}/scripts/set-latest-version.sh", platform, version.to_s)
+  rescue StandardError => e
+    UI.important("app_config.latest_version 갱신 실패(#{platform} #{version}) — 수동 실행: #{web_dir}/scripts/set-latest-version.sh #{platform} #{version}\n#{e.message}")
+  end
+
   desc "서비스 계정 키로 Play API 접근 확인(업로드 없음)"
   lane :verify do
     validate_play_store_json_key(json_key: ENV["PLAY_JSON_KEY_PATH"])
@@ -44,10 +59,11 @@ platform :android do
     upload(track: "internal")
   end
 
-  desc "프로덕션 트랙 업로드 — 업로드 즉시 Google 검토로 들어간다"
+  desc "프로덕션 트랙 업로드 — 업로드 즉시 Google 검토로 들어간다. 성공하면 app_config.latest_version 갱신"
   lane :production do
     bundle
     upload(track: "production")
+    set_latest_version("android", version_name)
   end
 
   private_lane :upload do |options|
