@@ -55,6 +55,8 @@ object LetterContentCodec {
      * paragraphs → blocks. order 정렬 후,
      * - photo가 있는 단락은 사진 블록(단락 id를 사진 id로 재사용 — 다시 저장해도 id가 안정적이다).
      * - 연속된 텍스트 단락은 "\n\n"으로 이어 텍스트 블록 하나로 합친다(편집기에서 한 칸으로 보이게).
+     * - 중간의 빈 단락은 작성자가 넣은 여분의 빈 줄이라 그대로 잇고, 블록 앞뒤 공백만 걷는다
+     *   (사진만 있는 편지의 큐 자리채움 단락은 이렇게 사라진다). iOS·웹 코덱과 동일.
      */
     fun blocks(from: List<ParagraphDto>): List<LetterBlock> {
         val result = mutableListOf<LetterBlock>()
@@ -66,16 +68,18 @@ object LetterContentCodec {
                 )
                 continue
             }
-            // 빈 텍스트 단락(사진만 있는 편지의 큐 앵커 등)은 블록으로 만들지 않는다 — iOS 코덱과 동일.
-            if (p.text.isBlank()) continue
+            val text = p.text.trimEnd()
             val last = result.lastOrNull()
             if (last is LetterBlock.Text) {
-                result[result.lastIndex] = LetterBlock.Text(last.text + "\n\n" + p.text)
+                result[result.lastIndex] = LetterBlock.Text(last.text + "\n\n" + text)
             } else {
-                result += LetterBlock.Text(p.text)
+                result += LetterBlock.Text(text)
             }
         }
-        return result
+        return result.mapNotNull { block ->
+            if (block !is LetterBlock.Text) return@mapNotNull block
+            block.text.trim().takeIf { it.isNotEmpty() }?.let(LetterBlock::Text)
+        }
     }
 
     /** paragraphs → body: 텍스트 단락만 order 정렬 후 "\n\n" 연결(사진 단락 제외). */
@@ -102,11 +106,12 @@ object LetterContentCodec {
         val drafts = mutableListOf<Pair<String, ParagraphPhotoDto?>>()
         for (block in blocks) {
             when (block) {
-                // 앞뒤 공백을 다듬고 빈 조각은 버린다(끝의 빈 줄이 빈 단락으로 쌓이지 않게 — iOS 코덱과 동일).
-                is LetterBlock.Text -> block.text.split("\n\n")
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .forEach { drafts += it to null }
+                // 빈 조각은 버리지 않는다 — 빈 줄을 여러 번 넣은 자리는 빈 단락("")이나 "\n"으로 시작하는 단락으로 남아
+                // 편지지에서 그만큼 빈 줄로 보인다(구 형식과 같은 저장 모양). 블록 앞뒤와 조각 끝 공백만 걷고
+                // (공백뿐인 줄은 "") 앞 들여쓰기·개행은 둔다. iOS·웹 코덱과 동일.
+                is LetterBlock.Text -> block.text.trim().takeIf { it.isNotEmpty() }
+                    ?.split("\n\n")
+                    ?.forEach { drafts += it.trimEnd() to null }
                 is LetterBlock.Photo -> {
                     val path = requireNotNull(block.photo.path) { "업로드 전 사진은 paragraphs로 저장할 수 없다" }
                     drafts += "" to ParagraphPhotoDto(path, block.photo.width, block.photo.height)
