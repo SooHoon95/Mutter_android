@@ -3,6 +3,7 @@ package com.efreedom.mutter.domain.repository
 import com.efreedom.mutter.domain.model.Connection
 import com.efreedom.mutter.domain.model.ConnectInvite
 import com.efreedom.mutter.domain.model.Counterpart
+import com.efreedom.mutter.domain.model.DeletedLetter
 import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.InboxItem
 import com.efreedom.mutter.domain.model.Letter
@@ -71,7 +72,14 @@ interface LetterRepository {
     suspend fun letter(id: String): Letter?
     suspend fun myLetters(): List<Letter>
     suspend fun myLettersWithStatus(): List<LetterWithStatus>
+    /** 서버(뷰 letters의 INSTEAD OF DELETE 트리거)가 영구 삭제 대신 삭제함으로 보관한다. */
     suspend fun delete(id: String)
+    /** 삭제함 목록(최근 삭제순). */
+    suspend fun deletedLetters(): List<DeletedLetter>
+    /** 삭제함 → 원래 목록으로 되살린다. 대상이 없으면 NotFound. */
+    suspend fun restore(id: String)
+    /** 삭제함에 있는 편지를 영구 삭제한다(되돌릴 수 없음). 사진 정리는 호출부 몫. */
+    suspend fun purge(id: String)
 }
 
 /**
@@ -82,7 +90,7 @@ interface LetterPhotoRepository {
     /** JPEG을 `<uid>/<letterId>/<uuid>.jpg`에 올리고 그 경로를 돌려준다. */
     suspend fun upload(letterId: String, jpeg: ByteArray): String
     suspend fun delete(paths: Collection<String>)
-    /** `<uid>/<letterId>/` 아래 객체를 모두 지운다(편지 삭제 시). */
+    /** `<uid>/<letterId>/` 아래 객체를 모두 지운다(편지 영구 삭제 시 — 삭제함 보관 중엔 사진을 남긴다). */
     suspend fun deleteAll(letterId: String)
     /** 수신자 모드 — 링크 토큰(+암호)으로 path→서명 URL. */
     suspend fun signedUrls(token: String, password: String?): Map<String, String>

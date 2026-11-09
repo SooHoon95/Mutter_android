@@ -18,6 +18,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -44,6 +46,8 @@ import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.MutterImage
+import com.efreedom.mutter.uicomponent.component.MutterSnackbarHost
+import com.efreedom.mutter.uicomponent.component.showUndo
 import com.efreedom.mutter.uicomponent.component.PullableFullSizeBox
 import com.efreedom.mutter.uicomponent.theme.BlushLavender
 import com.efreedom.mutter.uicomponent.theme.BlushPink
@@ -61,129 +65,158 @@ import com.efreedom.mutter.uicomponent.theme.Surface as MutterSurface
 
 private enum class HomeTab { SENT, DRAFT }
 
-/** iOS HomeView 대응. 골드 통계카드 + 편지 쓰기 + 보낸/임시저장 세그먼트 + 편지 목록. */
+/**
+ * iOS HomeView 대응. 삭제함 버튼 + 골드 통계카드 + 편지 쓰기 + 보낸/임시저장 세그먼트 + 편지 목록.
+ * 스와이프 삭제는 확인 없이 삭제함으로 옮기고 "되돌리기" 스낵바를 안전망으로 둔다.
+ */
 @Composable
 fun HomeScreen(
     onCompose: () -> Unit,
     onEditDraft: (String) -> Unit,
     onOpenDelivery: (String) -> Unit,
+    onOpenTrash: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(HomeTab.SENT) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
+    // 삭제함 등 다른 화면에서 돌아오면 이 컴포저블이 다시 들어오며 재실행된다 → 복구·영구 삭제가 목록에 반영된다.
     LaunchedEffect(Unit) { viewModel.load() }
+
+    // 방금 삭제한 편지마다 5초 "되돌리기" 스낵바. 연속 삭제면 키가 바뀌어 이전 스낵바는 취소(닫힘)되고 새로 뜬다.
+    state.undoLetterId?.let { letterId ->
+        LaunchedEffect(letterId) {
+            try {
+                if (snackbarHostState.showUndo("편지를 삭제함으로 옮겼어요")) viewModel.undoDelete(letterId)
+            } finally {
+                viewModel.undoDismissed(letterId)
+            }
+        }
+    }
 
     val displayRows = if (selectedTab == HomeTab.SENT) state.sentRows else state.draftRows
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Ivory)
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        StatCard(sentCount = state.sentCount, openedCount = state.openedCount)
-
-        MutterButton(text = "편지 쓰기", onClick = onCompose, leadingIconRes = DsR.drawable.compose)
-
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            SegmentedButton(
-                selected = selectedTab == HomeTab.SENT,
-                onClick = { selectedTab = HomeTab.SENT },
-                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-            ) { Text("보낸 편지") }
-            SegmentedButton(
-                selected = selectedTab == HomeTab.DRAFT,
-                onClick = { selectedTab = HomeTab.DRAFT },
-                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-            ) { Text("임시저장") }
-        }
-
-        PullToRefreshBox(
-            isRefreshing = state.isLoading && displayRows.isNotEmpty(),
-            onRefresh = viewModel::load,
-            modifier = Modifier.fillMaxWidth().weight(1f),
+    Box(modifier = modifier.fillMaxSize().background(Ivory)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-        when {
-            state.isLoading && displayRows.isEmpty() -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Gold)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                IconButton(onClick = onOpenTrash) {
+                    MutterIcon(id = DsR.drawable.trash, contentDescription = "삭제함", tint = InkSoft)
                 }
             }
 
-            displayRows.isEmpty() -> {
-                // 빈 상태도 당겨서 새로고침이 되도록 스크롤 컨테이너로 감싼다(PullableFullSizeBox 주석 참고).
-                PullableFullSizeBox {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        MutterImage(
-                            id = DsR.drawable.empty_sent,
-                            modifier = Modifier.size(120.dp),
-                        )
-                        Text(
-                            text = if (selectedTab == HomeTab.SENT) "보낸 편지가 없어요" else "임시저장 편지가 없어요",
-                            style = MutterText.bodyMedium,
-                            color = InkSoft,
-                        )
+            StatCard(sentCount = state.sentCount, openedCount = state.openedCount)
+
+            MutterButton(text = "편지 쓰기", onClick = onCompose, leadingIconRes = DsR.drawable.compose)
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = selectedTab == HomeTab.SENT,
+                    onClick = { selectedTab = HomeTab.SENT },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                ) { Text("보낸 편지") }
+                SegmentedButton(
+                    selected = selectedTab == HomeTab.DRAFT,
+                    onClick = { selectedTab = HomeTab.DRAFT },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                ) { Text("임시저장") }
+            }
+
+            PullToRefreshBox(
+                isRefreshing = state.isLoading && displayRows.isNotEmpty(),
+                onRefresh = viewModel::load,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+            ) {
+            when {
+                state.isLoading && displayRows.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Gold)
                     }
                 }
-            }
 
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    items(displayRows, key = { it.id }) { row ->
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { value ->
-                                if (value == SwipeToDismissBoxValue.EndToStart) {
-                                    viewModel.delete(row.letter.id)
-                                    true
-                                } else {
-                                    false
-                                }
-                            },
-                        )
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            enableDismissFromStartToEnd = false,
-                            backgroundContent = {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            color = Danger.copy(alpha = 0.15f),
-                                            shape = RoundedCornerShape(12.dp),
-                                        )
-                                        .padding(end = 20.dp),
-                                    contentAlignment = Alignment.CenterEnd,
-                                ) {
-                                    MutterIcon(id = DsR.drawable.trash, contentDescription = "삭제", tint = Danger)
-                                }
-                            },
+                displayRows.isEmpty() -> {
+                    // 빈 상태도 당겨서 새로고침이 되도록 스크롤 컨테이너로 감싼다(PullableFullSizeBox 주석 참고).
+                    PullableFullSizeBox {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            LetterCard(
-                                row = row,
-                                onClick = {
-                                    if (row.isSent) onOpenDelivery(row.letter.id)
-                                    else onEditDraft(row.letter.id)
-                                },
+                            MutterImage(
+                                id = DsR.drawable.empty_sent,
+                                modifier = Modifier.size(120.dp),
+                            )
+                            Text(
+                                text = if (selectedTab == HomeTab.SENT) "보낸 편지가 없어요" else "임시저장 편지가 없어요",
+                                style = MutterText.bodyMedium,
+                                color = InkSoft,
                             )
                         }
                     }
                 }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(displayRows, key = { it.id }) { row ->
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = { value ->
+                                    if (value == SwipeToDismissBoxValue.EndToStart) {
+                                        viewModel.delete(row.letter.id)
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                },
+                            )
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                enableDismissFromStartToEnd = false,
+                                backgroundContent = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                color = Danger.copy(alpha = 0.15f),
+                                                shape = RoundedCornerShape(12.dp),
+                                            )
+                                            .padding(end = 20.dp),
+                                        contentAlignment = Alignment.CenterEnd,
+                                    ) {
+                                        MutterIcon(id = DsR.drawable.trash, contentDescription = "삭제", tint = Danger)
+                                    }
+                                },
+                            ) {
+                                LetterCard(
+                                    row = row,
+                                    onClick = {
+                                        if (row.isSent) onOpenDelivery(row.letter.id)
+                                        else onEditDraft(row.letter.id)
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            }
+
+            state.error?.let {
+                Text(text = it, style = MutterText.caption, color = Danger)
             }
         }
-        }
 
-        state.error?.let {
-            Text(text = it, style = MutterText.caption, color = Danger)
-        }
+        MutterSnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
+        )
     }
 }
 

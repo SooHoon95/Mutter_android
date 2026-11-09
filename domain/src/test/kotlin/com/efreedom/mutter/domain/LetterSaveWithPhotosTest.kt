@@ -1,5 +1,6 @@
 package com.efreedom.mutter.domain
 
+import com.efreedom.mutter.domain.model.DeletedLetter
 import com.efreedom.mutter.domain.model.Letter
 import com.efreedom.mutter.domain.model.LetterBlock
 import com.efreedom.mutter.domain.model.LetterDraft
@@ -29,6 +30,9 @@ class LetterSaveWithPhotosTest {
         override suspend fun myLetters(): List<Letter> = emptyList()
         override suspend fun myLettersWithStatus(): List<LetterWithStatus> = emptyList()
         override suspend fun delete(id: String) { calls += "delete:$id" }
+        override suspend fun deletedLetters(): List<DeletedLetter> = emptyList()
+        override suspend fun restore(id: String) {}
+        override suspend fun purge(id: String) {}
     }
 
     private class FakePhotos(private val failUpload: Boolean = false) : LetterPhotoRepository {

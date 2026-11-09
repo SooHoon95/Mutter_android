@@ -4,6 +4,7 @@ import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Connection
 import com.efreedom.mutter.domain.model.ConnectInvite
 import com.efreedom.mutter.domain.model.Counterpart
+import com.efreedom.mutter.domain.model.DeletedLetter
 import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.InboxItem
 import com.efreedom.mutter.domain.model.Letter
@@ -102,9 +103,18 @@ class LetterUseCase @Inject constructor(
     suspend fun myLetters(): List<Letter> = repository.myLetters()
     suspend fun myLettersWithStatus(): List<LetterWithStatus> = repository.myLettersWithStatus()
 
-    /** 편지를 지운 뒤 그 폴더의 사진도 지운다(best effort — 실패해도 편지 삭제는 성공으로 본다). */
-    suspend fun delete(id: String) {
-        repository.delete(id)
+    /**
+     * 편지를 삭제함으로 옮긴다(서버가 30일 보관). 사진은 지우지 않는다 — 되살리면 사진도 그대로 돌아와야 하고,
+     * 보관 중인 편지의 사진은 Storage 정책상 지워지지도 않는다. 사진 정리는 [purge]와 서버 30일 정리가 맡는다.
+     */
+    suspend fun delete(id: String) = repository.delete(id)
+
+    suspend fun deletedLetters(): List<DeletedLetter> = repository.deletedLetters()
+    suspend fun restore(id: String) = repository.restore(id)
+
+    /** 영구 삭제 뒤 그 폴더의 사진도 지운다(best effort — 실패해도 영구 삭제는 성공으로 본다. 남은 객체는 고아가 될 뿐). */
+    suspend fun purge(id: String) {
+        repository.purge(id)
         runCatching { photos.deleteAll(id) }
     }
 

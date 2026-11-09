@@ -2,10 +2,12 @@ package com.efreedom.mutter.data.model
 
 import com.efreedom.mutter.data.support.LetterContentCodec
 import com.efreedom.mutter.data.support.ParagraphDto
+import com.efreedom.mutter.domain.model.DeletedLetter
 import com.efreedom.mutter.domain.model.Letter
 import com.efreedom.mutter.domain.model.LetterWithStatus
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.time.Instant
 
 /** letters 테이블 INSERT 입력. */
 @Serializable
@@ -66,5 +68,32 @@ data class LetterWithStatusRow(
             cue = LetterContentCodec.cue(paragraphs),
         ),
         isSent = isSent,
+    )
+}
+
+/**
+ * restore_letter / purge_letter RPC 파라미터. `= null` 기본값을 두지 않는다 — encodeDefaults=false라
+ * 키가 빠지면 PostgREST가 함수 시그니처를 못 찾는다(PGRST202).
+ */
+@Serializable
+data class LetterIdParam(
+    @SerialName("p_letter_id") val letterId: String,
+)
+
+/** get_my_deleted_letters RPC row(삭제함). purge_at = deleted_at + 30일(서버 계산). */
+@Serializable
+data class DeletedLetterRow(
+    val id: String,
+    val title: String,
+    @SerialName("template_id") val templateId: String,
+    @SerialName("deleted_at") val deletedAt: String,
+    @SerialName("purge_at") val purgeAt: String,
+) {
+    fun toDomain(): DeletedLetter = DeletedLetter(
+        id = id,
+        title = title,
+        templateId = templateId,
+        deletedAt = Instant.parse(deletedAt),
+        purgeAt = Instant.parse(purgeAt),
     )
 }

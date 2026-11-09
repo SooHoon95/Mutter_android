@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -27,6 +28,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +40,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.MutterImage
+import com.efreedom.mutter.uicomponent.component.MutterSnackbarHost
+import com.efreedom.mutter.uicomponent.component.showUndo
 import com.efreedom.mutter.uicomponent.component.PullableFullSizeBox
 import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
@@ -63,62 +67,78 @@ fun InboxScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val pullRefreshState = rememberPullToRefreshState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         viewModel.load()
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Ivory),
-    ) {
-        // 헤더
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "받은 편지함",
-                style = MutterText.titleLarge,
-                color = Ink,
-                modifier = Modifier.weight(1f),
-            )
+    // 지연 삭제 스낵바(5초). 끝나는 모든 경로 — 시간 초과, 화면 이탈(탭 전환·편지 열기로 이 효과가 취소),
+    // 다음 삭제로 교체 — 에서 finally가 확정한다. "되돌리기"를 눌렀으면 이미 되살려 둬서 확정은 no-op이다.
+    state.pendingRemoval?.let { item ->
+        LaunchedEffect(item.id) {
+            try {
+                if (snackbarHostState.showUndo("보관함에서 뺐어요")) viewModel.undoRemoval(item.id)
+            } finally {
+                viewModel.commitRemoval(item.id)
+            }
         }
+    }
 
-        PullToRefreshBox(
-            isRefreshing = state.isLoading,
-            onRefresh = viewModel::load,
-            state = pullRefreshState,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            if (state.items.isEmpty() && !state.isLoading) {
-                // 빈 상태 — 당겨서 새로고침이 되도록 스크롤 컨테이너로 감싼다.
-                PullableFullSizeBox {
-                    InboxEmptyState()
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        horizontal = 20.dp,
-                        vertical = 8.dp,
-                    ),
-                ) {
-                    items(state.items, key = { it.id }) { item ->
-                        SwipeToDeleteContainer(
-                            onDelete = { viewModel.delete(item) },
-                            modifier = Modifier.animateItem(),
-                        ) {
-                            LetterCard(item = item, onClick = { onOpen(item.token) })
+    Box(modifier = modifier.fillMaxSize().background(Ivory)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // 헤더
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "받은 편지함",
+                    style = MutterText.titleLarge,
+                    color = Ink,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            PullToRefreshBox(
+                isRefreshing = state.isLoading,
+                onRefresh = viewModel::load,
+                state = pullRefreshState,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                if (state.items.isEmpty() && !state.isLoading) {
+                    // 빈 상태 — 당겨서 새로고침이 되도록 스크롤 컨테이너로 감싼다.
+                    PullableFullSizeBox {
+                        InboxEmptyState()
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = 20.dp,
+                            vertical = 8.dp,
+                        ),
+                    ) {
+                        items(state.items, key = { it.id }) { item ->
+                            SwipeToDeleteContainer(
+                                onDelete = { viewModel.delete(item) },
+                                modifier = Modifier.animateItem(),
+                            ) {
+                                LetterCard(item = item, onClick = { onOpen(item.token) })
+                            }
                         }
                     }
                 }
             }
         }
+
+        MutterSnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
+        )
     }
 }
 

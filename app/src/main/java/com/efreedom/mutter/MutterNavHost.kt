@@ -39,6 +39,7 @@ import com.efreedom.mutter.feature.connections.ConnectInviteScreen
 import com.efreedom.mutter.feature.connections.ConnectionsScreen
 import com.efreedom.mutter.feature.delivery.DeliveryScreen
 import com.efreedom.mutter.feature.home.HomeScreen
+import com.efreedom.mutter.feature.home.TrashScreen
 import com.efreedom.mutter.feature.inbox.InboxScreen
 import com.efreedom.mutter.feature.legal.LegalDocScreen
 import com.efreedom.mutter.feature.legal.TakedownScreen
@@ -70,7 +71,7 @@ private enum class AppTab(
  * 앱 전체 NavigationGraph 진입점.
  *
  * - startDestination: MainTabs (탭 호스트)
- * - Detail 목적지: Compose/Viewer/Delivery/ConnectInvite/Legal
+ * - Detail 목적지: Compose/Viewer/Trash/Delivery/ConnectInvite/Legal
  * - 세션 만료(로그아웃) 시 [onSignedOut] 콜백을 통해 상위 AppViewModel 갱신.
  */
 @Composable
@@ -129,6 +130,12 @@ fun MutterNavHost(
         composable<FeatureRoute.ViewerMyLetter> { entry ->
             val route = entry.toRoute<FeatureRoute.ViewerMyLetter>()
             ViewerScreen(letterId = route.letterId)
+        }
+
+        // ─── 삭제함 ───────────────────────────────────────────────────────
+        // 뒤로 오면 MainTabs가 다시 컴포즈돼 HomeScreen의 LaunchedEffect(load)가 재실행 → 복구 결과가 반영된다.
+        composable<FeatureRoute.Trash> {
+            TrashScreen()
         }
 
         // ─── 전달 관리 ─────────────────────────────────────────────────────
@@ -216,6 +223,7 @@ private fun MainScaffold(
                     onCompose = { navController.navigate(FeatureRoute.ComposeNew) },
                     onEditDraft = { id -> navController.navigate(FeatureRoute.ComposeEdit(id)) },
                     onOpenDelivery = { id -> navController.navigate(FeatureRoute.Delivery(id)) },
+                    onOpenTrash = { navController.navigate(FeatureRoute.Trash) { launchSingleTop = true } },
                     modifier = Modifier.fillMaxSize(),
                 )
                 AppTab.THREADS -> ThreadsScreen(

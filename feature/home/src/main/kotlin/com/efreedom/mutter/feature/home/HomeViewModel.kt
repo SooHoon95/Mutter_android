@@ -30,6 +30,8 @@ data class HomeUiState(
     val rows: List<LetterRow> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    /** 방금 삭제함으로 옮긴 편지 id — 화면이 "되돌리기" 스낵바를 띄우고 [HomeViewModel.undoDismissed]로 비운다. */
+    val undoLetterId: String? = null,
 ) {
     val sentRows: List<LetterRow> get() = rows.filter { it.isSent }
     val draftRows: List<LetterRow> get() = rows.filter { !it.isSent }
@@ -87,18 +89,47 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 스와이프 삭제 → 서버가 삭제함으로 옮긴다(30일 보관). 행은 바로 빼고, 성공하면 "되돌리기" 스낵바를 띄운다.
+     * 실패하면 그 행만 원래 자리로 되돌린다(전체 스냅샷 복원은 연속 삭제 중 다른 행까지 부활시킨다).
+     */
     fun delete(letterId: String) {
+        val current = _state.value.rows
+        val index = current.indexOfFirst { it.id == letterId }
+        if (index < 0) return
+        val removed = current[index]
+        _state.value = _state.value.copy(rows = current.filterNot { it.id == letterId }, error = null)
         viewModelScope.launch {
-            _state.value = _state.value.copy(error = null)
             try {
                 letterUseCase.delete(letterId)
-                _state.value = _state.value.copy(
-                    rows = _state.value.rows.filter { it.letter.id != letterId },
-                )
+                _state.value = _state.value.copy(undoLetterId = letterId)
             } catch (e: Throwable) {
+                val latest = _state.value.rows.toMutableList()
+                latest.add(index.coerceAtMost(latest.size), removed)
                 val message = (e as? MutterError)?.userMessage ?: "삭제할 수 없었어요."
+                _state.value = _state.value.copy(rows = latest, error = message)
+            }
+        }
+    }
+
+    /** 스낵바 "되돌리기" — 삭제함에서 되살린 뒤 목록을 다시 받는다(순서·상태를 서버 기준으로 맞춘다). */
+    fun undoDelete(letterId: String) {
+        undoDismissed(letterId)
+        viewModelScope.launch {
+            try {
+                letterUseCase.restore(letterId)
+                load()
+            } catch (e: Throwable) {
+                val message = (e as? MutterError)?.userMessage ?: "되돌릴 수 없었어요."
                 _state.value = _state.value.copy(error = message)
             }
+        }
+    }
+
+    /** 스낵바가 닫혔다(시간 초과·되돌리기·화면 이탈). 그사이 다른 삭제로 바뀐 id는 건드리지 않는다. */
+    fun undoDismissed(letterId: String) {
+        if (_state.value.undoLetterId == letterId) {
+            _state.value = _state.value.copy(undoLetterId = null)
         }
     }
 }

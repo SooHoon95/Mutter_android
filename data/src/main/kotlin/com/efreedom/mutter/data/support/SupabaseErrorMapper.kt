@@ -34,7 +34,9 @@ object SupabaseErrorMapper {
             message.contains("TOKEN_NOT_FOUND") ||
                 message.contains("LETTER_NOT_FOUND") ||
                 message.contains("NOT_FOUND") -> MutterError.NotFound
-            message.contains("FORBIDDEN") || message.contains("not_authorized") -> MutterError.Unauthorized
+            message.contains("FORBIDDEN") ||
+                message.contains("not_authorized") ||
+                message.contains("AUTH_REQUIRED") -> MutterError.Unauthorized
             else -> MutterError.Unknown
         }
     }
