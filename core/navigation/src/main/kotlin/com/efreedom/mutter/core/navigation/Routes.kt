@@ -21,8 +21,10 @@ sealed interface FeatureRoute {
     @Serializable data class ViewerToken(val token: String, val password: String? = null) : FeatureRoute
     @Serializable data class ViewerMyLetter(val letterId: String) : FeatureRoute
 
-    /** 삭제함(30일 보관) — 홈 상단 휴지통 버튼. */
+    /** 보낸 편지 삭제함(30일 보관) — 홈 상단 휴지통 버튼. */
     @Serializable data object Trash : FeatureRoute
+    /** 받은 편지 삭제함(30일 보관) — 받은 편지함 헤더 휴지통 버튼. */
+    @Serializable data object InboxTrash : FeatureRoute
 
     @Serializable data class Delivery(val letterId: String) : FeatureRoute
     @Serializable data class ConnectInvite(val token: String) : FeatureRoute

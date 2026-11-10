@@ -1,6 +1,7 @@
 package com.efreedom.mutter.feature.inbox
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,11 +19,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.pullToRefresh
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
@@ -57,11 +61,16 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** 받은함 탭 화면. 보관한 편지 목록, 탭하면 수신 화면으로 열기. */
+/**
+ * 받은함 탭 화면. 보관한 편지 목록, 탭하면 수신 화면으로 열기.
+ * 헤더 오른쪽 = 받은 편지 삭제함 + 편집(계약 §6.2 — iOS의 동작 없던 톱니바퀴 자리). 편집 모드에선 카드 탭이 선택 토글이고
+ * 하단 바로 여러 통을 지운다. 삭제는 즉시 서버에 보내고(삭제함 30일 보관) "되돌리기" 스낵바를 안전망으로 둔다.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InboxScreen(
     onOpen: (token: String) -> Unit,
+    onOpenTrash: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: InboxViewModel = hiltViewModel(),
 ) {
@@ -69,18 +78,20 @@ fun InboxScreen(
     val pullRefreshState = rememberPullToRefreshState()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // 삭제함 등 다른 화면에서 돌아오면 이 컴포저블이 다시 들어오며 재실행된다 → 복구 결과가 목록에 반영된다.
     LaunchedEffect(Unit) {
         viewModel.load()
     }
 
-    // 지연 삭제 스낵바(5초). 끝나는 모든 경로 — 시간 초과, 화면 이탈(탭 전환·편지 열기로 이 효과가 취소),
-    // 다음 삭제로 교체 — 에서 finally가 확정한다. "되돌리기"를 눌렀으면 이미 되살려 둬서 확정은 no-op이다.
-    state.pendingRemoval?.let { item ->
-        LaunchedEffect(item.id) {
+    // 삭제마다 5초 "되돌리기" 스낵바. 연속 삭제면 키가 바뀌어 이전 스낵바는 취소(닫힘)되고 새로 뜬다.
+    state.undo?.let { undo ->
+        LaunchedEffect(undo.key) {
+            val count = undo.letterIds.size
+            val message = if (count == 1) "편지를 삭제함으로 옮겼어요" else "${count}통을 삭제함으로 옮겼어요"
             try {
-                if (snackbarHostState.showUndo("보관함에서 뺐어요")) viewModel.undoRemoval(item.id)
+                if (snackbarHostState.showUndo(message)) viewModel.undoDelete(undo)
             } finally {
-                viewModel.commitRemoval(item.id)
+                viewModel.undoDismissed(undo.key)
             }
         }
     }
@@ -91,7 +102,7 @@ fun InboxScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                    .padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -100,13 +111,36 @@ fun InboxScreen(
                     color = Ink,
                     modifier = Modifier.weight(1f),
                 )
+                IconButton(onClick = onOpenTrash, enabled = !state.isEditing) {
+                    MutterIcon(
+                        id = DsR.drawable.trash,
+                        contentDescription = "받은 편지 삭제함",
+                        tint = if (state.isEditing) InkFaint else InkSoft,
+                    )
+                }
+                TextButton(
+                    onClick = viewModel::toggleEditing,
+                    enabled = state.isEditing || state.items.isNotEmpty(),
+                ) {
+                    Text(
+                        text = if (state.isEditing) "완료" else "편집",
+                        style = MutterText.bodyMediumBold,
+                        color = if (state.isEditing || state.items.isNotEmpty()) Gold else InkFaint,
+                    )
+                }
             }
 
-            PullToRefreshBox(
-                isRefreshing = state.isLoading,
-                onRefresh = viewModel::load,
-                state = pullRefreshState,
-                modifier = Modifier.fillMaxSize(),
+            // PullToRefreshBox엔 끄는 옵션이 없어 같은 구성(modifier + Indicator)을 풀어 쓰고 편집 모드에서 enabled=false로 끈다.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .pullToRefresh(
+                        isRefreshing = state.isLoading,
+                        state = pullRefreshState,
+                        enabled = !state.isEditing,
+                        onRefresh = viewModel::load,
+                    ),
             ) {
                 if (state.items.isEmpty() && !state.isLoading) {
                     // 빈 상태 — 당겨서 새로고침이 되도록 스크롤 컨테이너로 감싼다.
@@ -124,14 +158,45 @@ fun InboxScreen(
                     ) {
                         items(state.items, key = { it.id }) { item ->
                             SwipeToDeleteContainer(
-                                onDelete = { viewModel.delete(item) },
+                                enabled = !state.isEditing,
+                                onDelete = { viewModel.delete(listOf(item)) },
                                 modifier = Modifier.animateItem(),
                             ) {
-                                LetterCard(item = item, onClick = { onOpen(item.token) })
+                                LetterCard(
+                                    item = item,
+                                    selected = if (state.isEditing) item.letterId in state.selectedIds else null,
+                                    onClick = {
+                                        if (state.isEditing) viewModel.toggleSelection(item.letterId)
+                                        else onOpen(item.token)
+                                    },
+                                )
                             }
                         }
                     }
                 }
+                PullToRefreshDefaults.Indicator(
+                    state = pullRefreshState,
+                    isRefreshing = state.isLoading,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            }
+
+            state.error?.let {
+                Text(
+                    text = it,
+                    style = MutterText.caption,
+                    color = Danger,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            }
+
+            if (state.isEditing) {
+                EditBar(
+                    isAllSelected = state.isAllSelected,
+                    selectedCount = state.selectedIds.size,
+                    onToggleSelectAll = viewModel::toggleSelectAll,
+                    onDelete = viewModel::deleteSelected,
+                )
             }
         }
 
@@ -142,11 +207,43 @@ fun InboxScreen(
     }
 }
 
+// ─── 편집 하단 바 ─────────────────────────────────────────────────────────────
+
+/** 편집 모드 하단 바 — 왼쪽 "전체 선택"/"선택 해제", 오른쪽 "삭제 (N)"(0이면 비활성). */
+@Composable
+private fun EditBar(
+    isAllSelected: Boolean,
+    selectedCount: Int,
+    onToggleSelectAll: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Surface)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextButton(onClick = onToggleSelectAll) {
+            Text(text = if (isAllSelected) "선택 해제" else "전체 선택", style = MutterText.bodyMediumBold, color = Ink)
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        TextButton(onClick = onDelete, enabled = selectedCount > 0) {
+            Text(
+                text = "삭제 ($selectedCount)",
+                style = MutterText.bodyMediumBold,
+                color = if (selectedCount > 0) Danger else InkFaint,
+            )
+        }
+    }
+}
+
 // ─── 스와이프 삭제 ────────────────────────────────────────────────────────────
 
-/** 끝→시작(오른쪽→왼쪽) 스와이프로 삭제. 배경은 카드와 같은 라운드의 Danger 면 + 휴지통 아이콘. */
+/** 끝→시작(오른쪽→왼쪽) 스와이프로 삭제. 배경은 카드와 같은 라운드의 Danger 면 + 휴지통 아이콘. [enabled]=false면 스와이프를 끈다(편집 모드). */
 @Composable
 private fun SwipeToDeleteContainer(
+    enabled: Boolean,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
@@ -165,6 +262,7 @@ private fun SwipeToDeleteContainer(
         state = dismissState,
         modifier = modifier,
         enableDismissFromStartToEnd = false,
+        gesturesEnabled = enabled,
         backgroundContent = {
             Box(
                 modifier = Modifier
@@ -189,8 +287,9 @@ private fun SwipeToDeleteContainer(
 
 // ─── 편지 카드 ────────────────────────────────────────────────────────────────
 
+/** [selected]가 null이 아니면 편집 모드 — 맨 앞에 선택 원을 붙인다. */
 @Composable
-private fun LetterCard(item: InboxItem, onClick: () -> Unit) {
+private fun LetterCard(item: InboxItem, selected: Boolean?, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -202,6 +301,11 @@ private fun LetterCard(item: InboxItem, onClick: () -> Unit) {
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (selected != null) {
+            SelectionCircle(selected = selected)
+            Spacer(modifier = Modifier.size(12.dp))
+        }
+
         // 봉투 아이콘 — 골드 원형
         Box(
             modifier = Modifier
@@ -237,6 +341,25 @@ private fun LetterCard(item: InboxItem, onClick: () -> Unit) {
                 .clip(CircleShape)
                 .background(Gold),
         )
+    }
+}
+
+/** 편집 모드 선택 원 — 선택되면 골드로 채우고 체크, 아니면 빈 테두리. */
+@Composable
+private fun SelectionCircle(selected: Boolean) {
+    Box(
+        modifier = Modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .then(
+                if (selected) Modifier.background(Gold)
+                else Modifier.border(width = 1.5.dp, color = InkFaint, shape = CircleShape),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) {
+            MutterIcon(id = DsR.drawable.ic_check, contentDescription = "선택됨", tint = Color.White, size = 14.dp)
+        }
     }
 }
 

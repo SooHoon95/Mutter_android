@@ -41,6 +41,7 @@ import com.efreedom.mutter.feature.delivery.DeliveryScreen
 import com.efreedom.mutter.feature.home.HomeScreen
 import com.efreedom.mutter.feature.home.TrashScreen
 import com.efreedom.mutter.feature.inbox.InboxScreen
+import com.efreedom.mutter.feature.inbox.InboxTrashScreen
 import com.efreedom.mutter.feature.legal.LegalDocScreen
 import com.efreedom.mutter.feature.legal.TakedownScreen
 import com.efreedom.mutter.feature.profile.ProfileScreen
@@ -71,7 +72,7 @@ private enum class AppTab(
  * 앱 전체 NavigationGraph 진입점.
  *
  * - startDestination: MainTabs (탭 호스트)
- * - Detail 목적지: Compose/Viewer/Trash/Delivery/ConnectInvite/Legal
+ * - Detail 목적지: Compose/Viewer/Trash/InboxTrash/Delivery/ConnectInvite/Legal
  * - 세션 만료(로그아웃) 시 [onSignedOut] 콜백을 통해 상위 AppViewModel 갱신.
  */
 @Composable
@@ -132,10 +133,13 @@ fun MutterNavHost(
             ViewerScreen(letterId = route.letterId)
         }
 
-        // ─── 삭제함 ───────────────────────────────────────────────────────
-        // 뒤로 오면 MainTabs가 다시 컴포즈돼 HomeScreen의 LaunchedEffect(load)가 재실행 → 복구 결과가 반영된다.
+        // ─── 삭제함(보낸 편지·받은 편지) ─────────────────────────────────────
+        // 뒤로 오면 MainTabs가 다시 컴포즈돼 Home/InboxScreen의 LaunchedEffect(load)가 재실행 → 복구 결과가 반영된다.
         composable<FeatureRoute.Trash> {
             TrashScreen()
+        }
+        composable<FeatureRoute.InboxTrash> {
+            InboxTrashScreen()
         }
 
         // ─── 전달 관리 ─────────────────────────────────────────────────────
@@ -233,6 +237,7 @@ private fun MainScaffold(
                 )
                 AppTab.INBOX -> InboxScreen(
                     onOpen = { token -> navController.navigate(FeatureRoute.ViewerToken(token)) },
+                    onOpenTrash = { navController.navigate(FeatureRoute.InboxTrash) { launchSingleTop = true } },
                     modifier = Modifier.fillMaxSize(),
                 )
                 AppTab.CONNECTIONS -> ConnectionsScreen(modifier = Modifier.fillMaxSize())

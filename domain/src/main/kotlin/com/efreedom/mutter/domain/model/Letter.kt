@@ -1,6 +1,5 @@
 package com.efreedom.mutter.domain.model
 
-import java.time.Duration
 import java.time.Instant
 
 /** 편지 음악 큐. ref: soundcloud=트랙 URL / hosted=Storage 경로·트랙 id. */
@@ -155,14 +154,6 @@ data class DeletedLetter(
     val deletedAt: Instant,
     val purgeAt: Instant,
 ) {
-    /**
-     * [now] 기준 완전 삭제까지 남은 일수(올림). 0 이하면 0 — 화면은 0을 "오늘 완전히 삭제"로 보인다.
-     * 올림이라 1초만 남아도 1일이다(세 플랫폼 공통 계약: N = 남은 일수 올림, 최소 1).
-     */
-    fun daysUntilPurge(now: Instant): Int {
-        val remaining = Duration.between(now, purgeAt)
-        if (remaining.isNegative || remaining.isZero) return 0
-        val days = remaining.toDays()
-        return (if (remaining > Duration.ofDays(days)) days + 1 else days).toInt()
-    }
+    /** [now] 기준 완전 삭제까지 남은 일수 — [TrashRetention.daysUntilPurge]. */
+    fun daysUntilPurge(now: Instant): Int = TrashRetention.daysUntilPurge(purgeAt, now)
 }

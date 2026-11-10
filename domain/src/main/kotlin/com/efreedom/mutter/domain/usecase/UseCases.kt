@@ -4,6 +4,7 @@ import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Connection
 import com.efreedom.mutter.domain.model.ConnectInvite
 import com.efreedom.mutter.domain.model.Counterpart
+import com.efreedom.mutter.domain.model.DeletedInboxItem
 import com.efreedom.mutter.domain.model.DeletedLetter
 import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.InboxItem
@@ -90,7 +91,10 @@ class DeliveryUseCase @Inject constructor(private val repository: DeliveryReposi
 class InboxUseCase @Inject constructor(private val repository: InboxRepository) {
     suspend fun save(token: String) = repository.save(token)
     suspend fun myInbox(): List<InboxItem> = repository.myInbox()
-    suspend fun remove(letterId: String) = repository.remove(letterId)
+    suspend fun remove(letterIds: List<String>) = repository.remove(letterIds)
+    suspend fun deletedItems(): List<DeletedInboxItem> = repository.deletedItems()
+    suspend fun restore(letterIds: List<String>): Int = repository.restore(letterIds)
+    suspend fun purge(letterIds: List<String>): Int = repository.purge(letterIds)
 }
 
 class LetterUseCase @Inject constructor(

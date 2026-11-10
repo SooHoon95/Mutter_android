@@ -2,29 +2,33 @@ package com.efreedom.mutter.feature.inbox
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.InboxItem
 import com.efreedom.mutter.domain.usecase.InboxUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** 방금 삭제함으로 옮긴 받은 편지들 — 화면이 "되돌리기" 스낵바를 띄운다. [key]는 연속 삭제마다 새 스낵바를 띄우려는 구분자. */
+data class InboxUndo(val key: Long, val letterIds: List<String>)
+
 data class InboxUiState(
     val items: List<InboxItem> = emptyList(),
     val isLoading: Boolean = false,
-    /** 숨겼지만 아직 서버에서 지우지 않은 항목 — 화면이 "되돌리기" 스낵바를 띄운다. */
-    val pendingRemoval: InboxItem? = null,
-)
+    /** 편집 모드(계약 §6.2) — 카드 탭이 열기 대신 선택 토글, 스와이프·당겨서 새로고침은 끈다. */
+    val isEditing: Boolean = false,
+    /** 편집 모드에서 고른 letterId. */
+    val selectedIds: Set<String> = emptySet(),
+    val undo: InboxUndo? = null,
+    val error: String? = null,
+) {
+    val isAllSelected: Boolean get() = items.isNotEmpty() && items.all { it.letterId in selectedIds }
+}
 
-/** 지연 삭제 대기 항목과 원래 위치(되돌리기 시 그 자리에 다시 넣는다). */
-private data class PendingRemoval(val item: InboxItem, val index: Int)
-
-/** iOS InboxModelData 대응. InboxUseCase 주입. */
+/** iOS InboxModelData 대응. InboxUseCase 주입. 받은 편지 목록 + 편집(여러 통 삭제) + 삭제 되돌리기. */
 @HiltViewModel
 class InboxViewModel @Inject constructor(
     private val inboxUseCase: InboxUseCase,
@@ -33,16 +37,16 @@ class InboxViewModel @Inject constructor(
     private val _state = MutableStateFlow(InboxUiState())
     val state: StateFlow<InboxUiState> = _state.asStateFlow()
 
-    private var pending: PendingRemoval? = null
+    private var undoSeq = 0L
 
     fun load() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
             try {
-                // 지연 삭제 대기 중인 항목은 서버엔 아직 있으니 새로고침해도 다시 보이지 않게 뺀다.
-                val hiddenId = pending?.item?.id
-                val items = inboxUseCase.myInbox().filterNot { it.id == hiddenId }
-                _state.value = _state.value.copy(items = items)
+                val items = inboxUseCase.myInbox()
+                // 그사이 사라진 편지는 선택에서도 뺀다 — "삭제 (N)"이 화면에 없는 편지까지 세지 않게.
+                val ids = items.mapTo(HashSet()) { it.letterId }
+                _state.value = _state.value.copy(items = items, selectedIds = _state.value.selectedIds intersect ids)
             } catch (_: Throwable) {
                 // 빈 상태 유지 — 재시도는 pull-to-refresh로
             } finally {
@@ -51,63 +55,84 @@ class InboxViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 스와이프 삭제 = 지연 삭제(삭제함 계약 §3.3). 목록에서 바로 숨기고 "되돌리기" 스낵바를 띄운 뒤,
-     * 시간이 지나거나 화면을 떠나면 [commitRemoval]로 실제 delete를 보낸다. 되돌리면 요청 없이 다시 보여 준다.
-     * 지웠다가 다시 insert하는 방식은 on_inbox_insert 푸시 트리거가 또 울려서 쓰지 않는다.
-     * 대기 중에 다른 항목을 지우면 앞의 것은 바로 확정한다(스낵바는 한 번에 하나라 되돌릴 길이 없어지므로).
-     */
-    fun delete(item: InboxItem) {
-        val current = _state.value.items
-        val index = current.indexOfFirst { it.id == item.id }
-        if (index < 0) return
-        pending?.let { commitRemoval(it.item.id) }
-        pending = PendingRemoval(item, index)
+    // ─── 편집 모드 ─────────────────────────────────────────────────────────
+
+    fun toggleEditing() {
+        _state.value = _state.value.copy(isEditing = !_state.value.isEditing, selectedIds = emptySet())
+    }
+
+    fun toggleSelection(letterId: String) {
+        val selected = _state.value.selectedIds
         _state.value = _state.value.copy(
-            items = _state.value.items.filterNot { it.id == item.id },
-            pendingRemoval = item,
+            selectedIds = if (letterId in selected) selected - letterId else selected + letterId,
         )
     }
 
-    /** "되돌리기" — 서버 요청 없이 원래 자리에 다시 넣는다. */
-    fun undoRemoval(itemId: String) {
-        val target = pending?.takeIf { it.item.id == itemId } ?: return
-        pending = null
-        _state.value = _state.value.copy(items = reinserted(target), pendingRemoval = null)
+    /** "전체 선택" / "선택 해제" — 모두 골라져 있으면 해제, 아니면 전부 고른다. */
+    fun toggleSelectAll() {
+        val state = _state.value
+        _state.value = state.copy(
+            selectedIds = if (state.isAllSelected) emptySet() else state.items.mapTo(HashSet()) { it.letterId },
+        )
     }
 
+    fun deleteSelected() {
+        val selected = _state.value.selectedIds
+        delete(_state.value.items.filter { it.letterId in selected })
+    }
+
+    // ─── 삭제 · 되돌리기 ─────────────────────────────────────────────────────
+
     /**
-     * 스낵바가 끝났다(시간 초과·화면 이탈) → 실제로 지운다. 이미 되돌렸거나 확정한 항목이면 아무것도 안 한다.
-     * 서버 삭제가 실패하면 그 항목만 되살린다(전체 스냅샷 복원은 연속 삭제 중 다른 항목까지 부활시킨다).
+     * 삭제(편집 모드·스와이프 공통, 계약 §6.2). 목록에서 바로 빼고 편집 모드를 끝낸 뒤 서버에 delete를 보낸다
+     * (inbox 뷰 트리거가 삭제함 30일 보관으로 바꾼다). 성공하면 "되돌리기" 스낵바, 실패하면 뺀 항목만 원래 자리로 되살린다
+     * (전체 스냅샷 복원은 연속 삭제 중 다른 항목까지 부활시킨다).
      */
-    fun commitRemoval(itemId: String) {
-        val target = pending?.takeIf { it.item.id == itemId } ?: return
-        pending = null
-        _state.value = _state.value.copy(pendingRemoval = null)
+    fun delete(items: List<InboxItem>) {
+        if (items.isEmpty()) return
+        val current = _state.value.items
+        val ids = items.mapTo(HashSet()) { it.letterId }
+        // 원래 위치를 오름차순으로 기억해 두면 되살릴 때 앞에서부터 넣어 순서가 그대로 맞는다.
+        val removed = current.withIndex().filter { it.value.letterId in ids }
+        if (removed.isEmpty()) return
+        _state.value = _state.value.copy(
+            items = current.filterNot { it.letterId in ids },
+            isEditing = false,
+            selectedIds = emptySet(),
+            error = null,
+        )
+        val letterIds = removed.map { it.value.letterId }
         viewModelScope.launch {
             try {
-                inboxUseCase.remove(target.item.letterId)
-            } catch (_: Throwable) {
-                _state.value = _state.value.copy(items = reinserted(target))
+                inboxUseCase.remove(letterIds)
+                _state.value = _state.value.copy(undo = InboxUndo(key = ++undoSeq, letterIds = letterIds))
+            } catch (e: Throwable) {
+                val latest = _state.value.items.toMutableList()
+                removed.forEach { (index, item) -> latest.add(index.coerceAtMost(latest.size), item) }
+                val message = (e as? MutterError)?.userMessage ?: "삭제할 수 없었어요."
+                _state.value = _state.value.copy(items = latest, error = message)
             }
         }
     }
 
-    /**
-     * 스낵바가 떠 있는 채로 ViewModel이 사라지면(탭 호스트가 내려가는 로그아웃·앱 종료) 대기 삭제를 확정한다.
-     * viewModelScope는 이미 취소됐으니 독립 스코프로 보낸다 — 화면이 없어 실패해도 되살릴 곳이 없으므로 결과는 버린다.
-     */
-    override fun onCleared() {
-        val target = pending ?: return
-        pending = null
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            runCatching { inboxUseCase.remove(target.item.letterId) }
+    /** 스낵바 "되돌리기" — restore_inbox_items로 되살린 뒤 목록을 다시 받는다(순서·제목을 서버 기준으로 맞춘다). */
+    fun undoDelete(undo: InboxUndo) {
+        undoDismissed(undo.key)
+        viewModelScope.launch {
+            try {
+                inboxUseCase.restore(undo.letterIds)
+                load()
+            } catch (e: Throwable) {
+                val message = (e as? MutterError)?.userMessage ?: "되돌릴 수 없었어요."
+                _state.value = _state.value.copy(error = message)
+            }
         }
     }
 
-    private fun reinserted(target: PendingRemoval): List<InboxItem> {
-        val latest = _state.value.items.filterNot { it.id == target.item.id }.toMutableList()
-        latest.add(target.index.coerceAtMost(latest.size), target.item)
-        return latest
+    /** 스낵바가 닫혔다(시간 초과·되돌리기·화면 이탈). 그사이 다른 삭제로 바뀐 것은 건드리지 않는다. */
+    fun undoDismissed(key: Long) {
+        if (_state.value.undo?.key == key) {
+            _state.value = _state.value.copy(undo = null)
+        }
     }
 }

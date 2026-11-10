@@ -3,6 +3,7 @@ package com.efreedom.mutter.domain.repository
 import com.efreedom.mutter.domain.model.Connection
 import com.efreedom.mutter.domain.model.ConnectInvite
 import com.efreedom.mutter.domain.model.Counterpart
+import com.efreedom.mutter.domain.model.DeletedInboxItem
 import com.efreedom.mutter.domain.model.DeletedLetter
 import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.InboxItem
@@ -63,7 +64,14 @@ interface DeliveryRepository {
 interface InboxRepository {
     suspend fun save(token: String)
     suspend fun myInbox(): List<InboxItem>
-    suspend fun remove(letterId: String)
+    /** 받은 편지들을 삭제함으로 옮긴다(서버 뷰 트리거가 30일 보관으로 바꾼다). */
+    suspend fun remove(letterIds: List<String>)
+    /** 받은 편지 삭제함 목록(최근 삭제순). */
+    suspend fun deletedItems(): List<DeletedInboxItem>
+    /** 삭제함 → 받은 편지함으로 되살린다. 되살린 수를 돌려준다. */
+    suspend fun restore(letterIds: List<String>): Int
+    /** 받은 편지함에서 영구 삭제한다(보낸 사람 편지는 그대로). 지운 수를 돌려준다. */
+    suspend fun purge(letterIds: List<String>): Int
 }
 
 interface LetterRepository {
