@@ -1,0 +1,67 @@
+<!-- Android release-audit 결과 템플릿. 에이전트가 {{...}}를 치환한 뒤 Artifact로 발행(icon audit).
+     자체 완결(inline CSS). head/body는 Artifact가 감싸므로 본문만. -->
+<title>Release Audit (Android) — Mutter_android</title>
+<style>
+  :root { --blocker:#c0392b; --high:#e67e22; --medium:#b8860b; --low:#7f8c8d; --ok:#27ae60; --ink:#1c1e21; --line:#e2e4e8; }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.55 -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif; color: var(--ink); margin: 0; padding: 28px 24px; background: #eef1f4; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+  .meta { color: #6b7280; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .verdict { margin: 18px 0 4px; padding: 14px 18px; border-radius: 10px; font-size: 16px; font-weight: 600; color: #fff; }
+  .verdict.pass { background: var(--ok); } .verdict.fail { background: var(--blocker); }
+  .verdict small { display:block; font-weight: 400; font-size: 13px; opacity: .93; margin-top: 3px; }
+  .counts { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 20px; }
+  .chip { padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+  .chip.blocker { background: var(--blocker); } .chip.high { background: var(--high); }
+  .chip.medium { background: var(--medium); } .chip.low { background: var(--low); } .chip.ok { background: var(--ok); }
+  .scroll { overflow-x: auto; background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(30,40,60,.08); }
+  table { border-collapse: collapse; width: 100%; min-width: 880px; }
+  th, td { text-align: left; padding: 11px 13px; border-bottom: 1px solid #eef0f3; vertical-align: top; }
+  th { background: #f7f9fb; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #7c8797; font-weight: 700; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { color:#aab2bd; font-variant-numeric: tabular-nums; }
+  .sev { font-weight: 700; white-space: nowrap; font-size: 12px; letter-spacing: .02em; }
+  .sev.blocker { color: var(--blocker); } .sev.high { color: var(--high); }
+  .sev.medium { color: var(--medium); } .sev.low { color: var(--low); }
+  .cat { white-space: nowrap; color:#556070; font-size: 13px; }
+  code { font: 12px/1.4 "SF Mono", Menlo, monospace; background: #eef1f5; padding: 1px 5px; border-radius: 4px; word-break: break-all; }
+  .block-yes { color: var(--blocker); font-weight: 700; } .block-no { color: #98a0ab; }
+  h2 { font-size: 14px; margin: 30px 0 8px; letter-spacing: .01em; }
+  .list { color: #556070; margin: 0; padding-left: 20px; } .list li { margin: 5px 0; }
+  footer { margin-top: 26px; color: #aab2bd; font-size: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+</style>
+<div class="wrap">
+  <header>
+    <h1>Release Audit (Android) — Mutter_android</h1>
+    <span class="meta">범위: {{SCOPE}} · 대상: {{TARGET}} · {{DATE}} · v{{VERSION}}</span>
+  </header>
+
+  <div class="verdict {{VERDICT_CLASS}}">{{VERDICT}}</div>
+
+  <div class="counts">
+    <span class="chip blocker">BLOCKER {{N_BLOCKER}}</span>
+    <span class="chip high">HIGH {{N_HIGH}}</span>
+    <span class="chip medium">MEDIUM {{N_MEDIUM}}</span>
+    <span class="chip low">LOW {{N_LOW}}</span>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>#</th><th>심각도</th><th>카테고리</th><th>발견</th><th>위치</th><th>배포차단</th><th>근거 / 재현</th></tr>
+      </thead>
+      <tbody>
+        <!-- {{ROWS}} : <tr><td>1</td><td class="sev blocker">BLOCKER</td><td>C2 크래시</td><td>...</td>
+             <td><code>feature/.../FooScreen.kt:42</code></td><td class="block-yes">예</td><td>...</td></tr> -->
+        {{ROWS}}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>미확인 리스크 (추가 검증 필요)</h2>
+  <ul class="list">{{UNVERIFIED}}</ul>
+
+  <footer>정적 클러스터 C1–C7 + 에뮬레이터/기기 런타임 캡처. 생성: /release-audit (Android)</footer>
+</div>
