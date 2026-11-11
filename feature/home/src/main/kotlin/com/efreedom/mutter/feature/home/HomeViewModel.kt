@@ -38,6 +38,8 @@ data class HomeUiState(
     val undoLetterId: String? = null,
     /** 보낸 편지 상태 표시(영구·n일 남음·닫힘). 서버 반영 전·조회 실패면 비어 있다 — 기존 목록 그대로. */
     val accessLabels: Map<String, LetterAccessLabel> = emptyMap(),
+    /** 받은 사람이 편지권으로 간직한 보낸 편지 — 지우기 전에 "영구가 풀려요" 확인을 받는다. */
+    val keptByRecipientIds: Set<String> = emptySet(),
 ) {
     val sentRows: List<LetterRow> get() = rows.filter { it.isSent }
     val draftRows: List<LetterRow> get() = rows.filter { !it.isSent }
@@ -110,7 +112,8 @@ class HomeViewModel @Inject constructor(
             val showPermanent = entitlements?.showsTicketUi == true
             val now = Instant.now()
             val labels = states.mapValues { (_, st) -> LetterAccessLabel.of(st, showPermanent, now) }
-            _state.value = _state.value.copy(accessLabels = labels)
+            val kept = states.values.filter { it.keptByRecipient }.mapTo(HashSet()) { it.letterId }
+            _state.value = _state.value.copy(accessLabels = labels, keptByRecipientIds = kept)
         }
     }
 

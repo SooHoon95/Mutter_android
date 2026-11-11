@@ -45,6 +45,7 @@ import com.efreedom.mutter.feature.inbox.InboxTrashScreen
 import com.efreedom.mutter.feature.legal.LegalDocScreen
 import com.efreedom.mutter.feature.legal.TakedownScreen
 import com.efreedom.mutter.feature.profile.ProfileScreen
+import com.efreedom.mutter.feature.profile.TicketsScreen
 import com.efreedom.mutter.feature.threads.ThreadsScreen
 import com.efreedom.mutter.feature.viewer.ViewerScreen
 import kotlinx.serialization.Serializable
@@ -81,8 +82,17 @@ fun MutterNavHost(
     modifier: Modifier = Modifier,
     pendingConnectToken: String? = null,
     onConnectConsumed: () -> Unit = {},
+    pendingRoute: FeatureRoute? = null,
+    onRouteConsumed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+
+    // 바깥(알림 탭·편지 오버레이)에서 들어온 목적지 — 메인이 뜬 뒤 한 번 이동하고 비운다.
+    LaunchedEffect(pendingRoute) {
+        val route = pendingRoute ?: return@LaunchedEffect
+        navController.navigate(route) { launchSingleTop = true }
+        onRouteConsumed()
+    }
 
     // 로그인 후 메인이 뜬 시점에 보관해 둔 연결 초대 토큰을 소비 → ConnectInvite로 이동(iOS consumePendingConnect 대응).
     LaunchedEffect(pendingConnectToken) {
@@ -126,7 +136,10 @@ fun MutterNavHost(
         // ─── 편지 열람 ─────────────────────────────────────────────────────
         composable<FeatureRoute.ViewerToken> { entry ->
             val route = entry.toRoute<FeatureRoute.ViewerToken>()
-            ViewerScreen(token = route.token)
+            ViewerScreen(
+                token = route.token,
+                onNeedTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
+            )
         }
         composable<FeatureRoute.ViewerMyLetter> { entry ->
             val route = entry.toRoute<FeatureRoute.ViewerMyLetter>()
@@ -150,7 +163,13 @@ fun MutterNavHost(
                 onPreview = { navController.navigate(FeatureRoute.ViewerMyLetter(route.letterId)) },
                 // 사본은 링크가 없는 새 편지 — 그 편지의 발송 화면으로 이어 간다(뒤로 오면 원본 상세).
                 onDuplicated = { newId -> navController.navigate(FeatureRoute.Delivery(newId)) },
+                onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
             )
+        }
+
+        // ─── 편지권 ────────────────────────────────────────────────────────
+        composable<FeatureRoute.Tickets> {
+            TicketsScreen()
         }
 
         // ─── 연결 초대 ─────────────────────────────────────────────────────
@@ -248,6 +267,7 @@ private fun MainScaffold(
                     onReport = { navController.navigate(FeatureRoute.Takedown) },
                     onTerms = { navController.navigate(FeatureRoute.Terms) },
                     onPrivacy = { navController.navigate(FeatureRoute.Privacy) },
+                    onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

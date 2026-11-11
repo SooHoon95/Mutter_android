@@ -25,7 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.core.navigation.FeatureRoute
 import com.efreedom.mutter.core.network.SupabaseProvider
+import com.efreedom.mutter.push.PushNotifications
 import com.efreedom.mutter.uicomponent.component.MutterSplashScreen
 import com.efreedom.mutter.uicomponent.theme.MutterTheme
 import com.efreedom.mutter.feature.auth.AuthScreen
@@ -46,6 +48,9 @@ class MainActivity : ComponentActivity() {
 
     // 들어온 딥링크 이벤트(콜드스타트 intent + onNewIntent 공통). 컴포즈가 소비 후 null로 되돌린다.
     private val incomingDeeplink = MutableStateFlow<Deeplink?>(null)
+
+    // 메인 NavHost로 보낼 목적지(알림 탭 → 보낸 편지 상세, 편지 오버레이 → 편지권). NavHost가 소비 후 null로 되돌린다.
+    private val pendingRoute = MutableStateFlow<FeatureRoute?>(null)
 
     // OAuth 리다이렉트로 세션이 확립될 때마다 증가 → 컴포즈가 관찰해 루트 상태를 refresh().
     private val oauthSessionBump = MutableStateFlow(0)
@@ -76,6 +81,7 @@ class MainActivity : ComponentActivity() {
         // 최초 실행에서만 파싱 — 회전/다크모드 등 구성 변경 재생성 때 같은 링크를 재처리하지 않도록.
         if (savedInstanceState == null) {
             incomingDeeplink.value = Deeplink.parse(intent?.data)
+            pushRoute(intent)?.let { pendingRoute.value = it }
             intent?.let { supabaseProvider.handleOAuthCallback(it) { oauthSessionBump.value++ } }
         }
         setContent {
@@ -85,6 +91,7 @@ class MainActivity : ComponentActivity() {
                 val forceUpdate by appViewModel.forceUpdate.collectAsStateWithLifecycle()
                 val deeplink by incomingDeeplink.collectAsStateWithLifecycle()
                 val oauthBump by oauthSessionBump.collectAsStateWithLifecycle()
+                val route by pendingRoute.collectAsStateWithLifecycle()
 
                 // OAuth(Apple 등) 리다이렉트로 세션이 확립되면 루트 상태를 갱신해 메인/닉네임으로 진입.
                 LaunchedEffect(oauthBump) {
@@ -145,6 +152,8 @@ class MainActivity : ComponentActivity() {
                                 onSignedOut = { appViewModel.signOut() },
                                 pendingConnectToken = pendingConnectToken,
                                 onConnectConsumed = { pendingConnectToken = null },
+                                pendingRoute = route,
+                                onRouteConsumed = { pendingRoute.value = null },
                             )
                         }
                     }
@@ -162,6 +171,11 @@ class MainActivity : ComponentActivity() {
                                 pendingLetterToken = token
                                 letterToken = null
                             },
+                            // 편지권이 없어 간직 못 함 → 오버레이를 걷고 편지권 화면으로.
+                            onNeedTickets = {
+                                letterToken = null
+                                pendingRoute.value = FeatureRoute.Tickets
+                            },
                         )
                     }
 
@@ -176,6 +190,21 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         incomingDeeplink.value = Deeplink.parse(intent.data)
+        pushRoute(intent)?.let { pendingRoute.value = it }
         supabaseProvider.handleOAuthCallback(intent) { oauthSessionBump.value++ }
+    }
+
+    /**
+     * 편지 닫힘 알림(letter_lock_soon·letter_locked) 탭 → 그 보낸 편지 상세(Delivery).
+     * 백그라운드 알림은 시스템이 data를 인텐트 extra로, 포그라운드 알림은 [PushNotifications]가 같은 키로 싣는다.
+     */
+    private fun pushRoute(intent: Intent?): FeatureRoute? {
+        val extras = intent?.extras ?: return null
+        val letterId = extras.getString(PushNotifications.KEY_LETTER_ID)?.takeIf { it.isNotBlank() } ?: return null
+        return if (PushNotifications.opensSentLetter(extras.getString(PushNotifications.KEY_TYPE))) {
+            FeatureRoute.Delivery(letterId)
+        } else {
+            null
+        }
     }
 }

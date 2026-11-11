@@ -20,12 +20,16 @@ enum class LetterAccessKind(val raw: String) {
     }
 }
 
-/** get_letter_access_states 한 행. [accessUntil]은 잠기는(잠긴) 시각, [deleteAt]은 삭제 예정 시각. */
+/**
+ * get_letter_access_states 한 행. [accessUntil]은 잠기는(잠긴) 시각, [deleteAt]은 삭제 예정 시각.
+ * [keptByRecipient] — 받은 사람이 자기 편지권으로 영구로 만든 편지(보낸 사람에게만 true, 삭제 확인 경고용).
+ */
 data class LetterAccessState(
     val letterId: String,
     val kind: LetterAccessKind,
     val accessUntil: Instant?,
     val deleteAt: Instant?,
+    val keptByRecipient: Boolean = false,
 ) {
     /** [now] 기준 잠기기까지 남은 일수(올림). 아직 아무도 안 열었거나 영구면 null. */
     fun daysLeft(now: Instant): Int? =

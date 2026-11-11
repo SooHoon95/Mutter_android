@@ -27,6 +27,8 @@ sealed interface FeatureRoute {
     @Serializable data object InboxTrash : FeatureRoute
 
     @Serializable data class Delivery(val letterId: String) : FeatureRoute
+    /** 편지권(잔액·구매·내역) — 프로필 항목, 편지권 부족(NO_TICKET)에서 진입. */
+    @Serializable data object Tickets : FeatureRoute
     @Serializable data class ConnectInvite(val token: String) : FeatureRoute
     @Serializable data class Thread(val counterpartId: String) : FeatureRoute
 

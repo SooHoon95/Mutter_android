@@ -58,12 +58,14 @@ data class LetterAccessStateRow(
     val state: String,
     @SerialName("access_until") val accessUntil: String? = null,
     @SerialName("delete_at") val deleteAt: String? = null,
+    @SerialName("kept_by_recipient") val keptByRecipient: Boolean = false,
 ) {
     fun toDomain(): LetterAccessState = LetterAccessState(
         letterId = letterId,
         kind = LetterAccessKind.from(state),
         accessUntil = Timestamps.parse(accessUntil),
         deleteAt = Timestamps.parse(deleteAt),
+        keptByRecipient = keptByRecipient,
     )
 }
 

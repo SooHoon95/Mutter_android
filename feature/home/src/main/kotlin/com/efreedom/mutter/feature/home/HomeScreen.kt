@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,6 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -82,6 +84,8 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(HomeTab.SENT) }
+    // 받은 사람이 간직한 편지를 지우려 할 때의 확인 대상(삭제하면 받은 사람의 영구가 풀린다).
+    var keptDeleteTarget by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // 삭제함 등 다른 화면에서 돌아오면 이 컴포저블이 다시 들어오며 재실행된다 → 복구·영구 삭제가 목록에 반영된다.
@@ -171,8 +175,14 @@ fun HomeScreen(
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = { value ->
                                     if (value == SwipeToDismissBoxValue.EndToStart) {
-                                        viewModel.delete(row.letter.id)
-                                        true
+                                        if (row.id in state.keptByRecipientIds) {
+                                            // 바로 지우지 않고 경고부터 — 카드는 제자리로 돌아간다.
+                                            keptDeleteTarget = row.id
+                                            false
+                                        } else {
+                                            viewModel.delete(row.letter.id)
+                                            true
+                                        }
                                     } else {
                                         false
                                     }
@@ -219,6 +229,22 @@ fun HomeScreen(
         MutterSnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
+        )
+    }
+
+    keptDeleteTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { keptDeleteTarget = null },
+            text = { Text(stringResource(R.string.home_kept_delete_warning)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    keptDeleteTarget = null
+                    viewModel.delete(target)
+                }) { Text(stringResource(R.string.home_delete), color = Danger) }
+            },
+            dismissButton = {
+                TextButton(onClick = { keptDeleteTarget = null }) { Text(stringResource(R.string.home_cancel)) }
+            },
         )
     }
 }

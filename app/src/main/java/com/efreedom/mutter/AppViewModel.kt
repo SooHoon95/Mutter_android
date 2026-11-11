@@ -6,6 +6,7 @@ import com.efreedom.mutter.domain.SessionInvalidation
 import com.efreedom.mutter.domain.usecase.AppUpdateUseCase
 import com.efreedom.mutter.domain.usecase.AuthUseCase
 import com.efreedom.mutter.domain.usecase.ProfileUseCase
+import com.efreedom.mutter.domain.usecase.TicketUseCase
 import com.efreedom.mutter.push.PushTokenRegistrar
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +43,7 @@ class AppViewModel @Inject constructor(
     private val profileUseCase: ProfileUseCase,
     private val appUpdateUseCase: AppUpdateUseCase,
     private val pushTokenRegistrar: PushTokenRegistrar,
+    private val ticketUseCase: TicketUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AppState.LOADING)
@@ -96,6 +98,8 @@ class AppViewModel @Inject constructor(
             // 세션이 확인된 시점에 FCM 토큰을 등록한다. onNewToken은 토큰이 "바뀔 때"만 오므로
             // 이미 토큰이 있는 기기에서 로그인하면 이 경로가 유일한 등록 기회다.
             pushTokenRegistrar.register()
+            // 검증·소비 못 하고 남은 편지권 거래를 다시 보낸다(서버 200 뒤에만 소비). 실패는 조용히 다음 기회로.
+            launch { ticketUseCase.resendUnconsumed() }
         }
     }
 

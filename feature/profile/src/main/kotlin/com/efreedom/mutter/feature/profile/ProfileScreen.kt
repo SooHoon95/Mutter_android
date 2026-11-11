@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -81,6 +83,8 @@ fun ProfileScreen(
     onTerms: () -> Unit,
     onPrivacy: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 편지권 화면. 편지권 UI가 보이는 계정(paid_enabled || is_admin)에만 항목이 생긴다. */
+    onOpenTickets: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -171,6 +175,16 @@ fun ProfileScreen(
                     value = "사용 중",
                     onClick = null,
                 )
+
+                state.entitlements?.takeIf { state.showsTickets }?.let { ent ->
+                    HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
+                    SettingsRow(
+                        icon = { MutterIcon(id = DsR.drawable.envelope, contentDescription = null, tint = InkSoft, size = 20.dp) },
+                        label = stringResource(R.string.tickets_title),
+                        value = stringResource(R.string.tickets_balance, ent.tickets),
+                        onClick = onOpenTickets,
+                    )
+                }
             }
 
             // 에러 메시지
@@ -270,7 +284,16 @@ fun ProfileScreen(
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("계정을 삭제할까요?") },
-            text = { Text("삭제하면 모든 편지와 데이터가 영구히 사라져요.") },
+            text = {
+                val tickets = state.entitlements?.tickets ?: 0
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("삭제하면 모든 편지와 데이터가 영구히 사라져요.")
+                    // 편지권이 남은 계정 — 환불 없이 사라진다는 경고(계약 문구).
+                    if (tickets > 0) {
+                        Text(stringResource(R.string.profile_delete_tickets_warning, tickets), color = Danger)
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteConfirm = false

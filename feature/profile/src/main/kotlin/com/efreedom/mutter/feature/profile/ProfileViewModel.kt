@@ -3,8 +3,10 @@ package com.efreedom.mutter.feature.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.domain.error.MutterError
+import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.domain.usecase.AuthUseCase
 import com.efreedom.mutter.domain.usecase.ProfileUseCase
+import com.efreedom.mutter.domain.usecase.TicketUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,13 +22,19 @@ data class ProfileUiState(
     val error: String? = null,
     val savedToast: Boolean = false,
     val signedOut: Boolean = false,
-)
+    /** 편지권 — null이면(서버 반영 전·조회 실패) 편지권 항목을 숨긴다. */
+    val entitlements: Entitlements? = null,
+) {
+    /** 프로필 "편지권" 항목 노출(paid_enabled || is_admin). */
+    val showsTickets: Boolean get() = entitlements?.showsTicketUi == true
+}
 
 /** iOS ProfileModelData 대응. ProfileUseCase + AuthUseCase 주입. */
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val profileUseCase: ProfileUseCase,
     private val authUseCase: AuthUseCase,
+    private val ticketUseCase: TicketUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProfileUiState())
@@ -36,8 +44,10 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(isRefreshing = true)
             val profile = runCatching { profileUseCase.myProfile() }.getOrNull()
+            val entitlements = ticketUseCase.entitlementsOrNull()
             _state.value = _state.value.copy(
                 nickname = profile?.nickname.orEmpty(),
+                entitlements = entitlements,
                 isRefreshing = false,
             )
         }
