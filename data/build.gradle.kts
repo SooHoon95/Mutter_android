@@ -45,6 +45,7 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.billing.ktx)
 
     testImplementation(libs.junit)
 }

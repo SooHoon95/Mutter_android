@@ -21,6 +21,7 @@ lottie = "6.6.6"
 coreSplashscreen = "1.0.1"
 googleServices = "4.4.2"
 firebaseBom = "33.7.0"
+billing = "7.1.1"
 junit = "4.13.2"
 
 [libraries]
@@ -62,6 +63,8 @@ androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscree
 # FCM — 버전은 BoM이 정하므로 messaging에는 version을 쓰지 않는다.
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+# Play Billing — 편지권(소모성 인앱 상품). ktx는 suspend 확장(queryProductDetails·consumePurchase 등)을 준다.
+billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -1,5 +1,6 @@
 package com.efreedom.mutter.data.di
 
+import com.efreedom.mutter.data.billing.PlayTicketStore
 import com.efreedom.mutter.data.repository.AppUpdateRepositoryImpl
 import com.efreedom.mutter.data.repository.AuthRepositoryImpl
 import com.efreedom.mutter.data.repository.ConnectionRepositoryImpl
@@ -32,6 +33,7 @@ import com.efreedom.mutter.domain.repository.SoundCloudRepository
 import com.efreedom.mutter.domain.repository.TakedownRepository
 import com.efreedom.mutter.domain.repository.ThreadRepository
 import com.efreedom.mutter.domain.repository.TicketRepository
+import com.efreedom.mutter.domain.repository.TicketStore
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -90,4 +92,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindTicketRepository(impl: TicketRepositoryImpl): TicketRepository
+
+    @Binds @Singleton
+    abstract fun bindTicketStore(impl: PlayTicketStore): TicketStore
 }
