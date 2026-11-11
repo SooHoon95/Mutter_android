@@ -45,7 +45,7 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 [bundle exec] fastlane android production
 ```
 
-프로덕션 트랙 업로드 — 업로드 즉시 Google 검토로 들어간다
+프로덕션 트랙 업로드 — 업로드 즉시 Google 검토로 들어간다. 성공하면 app_config.latest_version 갱신
 
 ----
 
