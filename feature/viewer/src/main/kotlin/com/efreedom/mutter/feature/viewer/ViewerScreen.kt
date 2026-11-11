@@ -24,11 +24,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,6 +66,7 @@ import com.efreedom.mutter.uicomponent.component.SoundCloudAttribution
 import com.efreedom.mutter.uicomponent.theme.BlushLavender
 import com.efreedom.mutter.uicomponent.theme.BlushPink
 import com.efreedom.mutter.uicomponent.theme.Gold
+import com.efreedom.mutter.uicomponent.theme.GoldDeep
 import com.efreedom.mutter.uicomponent.theme.GoldLight
 import com.efreedom.mutter.uicomponent.theme.GoldSoft
 import com.efreedom.mutter.uicomponent.theme.Ink
@@ -74,7 +77,9 @@ import com.efreedom.mutter.uicomponent.theme.LetterTheme
 import com.efreedom.mutter.uicomponent.theme.LetterThemes
 import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.OnGold
+import com.efreedom.mutter.domain.model.LetterAccessDays
 import com.efreedom.mutter.domain.model.LetterBlock
+import com.efreedom.mutter.domain.model.LetterCover
 import com.efreedom.mutter.domain.model.LetterPayload
 import com.efreedom.mutter.domain.model.LetterPhoto
 import com.efreedom.mutter.domain.model.MusicCue
@@ -94,15 +99,28 @@ import java.util.Locale
  * - 내 편지 미리보기: [letterId] 전달
  *
  * 화면을 벗어나는 건 시스템 뒤로(제스처/버튼)뿐이다 — 화면 내 뒤로 버튼은 두지 않는다.
+ *
+ * [onLoginRequest] — 로그인해야 열리는 편지의 봉투에서 "편지 열기"를 누르면(로그아웃 상태) 호출된다.
+ * 호출부가 로그인 화면을 보인 뒤 같은 토큰으로 이 화면을 다시 띄운다. null이면 그냥 다시 불러온다.
+ * [onNeedTickets] — 잠긴 편지를 간직하려는데 편지권이 없을 때(NO_TICKET) 구매 화면으로 보낸다.
  */
 @Composable
 fun ViewerScreen(
     token: String? = null,
     letterId: String? = null,
+    onLoginRequest: (() -> Unit)? = null,
+    onNeedTickets: () -> Unit = {},
     viewModel: ViewerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isOpened = viewModel.isOpened
+
+    LaunchedEffect(viewModel.needTickets) {
+        if (viewModel.needTickets) {
+            viewModel.onNeedTicketsHandled()
+            onNeedTickets()
+        }
+    }
 
     // 소스를 한 번만 결정해 ViewModel에 전달한다 (ViewModel 내부에서 중복 호출 가드).
     LaunchedEffect(token, letterId) {
@@ -133,6 +151,20 @@ fun ViewerScreen(
             ViewerState.PasswordRequired -> PasswordGate(onSubmit = viewModel::submitPassword)
             is ViewerState.RevealPending -> RevealPendingContent(s.revealAt)
             is ViewerState.Failed -> FailedContent(s.message)
+            ViewerState.Gone -> FailedContent(stringResource(R.string.viewer_gone))
+            is ViewerState.Envelope -> EnvelopeContent(
+                cover = s.cover,
+                onOpen = {
+                    val login = onLoginRequest
+                    if (!viewModel.isSignedIn && login != null) login() else viewModel.reload()
+                },
+            )
+            is ViewerState.Locked -> LockedContent(
+                state = s,
+                isKeeping = viewModel.isKeeping,
+                error = viewModel.keepError,
+                onKeep = viewModel::keep,
+            )
             is ViewerState.Ready -> {
                 if (isOpened) {
                     LetterReader(payload = s.payload, player = viewModel.player, photoUrls = viewModel.photoUrls)
@@ -190,6 +222,156 @@ private fun FailedContent(message: String) {
                 textAlign = TextAlign.Center,
             )
         }
+    }
+}
+
+// ─── Envelope (LOGIN_REQUIRED) ───────────────────────────────────────────────
+
+/** 로그인 전 봉투 — 제목·보낸 사람만(get_letter_cover). 본문·열람 기록 없음. */
+@Composable
+private fun EnvelopeContent(cover: LetterCover?, onOpen: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Ivory),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            modifier = Modifier.padding(horizontal = 32.dp),
+        ) {
+            EnvelopeBadge()
+            CoverTitle(cover)
+            Text(
+                stringResource(R.string.viewer_envelope_login_hint),
+                style = MutterText.bodyMedium,
+                color = InkSoft,
+                textAlign = TextAlign.Center,
+            )
+            MutterButton(
+                text = stringResource(R.string.viewer_envelope_open),
+                onClick = onOpen,
+                modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
+            )
+        }
+    }
+}
+
+/** 봉투·잠김 화면 공통 — 제목과 보낸 사람(있을 때만). */
+@Composable
+private fun CoverTitle(cover: LetterCover?) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        cover?.senderNickname?.takeIf { it.isNotBlank() }?.let { sender ->
+            Text(
+                stringResource(R.string.viewer_cover_sender, sender),
+                style = MutterText.caption,
+                color = InkSoft,
+            )
+        }
+        cover?.title?.takeIf { it.isNotBlank() }?.let { title ->
+            Text(
+                text = title,
+                style = MutterText.titleLarge,
+                color = Ink,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EnvelopeBadge() {
+    Box(
+        modifier = Modifier
+            .size(96.dp)
+            .background(
+                brush = Brush.linearGradient(listOf(GoldLight, BlushPink, BlushLavender)),
+                shape = RoundedCornerShape(28.dp),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        MutterIcon(id = DsR.drawable.envelope, contentDescription = null, tint = OnGold, size = 46.dp)
+    }
+}
+
+// ─── Locked (LETTER_LOCKED) ──────────────────────────────────────────────────
+
+/** 무료 기간이 끝난 편지 — 삭제 예정일까지 편지권으로 간직할 수 있다. 확인창에 환급 안내를 싣는다. */
+@Composable
+private fun LockedContent(
+    state: ViewerState.Locked,
+    isKeeping: Boolean,
+    error: String?,
+    onKeep: () -> Unit,
+) {
+    var confirming by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier.fillMaxSize().background(Ivory),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier
+                .widthIn(max = 360.dp)
+                .padding(24.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .background(GoldSoft, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = Gold, size = 32.dp)
+            }
+            CoverTitle(state.cover)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(stringResource(R.string.viewer_locked_title), style = MutterText.title, color = Ink)
+                state.deleteAt?.let { deleteAt ->
+                    val date = remember(deleteAt) { deleteAt.atZone(ZoneId.systemDefault()).toLocalDate() }
+                    Text(
+                        stringResource(R.string.viewer_locked_body, date.monthValue, date.dayOfMonth),
+                        style = MutterText.bodyMedium,
+                        color = InkSoft,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+            if (state.canKeep) {
+                MutterButton(
+                    text = stringResource(R.string.viewer_locked_keep),
+                    onClick = { confirming = true },
+                    isLoading = isKeeping,
+                    modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
+                )
+            }
+            error?.let {
+                Text(text = it, style = MutterText.caption, color = GoldDeep, textAlign = TextAlign.Center)
+            }
+        }
+    }
+
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text(stringResource(R.string.viewer_locked_keep)) },
+            text = { Text(stringResource(R.string.viewer_keep_refund_notice)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirming = false
+                    onKeep()
+                }) { Text(stringResource(R.string.viewer_keep_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.viewer_cancel)) }
+            },
+        )
     }
 }
 
@@ -304,17 +486,7 @@ private fun OpenGate(
             modifier = Modifier.padding(horizontal = 32.dp),
         ) {
             // 봉투 배지 — 골드 그라데이션 96dp 라운드 스퀘어
-            Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .background(
-                        brush = Brush.linearGradient(listOf(GoldLight, BlushPink, BlushLavender)),
-                        shape = RoundedCornerShape(28.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                MutterIcon(id = DsR.drawable.envelope, contentDescription = null, tint = OnGold, size = 46.dp)
-            }
+            EnvelopeBadge()
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -341,8 +513,29 @@ private fun OpenGate(
                 onClick = onOpen,
                 modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
             )
+
+            ClosingSoonLine(payload)
         }
     }
+}
+
+/** 닫힘 예고 — 영구가 아니고 남은 기간이 3일 이하일 때만 조용히 한 줄. */
+@Composable
+private fun ClosingSoonLine(payload: LetterPayload) {
+    val accessUntil = payload.accessUntil ?: return
+    if (payload.isPermanent) return
+    val days = remember(accessUntil) { LetterAccessDays.until(accessUntil, Instant.now()) }
+    if (days > LetterAccessDays.CLOSING_SOON_DAYS) return
+    Text(
+        text = if (days <= 0) {
+            stringResource(R.string.viewer_closing_today)
+        } else {
+            stringResource(R.string.viewer_closing_in_days, days)
+        },
+        style = MutterText.caption,
+        color = InkFaint,
+        textAlign = TextAlign.Center,
+    )
 }
 
 // ─── Letter Reader (Screen 5) ────────────────────────────────────────────────

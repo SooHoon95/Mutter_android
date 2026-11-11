@@ -103,6 +103,8 @@ class MainActivity : ComponentActivity() {
                 // rememberSaveable — 구성 변경(회전 등)에도 유지돼, 닫은 뷰어가 다시 뜨거나 초대가 재이동되지 않게.
                 var letterToken by rememberSaveable { mutableStateOf<String?>(null) }
                 var pendingConnectToken by rememberSaveable { mutableStateOf<String?>(null) }
+                // 로그인해야 열리는 편지(봉투 → "편지 열기") — 로그인 화면을 보인 뒤 메인에 들어오면 같은 편지를 다시 띄운다.
+                var pendingLetterToken by rememberSaveable { mutableStateOf<String?>(null) }
                 LaunchedEffect(deeplink) {
                     when (val d = deeplink) {
                         is Deeplink.Letter -> letterToken = d.token
@@ -122,6 +124,15 @@ class MainActivity : ComponentActivity() {
                 // 메인에 처음 도달했을 때만 알림 권한을 묻는다(로그인 전에는 맥락이 없다).
                 LaunchedEffect(screen) {
                     if (screen == RootScreen.MAIN) requestNotificationPermissionIfNeeded()
+                }
+
+                // 봉투에서 로그인하러 간 편지 — 로그인(+닉네임)을 마치고 메인에 오면 같은 편지로 돌아간다.
+                LaunchedEffect(screen, pendingLetterToken) {
+                    val pending = pendingLetterToken ?: return@LaunchedEffect
+                    if (screen == RootScreen.MAIN) {
+                        pendingLetterToken = null
+                        letterToken = pending
+                    }
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -144,7 +155,14 @@ class MainActivity : ComponentActivity() {
                         // 오버레이는 NavHost 백스택 밖이므로 시스템 뒤로가기를 직접 가로채 해제한다.
                         // ViewerScreen에는 화면 내 뒤로 버튼이 없으므로 이 BackHandler가 유일한 이탈 경로다.
                         BackHandler { letterToken = null }
-                        ViewerScreen(token = token)
+                        ViewerScreen(
+                            token = token,
+                            // 로그아웃 상태의 봉투 → 오버레이를 걷어 로그인 화면을 보이고, 로그인 뒤 다시 연다.
+                            onLoginRequest = {
+                                pendingLetterToken = token
+                                letterToken = null
+                            },
+                        )
                     }
 
                     // 강제 업데이트 — 최상위 차단 오버레이(편지 오버레이보다도 위).

@@ -8,14 +8,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.domain.error.MutterError
+import com.efreedom.mutter.domain.model.LetterCover
 import com.efreedom.mutter.domain.model.LetterBlocks
 import com.efreedom.mutter.domain.model.LetterPayload
 import com.efreedom.mutter.domain.usecase.AudioUseCase
 import com.efreedom.mutter.domain.usecase.AuthUseCase
 import com.efreedom.mutter.domain.usecase.DeliveryUseCase
+import com.efreedom.mutter.domain.usecase.LetterAccessUseCase
 import com.efreedom.mutter.domain.usecase.LetterPhotoUseCase
 import com.efreedom.mutter.domain.usecase.LetterUseCase
 import com.efreedom.mutter.domain.usecase.ReceiptUseCase
+import com.efreedom.mutter.domain.usecase.TicketUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +45,18 @@ sealed interface ViewerState {
 
     /** 복구 불가 오류 */
     data class Failed(val message: String) : ViewerState
+
+    /** 로그인해야 열리는 편지(LOGIN_REQUIRED) — 봉투만 보인다. [cover]는 봉인됐거나 조회 실패면 null. */
+    data class Envelope(val cover: LetterCover?) : ViewerState
+
+    /**
+     * 무료 기간이 끝난 편지(LETTER_LOCKED). [deleteAt]까지 편지권으로 다시 열 수 있다.
+     * [canKeep] — 로그인 상태이고 편지권 UI가 보이는 계정일 때만 "편지권으로 간직하기"를 보인다.
+     */
+    data class Locked(val deleteAt: Instant?, val cover: LetterCover?, val canKeep: Boolean) : ViewerState
+
+    /** 유예까지 끝난 편지(LETTER_GONE). */
+    object Gone : ViewerState
 }
 
 // ─── ViewModel ───────────────────────────────────────────────────────────────
@@ -60,6 +75,8 @@ class ViewerViewModel @Inject constructor(
     private val letterUseCase: LetterUseCase,
     private val authUseCase: AuthUseCase,
     private val letterPhotoUseCase: LetterPhotoUseCase,
+    private val letterAccessUseCase: LetterAccessUseCase,
+    private val ticketUseCase: TicketUseCase,
     audioUseCase: AudioUseCase,
 ) : ViewModel() {
 
@@ -94,6 +111,22 @@ class ViewerViewModel @Inject constructor(
     var photoUrls by mutableStateOf<Map<String, String>>(emptyMap())
         private set
 
+    /** 잠긴 편지 "편지권으로 간직하기" 진행 중. */
+    var isKeeping by mutableStateOf(false)
+        private set
+
+    /** 간직하기 실패 문구(편지권 부족 제외 — 그건 [needTickets]로 구매 화면에 보낸다). */
+    var keepError by mutableStateOf<String?>(null)
+        private set
+
+    /** 편지권이 없어 구매 화면으로 가야 한다(NO_TICKET). 화면이 이동한 뒤 [onNeedTicketsHandled]로 끈다. */
+    var needTickets by mutableStateOf(false)
+        private set
+
+    /** 로그인 상태 — 봉투의 "편지 열기"가 로그인으로 갈지, 그냥 다시 불러올지 정한다. */
+    var isSignedIn by mutableStateOf(false)
+        private set
+
     private var source: Source? = null
     private var password: String? = null
 
@@ -102,9 +135,47 @@ class ViewerViewModel @Inject constructor(
      * ViewModel 생명주기가 유지되는 한 재호출해도 안전하다.
      */
     fun start(src: Source) {
-        if (source != null) return
+        if (source != null) {
+            // 봉투에서 로그인하고 돌아온 경우 — 같은 편지를 이번엔 로그인 상태로 다시 연다.
+            if (source == src && _state.value is ViewerState.Envelope) load()
+            return
+        }
         source = src
         load()
+    }
+
+    /** 봉투가 로그인 상태에서 떴을 때(세션 꼬임 등)의 "편지 열기" — 다시 불러온다. */
+    fun reload() = load()
+
+    /**
+     * 잠긴 편지를 편지권 1장으로 간직한다(keep_received_letter). 성공하면 받은 편지함에 들어가고 다시 연다.
+     * 편지권이 없으면 구매 화면으로 보낸다.
+     */
+    fun keep() {
+        val src = source as? Source.Token ?: return
+        if (isKeeping) return
+        viewModelScope.launch {
+            isKeeping = true
+            keepError = null
+            try {
+                letterAccessUseCase.keepReceived(src.token, password)
+                load()
+            } catch (e: MutterError.NoTicket) {
+                needTickets = true
+            } catch (e: Throwable) {
+                if (e is MutterError.LetterGone) {
+                    _state.value = ViewerState.Gone
+                } else {
+                    keepError = (e as? MutterError)?.userMessage ?: MutterError.Unknown.userMessage
+                }
+            } finally {
+                isKeeping = false
+            }
+        }
+    }
+
+    fun onNeedTicketsHandled() {
+        needTickets = false
     }
 
     /** 암호 입력 후 재시도. */
@@ -140,11 +211,12 @@ class ViewerViewModel @Inject constructor(
     }
 
     private suspend fun loadByToken(token: String) {
+        isSignedIn = runCatching { authUseCase.currentSession() }.getOrNull() != null
         runCatching { deliveryUseCase.open(token, password) }
             .onSuccess {
                 present(it)
                 // 로그인 상태면 서버가 받은함에 자동 저장했으므로 표시(익명 수신자는 표시 안 함).
-                if (runCatching { authUseCase.currentSession() }.getOrNull() != null) {
+                if (isSignedIn) {
                     savedToInbox = true
                 }
             }
@@ -152,11 +224,23 @@ class ViewerViewModel @Inject constructor(
                 _state.value = when (e) {
                     is MutterError.WrongPassword -> ViewerState.PasswordRequired
                     is MutterError.LinkNotYetRevealed -> ViewerState.RevealPending(e.revealAt)
+                    is MutterError.LoginRequired -> ViewerState.Envelope(coverOrNull(token))
+                    is MutterError.LetterLocked -> ViewerState.Locked(
+                        deleteAt = e.deleteAt,
+                        cover = coverOrNull(token),
+                        // 편지권 UI 노출 규칙(paid_enabled || is_admin). 조회 실패면 숨긴다.
+                        canKeep = isSignedIn && ticketUseCase.entitlementsOrNull()?.showsTicketUi == true,
+                    )
+                    is MutterError.LetterGone -> ViewerState.Gone
                     is MutterError -> ViewerState.Failed(e.userMessage)
                     else -> ViewerState.Failed("편지를 불러오지 못했어요.")
                 }
             }
     }
+
+    /** 봉투(제목·보낸 사람). 봉인됐거나 실패하면 null — 화면은 제목 없이 안내만 보인다. */
+    private suspend fun coverOrNull(token: String): LetterCover? =
+        runCatching { letterAccessUseCase.cover(token) }.getOrNull()?.takeIf { !it.sealed }
 
     private suspend fun loadMyLetter(letterId: String) {
         runCatching { letterUseCase.letter(letterId) }

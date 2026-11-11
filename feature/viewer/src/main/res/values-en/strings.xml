@@ -1,3 +1,16 @@
 <resources>
     <string name="viewer_photo_description">Letter photo</string>
+
+    <string name="viewer_envelope_open">Open letter</string>
+    <string name="viewer_envelope_login_hint">Sign in to open this letter</string>
+    <string name="viewer_cover_sender">A letter from %1$s</string>
+    <string name="viewer_locked_title">This letter\'s keeping period has ended</string>
+    <string name="viewer_locked_body">You can open it again until %1$d/%2$d.</string>
+    <string name="viewer_locked_keep">Keep with a letter pass</string>
+    <string name="viewer_keep_refund_notice">If the sender deletes the letter, it disappears too and your letter pass is refunded.</string>
+    <string name="viewer_keep_confirm">Keep</string>
+    <string name="viewer_cancel">Cancel</string>
+    <string name="viewer_gone">This letter can no longer be opened</string>
+    <string name="viewer_closing_in_days">This letter closes in %1$d days</string>
+    <string name="viewer_closing_today">This letter closes today</string>
 </resources>

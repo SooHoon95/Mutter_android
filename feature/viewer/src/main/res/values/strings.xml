@@ -1,4 +1,18 @@
 <resources>
     <!-- 편지 본문 사진. 기본(values)은 한국어 — app 모듈 관례와 동일. -->
     <string name="viewer_photo_description">편지 사진</string>
+
+    <!-- 영구 편지권 계약 문구(docs/specs/permanent-letter-contract.md, 세 플랫폼 동일) -->
+    <string name="viewer_envelope_open">편지 열기</string>
+    <string name="viewer_envelope_login_hint">로그인하면 편지가 열려요</string>
+    <string name="viewer_cover_sender">%1$s님이 보낸 편지</string>
+    <string name="viewer_locked_title">보관 기간이 지난 편지예요</string>
+    <string name="viewer_locked_body">%1$d월 %2$d일까지 다시 열 수 있어요.</string>
+    <string name="viewer_locked_keep">편지권으로 간직하기</string>
+    <string name="viewer_keep_refund_notice">보낸 사람이 편지를 지우면 함께 사라지고 편지권은 돌려드려요.</string>
+    <string name="viewer_keep_confirm">간직하기</string>
+    <string name="viewer_cancel">취소</string>
+    <string name="viewer_gone">더 이상 열 수 없는 편지예요</string>
+    <string name="viewer_closing_in_days">이 편지는 %1$d일 뒤 닫혀요</string>
+    <string name="viewer_closing_today">이 편지는 오늘 닫혀요</string>
 </resources>
