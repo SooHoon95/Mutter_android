@@ -118,6 +118,10 @@ data class LetterPayload(
     val templateId: String,
     val cue: MusicCue?,
     val audioDisabled: Boolean,
+    /** 기간 제한 없는 편지인지. 새 키라 서버 반영 전 응답에는 없다 → 기본값은 기존 동작(영구). */
+    val isPermanent: Boolean = true,
+    /** 잠기는 시각. 영구거나 서버 반영 전이면 null. */
+    val accessUntil: Instant? = null,
 ) {
     constructor(
         id: String,

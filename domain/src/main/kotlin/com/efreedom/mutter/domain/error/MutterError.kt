@@ -17,6 +17,17 @@ sealed class MutterError(open val userMessage: String) : Exception() {
     data class LinkNotYetRevealed(val revealAt: Instant) : MutterError("아직 열 수 없는 편지예요.")
     data object NotConnected : MutterError("연결된 사람이 아니에요. 먼저 연결해 주세요.")
     data object InviteAlreadyUsed : MutterError("이미 사용된 초대 링크예요. 새 초대를 요청해 주세요.")
+    /** 로그인해야 열리는 편지(익명 호출). 봉투 화면 → 로그인 → 같은 편지로 복귀. */
+    data object LoginRequired : MutterError("로그인하면 편지가 열려요")
+    /**
+     * 무료 기간이 끝난 편지. [deleteAt]은 삭제 예정 시각 — 그 전에 편지권을 붙이면 다시 열린다.
+     * 서버 메시지의 시각을 읽지 못하면 null(화면은 날짜 줄만 뺀다).
+     */
+    data class LetterLocked(val deleteAt: Instant?) : MutterError("보관 기간이 지난 편지예요")
+    /** 유예까지 끝난 편지 — 되살릴 수 없다. */
+    data object LetterGone : MutterError("더 이상 열 수 없는 편지예요")
+    /** 편지권 잔액 부족. */
+    data object NoTicket : MutterError("편지권이 없어요")
     data class Server(override val userMessage: String) : MutterError(userMessage)
     data object Unknown : MutterError("문제가 생겼어요. 다시 시도해 주세요.")
 }

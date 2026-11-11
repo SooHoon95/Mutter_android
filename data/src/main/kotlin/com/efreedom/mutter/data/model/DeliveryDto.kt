@@ -2,6 +2,7 @@ package com.efreedom.mutter.data.model
 
 import com.efreedom.mutter.data.support.LetterContentCodec
 import com.efreedom.mutter.data.support.ParagraphDto
+import com.efreedom.mutter.data.support.Timestamps
 import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.LetterPayload
 import kotlinx.serialization.SerialName
@@ -80,6 +81,9 @@ data class LetterPayloadDto(
     val paragraphs: List<ParagraphDto>,
     @SerialName("template_id") val templateId: String,
     @SerialName("audio_disabled") val audioDisabled: Boolean = false,
+    // 영구 편지권 계약에서 더해진 키 — 서버 반영 전 응답에는 없으므로 기존 동작(영구)으로 받는다.
+    @SerialName("is_permanent") val isPermanent: Boolean? = null,
+    @SerialName("access_until") val accessUntil: String? = null,
 ) {
     fun toDomain(): LetterPayload = LetterPayload(
         id = id,
@@ -88,5 +92,7 @@ data class LetterPayloadDto(
         templateId = templateId,
         cue = LetterContentCodec.cue(paragraphs),
         audioDisabled = audioDisabled,
+        isPermanent = isPermanent ?: true,
+        accessUntil = Timestamps.parse(accessUntil),
     )
 }

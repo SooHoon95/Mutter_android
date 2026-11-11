@@ -5,6 +5,7 @@ import com.efreedom.mutter.data.repository.AuthRepositoryImpl
 import com.efreedom.mutter.data.repository.ConnectionRepositoryImpl
 import com.efreedom.mutter.data.repository.DeliveryRepositoryImpl
 import com.efreedom.mutter.data.repository.InboxRepositoryImpl
+import com.efreedom.mutter.data.repository.LetterAccessRepositoryImpl
 import com.efreedom.mutter.data.repository.LetterPhotoRepositoryImpl
 import com.efreedom.mutter.data.repository.LetterRepositoryImpl
 import com.efreedom.mutter.data.repository.ProfileRepositoryImpl
@@ -13,12 +14,14 @@ import com.efreedom.mutter.data.repository.ReceiptRepositoryImpl
 import com.efreedom.mutter.data.repository.SoundCloudRepositoryImpl
 import com.efreedom.mutter.data.repository.TakedownRepositoryImpl
 import com.efreedom.mutter.data.repository.ThreadRepositoryImpl
+import com.efreedom.mutter.data.repository.TicketRepositoryImpl
 import com.efreedom.mutter.data.service.SessionProviderImpl
 import com.efreedom.mutter.domain.repository.AppUpdateRepository
 import com.efreedom.mutter.domain.repository.AuthRepository
 import com.efreedom.mutter.domain.repository.ConnectionRepository
 import com.efreedom.mutter.domain.repository.DeliveryRepository
 import com.efreedom.mutter.domain.repository.InboxRepository
+import com.efreedom.mutter.domain.repository.LetterAccessRepository
 import com.efreedom.mutter.domain.repository.LetterPhotoRepository
 import com.efreedom.mutter.domain.repository.LetterRepository
 import com.efreedom.mutter.domain.repository.ProfileRepository
@@ -28,6 +31,7 @@ import com.efreedom.mutter.domain.repository.SessionProvider
 import com.efreedom.mutter.domain.repository.SoundCloudRepository
 import com.efreedom.mutter.domain.repository.TakedownRepository
 import com.efreedom.mutter.domain.repository.ThreadRepository
+import com.efreedom.mutter.domain.repository.TicketRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -80,4 +84,10 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindAppUpdateRepository(impl: AppUpdateRepositoryImpl): AppUpdateRepository
+
+    @Binds @Singleton
+    abstract fun bindLetterAccessRepository(impl: LetterAccessRepositoryImpl): LetterAccessRepository
+
+    @Binds @Singleton
+    abstract fun bindTicketRepository(impl: TicketRepositoryImpl): TicketRepository
 }

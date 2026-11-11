@@ -6,11 +6,15 @@ import com.efreedom.mutter.domain.model.Counterpart
 import com.efreedom.mutter.domain.model.DeletedInboxItem
 import com.efreedom.mutter.domain.model.DeletedLetter
 import com.efreedom.mutter.domain.model.DeliveryLink
+import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.domain.model.InboxItem
 import com.efreedom.mutter.domain.model.Letter
+import com.efreedom.mutter.domain.model.LetterAccessState
+import com.efreedom.mutter.domain.model.LetterCover
 import com.efreedom.mutter.domain.model.LetterDraft
 import com.efreedom.mutter.domain.model.LetterOpenSummary
 import com.efreedom.mutter.domain.model.LetterPayload
+import com.efreedom.mutter.domain.model.LetterReader
 import com.efreedom.mutter.domain.model.LetterWithStatus
 import com.efreedom.mutter.domain.model.Profile
 import com.efreedom.mutter.domain.model.ScValidation
@@ -18,6 +22,10 @@ import com.efreedom.mutter.domain.model.SentLetterSummary
 import com.efreedom.mutter.domain.model.Session
 import com.efreedom.mutter.domain.model.SocialAuthResult
 import com.efreedom.mutter.domain.model.SocialProvider
+import com.efreedom.mutter.domain.model.StorePurchase
+import com.efreedom.mutter.domain.model.StorePurchaseResult
+import com.efreedom.mutter.domain.model.TicketHistoryItem
+import com.efreedom.mutter.domain.model.TicketProduct
 import com.efreedom.mutter.domain.model.ThreadLetter
 import java.time.Instant
 
@@ -145,4 +153,43 @@ interface SessionProvider {
 interface AppUpdateRepository {
     /** 플랫폼("android")의 최소 지원 versionName. 값이 없거나 조회 실패면 null(fail-open). */
     suspend fun minSupportedVersion(platform: String): String?
+}
+
+/**
+ * 편지 접근 상태(영구 편지권 계약) — 봉투·목록 상태·열람자·영구화·사본.
+ * 서버 반영 전에는 RPC가 없어 실패한다 → 호출부(목록)는 조용히 기존 동작으로 돌아간다.
+ */
+interface LetterAccessRepository {
+    /** 로그인 전·잠김 화면용 봉투(본문 없음, 열람 기록 없음). */
+    suspend fun cover(token: String): LetterCover
+    /** 내가 보냈거나 받은 편지함에 가진 편지만 돌아온다. 빈 목록이면 호출하지 않는다. */
+    suspend fun accessStates(letterIds: List<String>): List<LetterAccessState>
+    /** 소유자만. 처음 연 순. */
+    suspend fun readers(letterId: String): List<LetterReader>
+    /** 보낸 사람이 편지권 1장으로 영구화(이미 영구·관리자는 차감 없음). */
+    suspend fun makePermanent(letterId: String)
+    /** 받은 사람이 편지권 1장으로 간직. 성공하면 받은 편지함에 들어간다. */
+    suspend fun keepReceived(token: String, password: String?)
+    /** 같은 내용으로 새 편지를 만든다(duplicate-letter). 새 편지 id. 링크는 없다. */
+    suspend fun duplicate(letterId: String): String
+}
+
+/** 편지권 잔액·내역·구매 검증. */
+interface TicketRepository {
+    suspend fun entitlements(): Entitlements
+    suspend fun history(): List<TicketHistoryItem>
+    /** verify-purchase. HTTP 200(지급됨·이미 지급됨)이면 지급 후 잔액, 그 외는 throw. */
+    suspend fun verifyPurchase(productId: String, purchaseToken: String): Int
+}
+
+/**
+ * 스토어 결제(구현은 :data의 Play Billing). 거래 소비는 서버 검증 200 뒤에만 한다 — 순서는 [TicketUseCase]가 쥔다.
+ */
+interface TicketStore {
+    /** 찾은 상품만 돌아온다(Play Console에 아직 없으면 빈 목록). */
+    suspend fun products(productIds: List<String>): List<TicketProduct>
+    suspend fun purchase(productId: String): StorePurchaseResult
+    /** 결제는 끝났지만 아직 소비하지 않은 거래(앱 종료·검증 실패로 남은 것). */
+    suspend fun unconsumedPurchases(): List<StorePurchase>
+    suspend fun consume(purchaseToken: String)
 }

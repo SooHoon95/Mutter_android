@@ -7,13 +7,17 @@ import com.efreedom.mutter.domain.model.Counterpart
 import com.efreedom.mutter.domain.model.DeletedInboxItem
 import com.efreedom.mutter.domain.model.DeletedLetter
 import com.efreedom.mutter.domain.model.DeliveryLink
+import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.domain.model.InboxItem
 import com.efreedom.mutter.domain.model.Letter
 import com.efreedom.mutter.domain.model.LetterBlock
 import com.efreedom.mutter.domain.model.LetterBlocks
+import com.efreedom.mutter.domain.model.LetterAccessState
+import com.efreedom.mutter.domain.model.LetterCover
 import com.efreedom.mutter.domain.model.LetterDraft
 import com.efreedom.mutter.domain.model.LetterOpenSummary
 import com.efreedom.mutter.domain.model.LetterPayload
+import com.efreedom.mutter.domain.model.LetterReader
 import com.efreedom.mutter.domain.model.LetterWithStatus
 import com.efreedom.mutter.domain.model.MusicCue
 import com.efreedom.mutter.domain.model.MusicSource
@@ -24,6 +28,9 @@ import com.efreedom.mutter.domain.model.SentLetterSummary
 import com.efreedom.mutter.domain.model.Session
 import com.efreedom.mutter.domain.model.SocialAuthResult
 import com.efreedom.mutter.domain.model.SocialProvider
+import com.efreedom.mutter.domain.model.StorePurchaseResult
+import com.efreedom.mutter.domain.model.TicketHistoryItem
+import com.efreedom.mutter.domain.model.TicketProduct
 import com.efreedom.mutter.domain.model.ThreadLetter
 import com.efreedom.mutter.domain.model.TrackSourceSpec
 import com.efreedom.mutter.domain.repository.AppUpdateRepository
@@ -31,6 +38,7 @@ import com.efreedom.mutter.domain.repository.AuthRepository
 import com.efreedom.mutter.domain.repository.ConnectionRepository
 import com.efreedom.mutter.domain.repository.DeliveryRepository
 import com.efreedom.mutter.domain.repository.InboxRepository
+import com.efreedom.mutter.domain.repository.LetterAccessRepository
 import com.efreedom.mutter.domain.repository.LetterPhotoRepository
 import com.efreedom.mutter.domain.repository.LetterRepository
 import com.efreedom.mutter.domain.repository.ProfileRepository
@@ -39,6 +47,9 @@ import com.efreedom.mutter.domain.repository.ReceiptRepository
 import com.efreedom.mutter.domain.repository.SoundCloudRepository
 import com.efreedom.mutter.domain.repository.TakedownRepository
 import com.efreedom.mutter.domain.repository.ThreadRepository
+import com.efreedom.mutter.domain.repository.TicketRepository
+import com.efreedom.mutter.domain.repository.TicketStore
+import kotlinx.coroutines.CancellationException
 import java.net.URI
 import java.time.Instant
 import javax.inject.Inject
@@ -236,4 +247,94 @@ class AudioUseCase @Inject constructor(private val soundCloud: SoundCloudReposit
     }
 
     suspend fun validateSoundCloud(url: String): ScValidation = soundCloud.validate(url)
+}
+
+class LetterAccessUseCase @Inject constructor(private val repository: LetterAccessRepository) {
+    suspend fun cover(token: String): LetterCover = repository.cover(token)
+
+    /**
+     * 목록에 합칠 상태(letterId → 상태). 실패(서버 반영 전 RPC 없음 등)는 빈 맵 — 목록은 기존 모습 그대로 보인다.
+     */
+    suspend fun accessStates(letterIds: List<String>): Map<String, LetterAccessState> {
+        if (letterIds.isEmpty()) return emptyMap()
+        return try {
+            repository.accessStates(letterIds.distinct()).associateBy { it.letterId }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+            emptyMap()
+        }
+    }
+
+    suspend fun readers(letterId: String): List<LetterReader> = repository.readers(letterId)
+    suspend fun makePermanent(letterId: String) = repository.makePermanent(letterId)
+    suspend fun keepReceived(token: String, password: String?) = repository.keepReceived(token, password)
+    suspend fun duplicate(letterId: String): String = repository.duplicate(letterId)
+}
+
+/** 구매 한 번의 결과(서버 검증까지 끝난 뒤). */
+sealed interface TicketPurchaseOutcome {
+    /** 지급(또는 이미 지급) 확인 후 소비까지 끝남. [tickets]는 지급 후 잔액. */
+    data class Granted(val tickets: Int) : TicketPurchaseOutcome
+    data object Pending : TicketPurchaseOutcome
+    data object Cancelled : TicketPurchaseOutcome
+}
+
+/**
+ * 편지권 — 잔액·내역 + 스토어 구매 순서(구매 → verify-purchase → 200이면 소비).
+ * 검증이 실패하면 거래를 소비하지 않고 남겨 둔다 → [resendUnconsumed]가 다음 실행·화면 진입 때 다시 보낸다.
+ */
+class TicketUseCase @Inject constructor(
+    private val repository: TicketRepository,
+    private val store: TicketStore,
+) {
+    suspend fun entitlements(): Entitlements = repository.entitlements()
+
+    /** 실패(서버 반영 전 등)는 null — 호출부는 편지권 UI를 숨긴 기존 화면으로 둔다. */
+    suspend fun entitlementsOrNull(): Entitlements? = try {
+        repository.entitlements()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Throwable) {
+        null
+    }
+
+    suspend fun history(): List<TicketHistoryItem> = repository.history()
+    suspend fun products(): List<TicketProduct> = store.products(TicketProduct.ALL)
+
+    suspend fun purchase(productId: String): TicketPurchaseOutcome =
+        when (val result = store.purchase(productId)) {
+            is StorePurchaseResult.Purchased -> {
+                val tickets = repository.verifyPurchase(result.purchase.productId, result.purchase.purchaseToken)
+                // 200을 받은 뒤에만 소비한다. 소비 실패는 다음 재전송이 같은 영수증을 granted=false로 받아 다시 소비한다.
+                runCatching { store.consume(result.purchase.purchaseToken) }
+                TicketPurchaseOutcome.Granted(tickets)
+            }
+            StorePurchaseResult.Pending -> TicketPurchaseOutcome.Pending
+            StorePurchaseResult.Cancelled -> TicketPurchaseOutcome.Cancelled
+        }
+
+    /** 남은 거래를 다시 검증·소비한다. 하나라도 지급되면 true(잔액 새로고침 신호). 실패는 다음 기회로 넘긴다. */
+    suspend fun resendUnconsumed(): Boolean {
+        val pending = try {
+            store.unconsumedPurchases()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+            return false
+        }
+        var resolved = false
+        for (purchase in pending) {
+            try {
+                repository.verifyPurchase(purchase.productId, purchase.purchaseToken)
+                runCatching { store.consume(purchase.purchaseToken) }
+                resolved = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                // 검증 실패 — 거래를 남겨 두고 다음 기회에 다시 보낸다.
+            }
+        }
+        return resolved
+    }
 }

@@ -24,8 +24,13 @@ object SupabaseErrorMapper {
             return MutterError.Unauthorized
         }
         parseNotYetRevealed(message)?.let { return MutterError.LinkNotYetRevealed(it) }
+        // 영구 편지권 계약 — `LETTER_LOCKED:<ISO8601>`은 삭제 예정 시각을 싣는다. NOT_FOUND 계열보다 먼저 본다.
+        if (message.contains(LETTER_LOCKED)) return MutterError.LetterLocked(parseLetterLocked(message))
 
         return when {
+            message.contains("LOGIN_REQUIRED") -> MutterError.LoginRequired
+            message.contains("LETTER_GONE") -> MutterError.LetterGone
+            message.contains("NO_TICKET") -> MutterError.NoTicket
             message.contains("WRONG_PASSWORD") -> MutterError.WrongPassword
             message.contains("LINK_REVOKED") -> MutterError.LinkRevoked
             message.contains("LINK_EXPIRED") -> MutterError.LinkExpired
@@ -60,6 +65,16 @@ object SupabaseErrorMapper {
         if (idx < 0) return null
         val iso = message.substring(idx + marker.length).trim().takeWhile { !it.isWhitespace() }
         return runCatching { Instant.parse(iso) }.getOrNull()
+    }
+
+    private const val LETTER_LOCKED = "LETTER_LOCKED:"
+
+    /** 오류 메시지가 JSON에 감싸여 올 수 있어(`"LETTER_LOCKED:…"`) 시각 문자만 떼어 낸다. */
+    private fun parseLetterLocked(message: String): Instant? {
+        val idx = message.indexOf(LETTER_LOCKED)
+        val iso = message.substring(idx + LETTER_LOCKED.length).trim()
+            .takeWhile { it.isDigit() || it in "-:T.+Z" }
+        return Timestamps.parse(iso)
     }
 
     private val SESSION_EXPIRED_MARKERS = listOf(
