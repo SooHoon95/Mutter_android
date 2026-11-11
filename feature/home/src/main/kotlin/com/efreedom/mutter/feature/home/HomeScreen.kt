@@ -37,6 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.efreedom.mutter.domain.model.LetterAccessLabel
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -196,6 +198,7 @@ fun HomeScreen(
                             ) {
                                 LetterCard(
                                     row = row,
+                                    accessLabel = state.accessLabels[row.id],
                                     onClick = {
                                         if (row.isSent) onOpenDelivery(row.letter.id)
                                         else onEditDraft(row.letter.id)
@@ -251,7 +254,7 @@ private fun StatCard(sentCount: Int, openedCount: Int) {
 }
 
 @Composable
-private fun LetterCard(row: LetterRow, onClick: () -> Unit) {
+private fun LetterCard(row: LetterRow, accessLabel: LetterAccessLabel?, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -288,11 +291,16 @@ private fun LetterCard(row: LetterRow, onClick: () -> Unit) {
                     row.openSummary != null -> "${row.openSummary.openCount}회 열람"
                     else -> "아직 열지 않았어요"
                 }
-                Text(
-                    text = subtitle,
-                    style = MutterText.caption,
-                    color = if (row.isSent && row.isOpened) Gold else InkFaint,
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = subtitle,
+                        style = MutterText.caption,
+                        color = if (row.isSent && row.isOpened) Gold else InkFaint,
+                    )
+                    accessLabelText(accessLabel)?.let { label ->
+                        Text(text = "· $label", style = MutterText.caption, color = InkFaint)
+                    }
+                }
             }
 
             if (row.isSent) {
@@ -335,4 +343,13 @@ private fun LetterCard(row: LetterRow, onClick: () -> Unit) {
             }
         }
     }
+}
+
+/** 목록 상태 문구(계약: `영구` / `{n}일 남음` / `닫힘`). 표시하지 않으면 null. */
+@Composable
+private fun accessLabelText(label: LetterAccessLabel?): String? = when (label) {
+    null, LetterAccessLabel.None -> null
+    LetterAccessLabel.Permanent -> stringResource(R.string.home_access_permanent)
+    is LetterAccessLabel.DaysLeft -> stringResource(R.string.home_access_days_left, label.days)
+    LetterAccessLabel.Closed -> stringResource(R.string.home_access_closed)
 }

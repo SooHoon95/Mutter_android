@@ -68,3 +68,29 @@ object LetterAccessDays {
     /** 받은 사람에게 닫힘 예고를 보이는 기준(남은 기간 ≤ 3일). 계약 문구 표. */
     const val CLOSING_SOON_DAYS = 3
 }
+
+/** 목록 상태 표시(계약 문구 `영구` / `{n}일 남음` / `닫힘`). 문구는 화면이 리소스로 붙인다. */
+sealed interface LetterAccessLabel {
+    data object None : LetterAccessLabel
+    data object Permanent : LetterAccessLabel
+    data class DaysLeft(val days: Int) : LetterAccessLabel
+    data object Closed : LetterAccessLabel
+
+    companion object {
+        /**
+         * [state]가 없으면(서버 반영 전·조회 실패) 표시하지 않는다 — 기존 목록 그대로.
+         * "영구"는 편지권 UI가 보이는 계정([showPermanent])에만 — 그 외 계정은 기존 편지가 전부 영구라 표시가 소음이 된다.
+         * 아직 아무도 안 연 열린 편지(시각 없음)도 표시하지 않는다.
+         */
+        fun of(state: LetterAccessState?, showPermanent: Boolean, now: Instant): LetterAccessLabel = when (state?.kind) {
+            null -> None
+            LetterAccessKind.PERMANENT -> if (showPermanent) Permanent else None
+            LetterAccessKind.OPEN -> when (val days = state.daysLeft(now)) {
+                null -> None
+                0 -> Closed
+                else -> DaysLeft(days)
+            }
+            LetterAccessKind.LOCKED, LetterAccessKind.GONE -> Closed
+        }
+    }
+}

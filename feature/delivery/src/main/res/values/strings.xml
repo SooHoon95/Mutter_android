@@ -1,0 +1,12 @@
+<resources>
+    <!-- 영구 편지권 계약 문구(docs/specs/permanent-letter-contract.md, 세 플랫폼 동일) -->
+    <string name="delivery_access_permanent">영구</string>
+    <string name="delivery_access_days_left">%1$d일 남음</string>
+    <string name="delivery_access_closed">닫힘</string>
+    <string name="delivery_free_days_notice">받는 분이 처음 연 날부터 %1$d일 동안 열려요.</string>
+    <string name="delivery_make_permanent">영구 편지로 만들기 · 편지권 1장</string>
+    <string name="delivery_duplicate">같은 내용으로 한 통 더 보내기</string>
+    <string name="delivery_readers_title">열어본 사람</string>
+    <string name="delivery_reader_row">%1$s · %2$d월 %3$d일에 열어봄</string>
+    <string name="delivery_reader_unnamed">이름 없는 사용자</string>
+</resources>

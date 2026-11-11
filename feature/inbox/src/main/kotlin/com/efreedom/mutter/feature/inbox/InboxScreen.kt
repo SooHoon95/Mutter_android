@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -57,6 +58,7 @@ import com.efreedom.mutter.uicomponent.theme.Ivory
 import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.Surface
 import com.efreedom.mutter.domain.model.InboxItem
+import com.efreedom.mutter.domain.model.LetterAccessLabel
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -164,6 +166,7 @@ fun InboxScreen(
                             ) {
                                 LetterCard(
                                     item = item,
+                                    accessLabel = state.accessLabels[item.letterId],
                                     selected = if (state.isEditing) item.letterId in state.selectedIds else null,
                                     onClick = {
                                         if (state.isEditing) viewModel.toggleSelection(item.letterId)
@@ -289,7 +292,7 @@ private fun SwipeToDeleteContainer(
 
 /** [selected]가 null이 아니면 편집 모드 — 맨 앞에 선택 원을 붙인다. */
 @Composable
-private fun LetterCard(item: InboxItem, selected: Boolean?, onClick: () -> Unit) {
+private fun LetterCard(item: InboxItem, accessLabel: LetterAccessLabel?, selected: Boolean?, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -327,11 +330,16 @@ private fun LetterCard(item: InboxItem, selected: Boolean?, onClick: () -> Unit)
                 maxLines = 1,
             )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = formatDate(item),
-                style = MutterText.caption,
-                color = InkSoft,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = formatDate(item),
+                    style = MutterText.caption,
+                    color = InkSoft,
+                )
+                accessLabelText(accessLabel)?.let { label ->
+                    Text(text = "· $label", style = MutterText.caption, color = InkFaint)
+                }
+            }
         }
 
         // 미열람 골드 배지
@@ -389,3 +397,12 @@ private val dateFormatter: DateTimeFormatter = DateTimeFormatter
     .withZone(ZoneId.systemDefault())
 
 private fun formatDate(item: InboxItem): String = dateFormatter.format(item.savedAt)
+
+/** 목록 상태 문구(계약: `영구` / `{n}일 남음` / `닫힘`). 표시하지 않으면 null. */
+@Composable
+private fun accessLabelText(label: LetterAccessLabel?): String? = when (label) {
+    null, LetterAccessLabel.None -> null
+    LetterAccessLabel.Permanent -> stringResource(R.string.inbox_access_permanent)
+    is LetterAccessLabel.DaysLeft -> stringResource(R.string.inbox_access_days_left, label.days)
+    LetterAccessLabel.Closed -> stringResource(R.string.inbox_access_closed)
+}

@@ -4,11 +4,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.DeliveryLink
+import com.efreedom.mutter.domain.model.Entitlements
+import com.efreedom.mutter.domain.model.LetterAccessKind
+import com.efreedom.mutter.domain.model.LetterAccessState
+import com.efreedom.mutter.domain.model.LetterReader
 import com.efreedom.mutter.domain.usecase.DeliveryUseCase
+import com.efreedom.mutter.domain.usecase.LetterAccessUseCase
+import com.efreedom.mutter.domain.usecase.TicketUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
@@ -26,14 +35,38 @@ data class DeliveryUiState(
     val error: String? = null,
     /** 방금 발급한 링크. 암호·예약 여부가 공유 문구에 쓰인다. */
     val lastIssuedLink: DeliveryLink? = null,
+    /**
+     * 편지 접근 상태(영구 편지권). null이면 서버 반영 전이거나 조회 실패 — 열람자·사본·영구화 UI를 숨겨 기존 화면 그대로.
+     */
+    val access: LetterAccessState? = null,
+    val entitlements: Entitlements? = null,
+    /** 열람자(처음 연 순). 조회 실패면 비어 있다. */
+    val readers: List<LetterReader> = emptyList(),
+    val isMakingPermanent: Boolean = false,
+    val isDuplicating: Boolean = false,
+    /** 편지권이 없어 구매 화면으로 보내야 한다(NO_TICKET). */
+    val needTickets: Boolean = false,
+    /** 방금 만든 사본 id — 화면이 그 편지의 발송 화면으로 이어 간다. */
+    val duplicatedLetterId: String? = null,
 ) {
     val canIssue: Boolean get() = if (usePassword) password.isNotEmpty() else true
+
+    /** "영구 편지로 만들기" — 편지권 UI가 보이는 계정이고, 아직 영구가 아니며 되살릴 수 있는 편지. */
+    val canMakePermanent: Boolean
+        get() = entitlements?.showsTicketUi == true && access != null &&
+            access.kind != LetterAccessKind.PERMANENT && access.kind != LetterAccessKind.GONE
+
+    /** 링크 발급 안내(받는 분이 처음 연 날부터 N일) — 기간 제한이 있는 편지에만. */
+    val freeDaysNotice: Int?
+        get() = entitlements?.freeDays?.takeIf { access != null && access.kind != LetterAccessKind.PERMANENT }
 }
 
 /** iOS DeliveryModelData 대응. 전달 링크 발급/관리 — 암호 기본 ON, 예약공개, revoke. */
 @HiltViewModel
 class DeliveryViewModel @Inject constructor(
     private val deliveryUseCase: DeliveryUseCase,
+    private val letterAccessUseCase: LetterAccessUseCase,
+    private val ticketUseCase: TicketUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DeliveryUiState())
@@ -54,6 +87,7 @@ class DeliveryViewModel @Inject constructor(
             try {
                 val links = deliveryUseCase.links(letterId)
                 _state.value = _state.value.copy(links = links)
+                loadAccess()
             } catch (e: Throwable) {
                 val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
                 _state.value = _state.value.copy(error = message)
@@ -100,6 +134,71 @@ class DeliveryViewModel @Inject constructor(
                 _state.value = _state.value.copy(isLoading = false)
             }
         }
+    }
+
+    /**
+     * 상태·잔액·열람자. 셋 다 서버 반영 전에는 실패한다 → 조용히 빈 값(오류 표시 없음).
+     */
+    private suspend fun loadAccess() {
+        val (access, entitlements, readers) = coroutineScope {
+            val accessDeferred = async { letterAccessUseCase.accessStates(listOf(letterId))[letterId] }
+            val entitlementsDeferred = async { ticketUseCase.entitlementsOrNull() }
+            val readersDeferred = async {
+                try {
+                    letterAccessUseCase.readers(letterId)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Throwable) {
+                    emptyList()
+                }
+            }
+            Triple(accessDeferred.await(), entitlementsDeferred.await(), readersDeferred.await())
+        }
+        _state.value = _state.value.copy(access = access, entitlements = entitlements, readers = readers)
+    }
+
+    /** 편지권 1장으로 영구화(make_letter_permanent). 편지권이 없으면 구매 화면으로. */
+    fun makePermanent() {
+        if (_state.value.isMakingPermanent) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isMakingPermanent = true, error = null)
+            try {
+                letterAccessUseCase.makePermanent(letterId)
+                loadAccess()
+            } catch (e: MutterError.NoTicket) {
+                _state.value = _state.value.copy(needTickets = true)
+            } catch (e: Throwable) {
+                val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
+                _state.value = _state.value.copy(error = message)
+            } finally {
+                _state.value = _state.value.copy(isMakingPermanent = false)
+            }
+        }
+    }
+
+    fun onNeedTicketsHandled() {
+        _state.value = _state.value.copy(needTickets = false)
+    }
+
+    /** 같은 내용으로 새 편지를 만든다(duplicate-letter). 새 편지는 링크가 없어 발송 화면으로 이어 간다. */
+    fun duplicate() {
+        if (_state.value.isDuplicating) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isDuplicating = true, error = null)
+            try {
+                val newId = letterAccessUseCase.duplicate(letterId)
+                _state.value = _state.value.copy(duplicatedLetterId = newId)
+            } catch (e: Throwable) {
+                val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
+                _state.value = _state.value.copy(error = message)
+            } finally {
+                _state.value = _state.value.copy(isDuplicating = false)
+            }
+        }
+    }
+
+    fun onDuplicatedHandled() {
+        _state.value = _state.value.copy(duplicatedLetterId = null)
     }
 
     fun setUsePassword(value: Boolean) {

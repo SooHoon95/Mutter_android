@@ -148,6 +148,8 @@ fun MutterNavHost(
             DeliveryScreen(
                 letterId = route.letterId,
                 onPreview = { navController.navigate(FeatureRoute.ViewerMyLetter(route.letterId)) },
+                // 사본은 링크가 없는 새 편지 — 그 편지의 발송 화면으로 이어 간다(뒤로 오면 원본 상세).
+                onDuplicated = { newId -> navController.navigate(FeatureRoute.Delivery(newId)) },
             )
         }
 

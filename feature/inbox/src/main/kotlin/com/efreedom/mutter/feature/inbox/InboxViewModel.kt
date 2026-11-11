@@ -4,12 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.InboxItem
+import com.efreedom.mutter.domain.model.LetterAccessLabel
 import com.efreedom.mutter.domain.usecase.InboxUseCase
+import com.efreedom.mutter.domain.usecase.LetterAccessUseCase
+import com.efreedom.mutter.domain.usecase.TicketUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import java.time.Instant
 import javax.inject.Inject
 
 /** 방금 삭제함으로 옮긴 받은 편지들 — 화면이 "되돌리기" 스낵바를 띄운다. [key]는 연속 삭제마다 새 스낵바를 띄우려는 구분자. */
@@ -24,6 +30,8 @@ data class InboxUiState(
     val selectedIds: Set<String> = emptySet(),
     val undo: InboxUndo? = null,
     val error: String? = null,
+    /** 받은 편지 상태 표시(영구·n일 남음·닫힘). 서버 반영 전·조회 실패면 비어 있다 — 기존 목록 그대로. */
+    val accessLabels: Map<String, LetterAccessLabel> = emptyMap(),
 ) {
     val isAllSelected: Boolean get() = items.isNotEmpty() && items.all { it.letterId in selectedIds }
 }
@@ -32,6 +40,8 @@ data class InboxUiState(
 @HiltViewModel
 class InboxViewModel @Inject constructor(
     private val inboxUseCase: InboxUseCase,
+    private val letterAccessUseCase: LetterAccessUseCase,
+    private val ticketUseCase: TicketUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(InboxUiState())
@@ -47,11 +57,28 @@ class InboxViewModel @Inject constructor(
                 // 그사이 사라진 편지는 선택에서도 뺀다 — "삭제 (N)"이 화면에 없는 편지까지 세지 않게.
                 val ids = items.mapTo(HashSet()) { it.letterId }
                 _state.value = _state.value.copy(items = items, selectedIds = _state.value.selectedIds intersect ids)
+                loadAccessLabels(items.map { it.letterId })
             } catch (_: Throwable) {
                 // 빈 상태 유지 — 재시도는 pull-to-refresh로
             } finally {
                 _state.value = _state.value.copy(isLoading = false)
             }
+        }
+    }
+
+    /** 목록에 상태를 합친다. 실패하면 조용히 빈 값(서버 반영 전 RPC 없음) — 오류 표시 없음. */
+    private fun loadAccessLabels(letterIds: List<String>) {
+        if (letterIds.isEmpty()) return
+        viewModelScope.launch {
+            val (states, entitlements) = coroutineScope {
+                val statesDeferred = async { letterAccessUseCase.accessStates(letterIds) }
+                val entitlementsDeferred = async { ticketUseCase.entitlementsOrNull() }
+                statesDeferred.await() to entitlementsDeferred.await()
+            }
+            val showPermanent = entitlements?.showsTicketUi == true
+            val now = Instant.now()
+            val labels = states.mapValues { (_, st) -> LetterAccessLabel.of(st, showPermanent, now) }
+            _state.value = _state.value.copy(accessLabels = labels)
         }
     }
 

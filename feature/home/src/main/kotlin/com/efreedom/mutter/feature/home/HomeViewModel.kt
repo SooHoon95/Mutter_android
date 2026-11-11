@@ -4,9 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Letter
+import com.efreedom.mutter.domain.model.LetterAccessLabel
 import com.efreedom.mutter.domain.model.LetterOpenSummary
+import com.efreedom.mutter.domain.usecase.LetterAccessUseCase
 import com.efreedom.mutter.domain.usecase.LetterUseCase
 import com.efreedom.mutter.domain.usecase.ReceiptUseCase
+import com.efreedom.mutter.domain.usecase.TicketUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -15,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.Instant
 import javax.inject.Inject
 
 data class LetterRow(
@@ -32,6 +36,8 @@ data class HomeUiState(
     val error: String? = null,
     /** 방금 삭제함으로 옮긴 편지 id — 화면이 "되돌리기" 스낵바를 띄우고 [HomeViewModel.undoDismissed]로 비운다. */
     val undoLetterId: String? = null,
+    /** 보낸 편지 상태 표시(영구·n일 남음·닫힘). 서버 반영 전·조회 실패면 비어 있다 — 기존 목록 그대로. */
+    val accessLabels: Map<String, LetterAccessLabel> = emptyMap(),
 ) {
     val sentRows: List<LetterRow> get() = rows.filter { it.isSent }
     val draftRows: List<LetterRow> get() = rows.filter { !it.isSent }
@@ -44,6 +50,8 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     private val letterUseCase: LetterUseCase,
     private val receiptUseCase: ReceiptUseCase,
+    private val letterAccessUseCase: LetterAccessUseCase,
+    private val ticketUseCase: TicketUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
@@ -80,12 +88,29 @@ class HomeViewModel @Inject constructor(
                     )
                 }
                 _state.value = _state.value.copy(rows = rows)
+                loadAccessLabels(rows.filter { it.isSent }.map { it.id })
             } catch (e: Throwable) {
                 val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
                 _state.value = _state.value.copy(error = message)
             } finally {
                 _state.value = _state.value.copy(isLoading = false)
             }
+        }
+    }
+
+    /** 목록에 상태를 합친다. 둘 다 실패하면 조용히 빈 값(서버 반영 전 RPC 없음) — 오류 표시 없음. */
+    private fun loadAccessLabels(letterIds: List<String>) {
+        if (letterIds.isEmpty()) return
+        viewModelScope.launch {
+            val (states, entitlements) = coroutineScope {
+                val statesDeferred = async { letterAccessUseCase.accessStates(letterIds) }
+                val entitlementsDeferred = async { ticketUseCase.entitlementsOrNull() }
+                statesDeferred.await() to entitlementsDeferred.await()
+            }
+            val showPermanent = entitlements?.showsTicketUi == true
+            val now = Instant.now()
+            val labels = states.mapValues { (_, st) -> LetterAccessLabel.of(st, showPermanent, now) }
+            _state.value = _state.value.copy(accessLabels = labels)
         }
     }
 

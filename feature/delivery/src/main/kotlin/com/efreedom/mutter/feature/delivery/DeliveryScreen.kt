@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,6 +62,8 @@ import com.efreedom.mutter.uicomponent.theme.Surface as MutterSurface
 import com.efreedom.mutter.domain.AppLink
 import com.efreedom.mutter.domain.LetterShareMessage
 import com.efreedom.mutter.domain.model.DeliveryLink
+import com.efreedom.mutter.domain.model.LetterAccessLabel
+import com.efreedom.mutter.domain.model.LetterReader
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -73,12 +76,29 @@ fun DeliveryScreen(
     letterId: String,
     onPreview: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 편지권이 없을 때(NO_TICKET) 편지권 화면으로. */
+    onOpenTickets: () -> Unit = {},
+    /** 사본을 만든 뒤 그 새 편지의 발송 화면으로. */
+    onDuplicated: (String) -> Unit = {},
     viewModel: DeliveryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     LaunchedEffect(letterId) { viewModel.start(letterId) }
+
+    LaunchedEffect(state.needTickets) {
+        if (state.needTickets) {
+            viewModel.onNeedTicketsHandled()
+            onOpenTickets()
+        }
+    }
+    LaunchedEffect(state.duplicatedLetterId) {
+        state.duplicatedLetterId?.let { newId ->
+            viewModel.onDuplicatedHandled()
+            onDuplicated(newId)
+        }
+    }
 
     Column(
         modifier = modifier
@@ -110,6 +130,8 @@ fun DeliveryScreen(
                     style = MutterButtonStyle.Ghost,
                 )
 
+                AccessSection(state = state, onMakePermanent = viewModel::makePermanent)
+
                 IssueCard(
                     state = state,
                     onUsePasswordChange = viewModel::setUsePassword,
@@ -133,6 +155,20 @@ fun DeliveryScreen(
                         onCopy = { token -> copyToClipboard(context, AppLink.letter(token)) },
                         onShare = { link -> shareText(context, shareMessage(link)) },
                         onRevoke = viewModel::revoke,
+                    )
+                }
+
+                if (state.readers.isNotEmpty()) {
+                    ReadersSection(readers = state.readers)
+                }
+
+                // 사본 — 서버 반영 뒤(상태 조회 성공)에만 보인다. 닫힌 뒤 처음 온 사람에게 새로 보내는 길.
+                if (state.access != null) {
+                    MutterButton(
+                        text = stringResource(R.string.delivery_duplicate),
+                        onClick = viewModel::duplicate,
+                        style = MutterButtonStyle.Secondary,
+                        isLoading = state.isDuplicating,
                     )
                 }
 
@@ -354,6 +390,63 @@ private fun ExistingLinksSection(
                     }
                 }
             }
+        }
+    }
+}
+
+/** 상태 표시 + 링크 발급 안내 + "영구 편지로 만들기". 상태를 모르면(서버 반영 전) 아무것도 그리지 않는다. */
+@Composable
+private fun AccessSection(state: DeliveryUiState, onMakePermanent: () -> Unit) {
+    val access = state.access ?: return
+    val label = remember(access, state.entitlements) {
+        LetterAccessLabel.of(access, state.entitlements?.showsTicketUi == true, Instant.now())
+    }
+    val labelText = when (label) {
+        LetterAccessLabel.None -> null
+        LetterAccessLabel.Permanent -> stringResource(R.string.delivery_access_permanent)
+        is LetterAccessLabel.DaysLeft -> stringResource(R.string.delivery_access_days_left, label.days)
+        LetterAccessLabel.Closed -> stringResource(R.string.delivery_access_closed)
+    }
+    val notice = state.freeDaysNotice
+    if (labelText == null && notice == null && !state.canMakePermanent) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        labelText?.let { Text(text = it, style = MutterText.bodyMediumBold, color = GoldDeep) }
+        notice?.let {
+            Text(
+                text = stringResource(R.string.delivery_free_days_notice, it),
+                style = MutterText.caption,
+                color = InkSoft,
+            )
+        }
+        if (state.canMakePermanent) {
+            MutterButton(
+                text = stringResource(R.string.delivery_make_permanent),
+                onClick = onMakePermanent,
+                isLoading = state.isMakingPermanent,
+            )
+        }
+    }
+}
+
+/** 열람자 — "{닉네임} · {M}월 {D}일에 열어봄"(처음 연 날). */
+@Composable
+private fun ReadersSection(readers: List<LetterReader>) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(text = stringResource(R.string.delivery_readers_title), style = MutterText.bodyMediumBold, color = InkSoft)
+        val unnamed = stringResource(R.string.delivery_reader_unnamed)
+        readers.forEach { reader ->
+            val date = reader.firstOpenedAt.atZone(ZoneId.systemDefault()).toLocalDate()
+            Text(
+                text = stringResource(
+                    R.string.delivery_reader_row,
+                    reader.nickname?.takeIf { it.isNotBlank() } ?: unnamed,
+                    date.monthValue,
+                    date.dayOfMonth,
+                ),
+                style = MutterText.bodySmall,
+                color = InkMid,
+            )
         }
     }
 }
