@@ -14,6 +14,7 @@ import com.efreedom.mutter.domain.model.LetterCover
 import com.efreedom.mutter.domain.model.LetterDraft
 import com.efreedom.mutter.domain.model.LetterOpenSummary
 import com.efreedom.mutter.domain.model.LetterPayload
+import com.efreedom.mutter.domain.model.LetterKeepRequest
 import com.efreedom.mutter.domain.model.LetterReader
 import com.efreedom.mutter.domain.model.LetterWithStatus
 import com.efreedom.mutter.domain.model.Profile
@@ -170,6 +171,10 @@ interface LetterAccessRepository {
     suspend fun makePermanent(letterId: String)
     /** 받은 사람이 편지권 1장으로 간직. 성공하면 받은 편지함에 들어간다. */
     suspend fun keepReceived(token: String, password: String?)
+    /** 받은 사람이 보낸 사람에게 간직 요청. 이번에 새로 알렸으면 true, 이미 알렸거나 알릴 일이 없으면 false — 둘 다 성공. */
+    suspend fun requestKeep(token: String, password: String?): Boolean
+    /** 소유자만. 간직 요청자(요청한 순). */
+    suspend fun keepRequests(letterId: String): List<LetterKeepRequest>
     /** 같은 내용으로 새 편지를 만든다(duplicate-letter). 새 편지 id. 링크는 없다. */
     suspend fun duplicate(letterId: String): String
 }

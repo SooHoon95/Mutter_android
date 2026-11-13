@@ -13,6 +13,9 @@ data class Entitlements(
     /** 편지권 관련 UI(프로필 항목·구매·"영구 편지로 만들기")를 보일지. 계약 "화면 노출 규칙". */
     val showsTicketUi: Boolean get() = paidEnabled || isAdmin
 
+    /** 잠긴 편지의 "편지권으로 간직하기"(앱). 잔액이 있으면 유료 전환 전에도 보인다. 계약 "잠김 화면(받은 사람)". */
+    val showsKeepOnLocked: Boolean get() = tickets > 0 || showsTicketUi
+
     /** 구매 UI — 관리자는 차감 없이 영구가 되므로 구매 UI를 숨긴다. */
     val canPurchase: Boolean get() = paidEnabled && !isAdmin
 }

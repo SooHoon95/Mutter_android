@@ -13,6 +13,7 @@ import com.efreedom.mutter.domain.model.Letter
 import com.efreedom.mutter.domain.model.LetterBlock
 import com.efreedom.mutter.domain.model.LetterBlocks
 import com.efreedom.mutter.domain.model.LetterAccessState
+import com.efreedom.mutter.domain.model.LetterKeepRequest
 import com.efreedom.mutter.domain.model.LetterCover
 import com.efreedom.mutter.domain.model.LetterDraft
 import com.efreedom.mutter.domain.model.LetterOpenSummary
@@ -269,6 +270,8 @@ class LetterAccessUseCase @Inject constructor(private val repository: LetterAcce
     suspend fun readers(letterId: String): List<LetterReader> = repository.readers(letterId)
     suspend fun makePermanent(letterId: String) = repository.makePermanent(letterId)
     suspend fun keepReceived(token: String, password: String?) = repository.keepReceived(token, password)
+    suspend fun requestKeep(token: String, password: String?): Boolean = repository.requestKeep(token, password)
+    suspend fun keepRequests(letterId: String): List<LetterKeepRequest> = repository.keepRequests(letterId)
     suspend fun duplicate(letterId: String): String = repository.duplicate(letterId)
 }
 

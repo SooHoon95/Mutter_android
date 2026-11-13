@@ -51,9 +51,15 @@ sealed interface ViewerState {
 
     /**
      * 무료 기간이 끝난 편지(LETTER_LOCKED). [deleteAt]까지 편지권으로 다시 열 수 있다.
-     * [canKeep] — 로그인 상태이고 편지권 UI가 보이는 계정일 때만 "편지권으로 간직하기"를 보인다.
+     * [canKeep] — 로그인 상태이고 `tickets > 0 || paid_enabled || is_admin`일 때 "편지권으로 간직하기"를 보인다.
+     * [canRequestKeep] — 로그인 상태면 편지권 UI와 무관하게 "보낸 분께 알리기"를 보인다.
      */
-    data class Locked(val deleteAt: Instant?, val cover: LetterCover?, val canKeep: Boolean) : ViewerState
+    data class Locked(
+        val deleteAt: Instant?,
+        val cover: LetterCover?,
+        val canKeep: Boolean,
+        val canRequestKeep: Boolean,
+    ) : ViewerState
 
     /** 유예까지 끝난 편지(LETTER_GONE). */
     object Gone : ViewerState
@@ -119,6 +125,14 @@ class ViewerViewModel @Inject constructor(
     var keepError by mutableStateOf<String?>(null)
         private set
 
+    /** 잠긴 편지 "보낸 분께 알리기" 진행 중. */
+    var isRequestingKeep by mutableStateOf(false)
+        private set
+
+    /** 이미 간직 요청을 보냈다(봉투의 keep_requested 또는 방금 성공) — 버튼을 "보낸 분께 알렸어요"로 끈다. */
+    var keepRequested by mutableStateOf(false)
+        private set
+
     /** 편지권이 없어 구매 화면으로 가야 한다(NO_TICKET). 화면이 이동한 뒤 [onNeedTicketsHandled]로 끈다. */
     var needTickets by mutableStateOf(false)
         private set
@@ -174,6 +188,31 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 보낸 사람에게 간직 요청을 보낸다(request_keep_letter). true(새로 알림)·false(이미 알렸거나 알릴 일 없음) 모두 성공.
+     * 오류는 간직하기와 같은 자리([keepError])에 보인다.
+     */
+    fun requestKeep() {
+        val src = source as? Source.Token ?: return
+        if (isRequestingKeep || keepRequested) return
+        viewModelScope.launch {
+            isRequestingKeep = true
+            keepError = null
+            try {
+                letterAccessUseCase.requestKeep(src.token, password)
+                keepRequested = true
+            } catch (e: Throwable) {
+                if (e is MutterError.LetterGone) {
+                    _state.value = ViewerState.Gone
+                } else {
+                    keepError = (e as? MutterError)?.userMessage ?: MutterError.Unknown.userMessage
+                }
+            } finally {
+                isRequestingKeep = false
+            }
+        }
+    }
+
     fun onNeedTicketsHandled() {
         needTickets = false
     }
@@ -225,12 +264,17 @@ class ViewerViewModel @Inject constructor(
                     is MutterError.WrongPassword -> ViewerState.PasswordRequired
                     is MutterError.LinkNotYetRevealed -> ViewerState.RevealPending(e.revealAt)
                     is MutterError.LoginRequired -> ViewerState.Envelope(coverOrNull(token))
-                    is MutterError.LetterLocked -> ViewerState.Locked(
-                        deleteAt = e.deleteAt,
-                        cover = coverOrNull(token),
-                        // 편지권 UI 노출 규칙(paid_enabled || is_admin). 조회 실패면 숨긴다.
-                        canKeep = isSignedIn && ticketUseCase.entitlementsOrNull()?.showsTicketUi == true,
-                    )
+                    is MutterError.LetterLocked -> {
+                        val cover = coverOrNull(token)
+                        keepRequested = cover?.keepRequested == true
+                        ViewerState.Locked(
+                            deleteAt = e.deleteAt,
+                            cover = cover,
+                            // 계약 "잠김 화면(받은 사람)" 앱 규칙(tickets > 0 || paid_enabled || is_admin). 조회 실패면 숨긴다.
+                            canKeep = isSignedIn && ticketUseCase.entitlementsOrNull()?.showsKeepOnLocked == true,
+                            canRequestKeep = isSignedIn,
+                        )
+                    }
                     is MutterError.LetterGone -> ViewerState.Gone
                     is MutterError -> ViewerState.Failed(e.userMessage)
                     else -> ViewerState.Failed("편지를 불러오지 못했어요.")

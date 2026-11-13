@@ -394,7 +394,7 @@ private fun ExistingLinksSection(
     }
 }
 
-/** 상태 표시 + 링크 발급 안내 + "영구 편지로 만들기". 상태를 모르면(서버 반영 전) 아무것도 그리지 않는다. */
+/** 상태 표시 + 링크 발급 안내 + 간직 요청자 + "영구 편지로 만들기". 상태를 모르면(서버 반영 전) 아무것도 그리지 않는다. */
 @Composable
 private fun AccessSection(state: DeliveryUiState, onMakePermanent: () -> Unit) {
     val access = state.access ?: return
@@ -408,7 +408,7 @@ private fun AccessSection(state: DeliveryUiState, onMakePermanent: () -> Unit) {
         LetterAccessLabel.Closed -> stringResource(R.string.delivery_access_closed)
     }
     val notice = state.freeDaysNotice
-    if (labelText == null && notice == null && !state.canMakePermanent) return
+    if (labelText == null && notice == null && state.keepRequests.isEmpty() && !state.canMakePermanent) return
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         labelText?.let { Text(text = it, style = MutterText.bodyMediumBold, color = GoldDeep) }
@@ -418,6 +418,23 @@ private fun AccessSection(state: DeliveryUiState, onMakePermanent: () -> Unit) {
                 style = MutterText.caption,
                 color = InkSoft,
             )
+        }
+        // 간직 요청자 — "영구 편지로 만들기" 바로 위에 한 줄씩.
+        if (state.keepRequests.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                state.keepRequests.forEach { request ->
+                    val name = request.nickname?.takeIf { it.isNotBlank() }
+                    Text(
+                        text = if (name != null) {
+                            stringResource(R.string.delivery_keep_request_row, name)
+                        } else {
+                            stringResource(R.string.delivery_keep_request_row_unnamed)
+                        },
+                        style = MutterText.bodySmall,
+                        color = InkMid,
+                    )
+                }
+            }
         }
         if (state.canMakePermanent) {
             MutterButton(

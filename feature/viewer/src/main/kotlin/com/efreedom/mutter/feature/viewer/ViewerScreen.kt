@@ -60,6 +60,7 @@ import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.LetterPhotoImage
 import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.MutterEqualizer
 import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.SoundCloudAttribution
@@ -162,8 +163,11 @@ fun ViewerScreen(
             is ViewerState.Locked -> LockedContent(
                 state = s,
                 isKeeping = viewModel.isKeeping,
+                isRequestingKeep = viewModel.isRequestingKeep,
+                keepRequested = viewModel.keepRequested,
                 error = viewModel.keepError,
                 onKeep = viewModel::keep,
+                onRequestKeep = viewModel::requestKeep,
             )
             is ViewerState.Ready -> {
                 if (isOpened) {
@@ -298,13 +302,19 @@ private fun EnvelopeBadge() {
 
 // ─── Locked (LETTER_LOCKED) ──────────────────────────────────────────────────
 
-/** 무료 기간이 끝난 편지 — 삭제 예정일까지 편지권으로 간직할 수 있다. 확인창에 환급 안내를 싣는다. */
+/**
+ * 무료 기간이 끝난 편지 — 삭제 예정일까지 편지권으로 간직할 수 있다. 확인창에 환급 안내를 싣는다.
+ * 로그인 상태면 "보낸 분께 알리기"(간직 요청)를 항상 함께 보인다.
+ */
 @Composable
 private fun LockedContent(
     state: ViewerState.Locked,
     isKeeping: Boolean,
+    isRequestingKeep: Boolean,
+    keepRequested: Boolean,
     error: String?,
     onKeep: () -> Unit,
+    onRequestKeep: () -> Unit,
 ) {
     var confirming by remember { mutableStateOf(false) }
 
@@ -350,6 +360,29 @@ private fun LockedContent(
                     isLoading = isKeeping,
                     modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
                 )
+            }
+            if (state.canRequestKeep) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    MutterButton(
+                        text = stringResource(
+                            if (keepRequested) R.string.viewer_keep_request_done else R.string.viewer_keep_request,
+                        ),
+                        onClick = onRequestKeep,
+                        style = MutterButtonStyle.Secondary,
+                        enabled = !keepRequested,
+                        isLoading = isRequestingKeep,
+                        modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.viewer_keep_request_hint),
+                        style = MutterText.caption,
+                        color = InkSoft,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
             error?.let {
                 Text(text = it, style = MutterText.caption, color = GoldDeep, textAlign = TextAlign.Center)

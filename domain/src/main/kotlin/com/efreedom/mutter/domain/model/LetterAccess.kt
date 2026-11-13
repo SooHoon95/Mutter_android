@@ -23,6 +23,7 @@ enum class LetterAccessKind(val raw: String) {
 /**
  * get_letter_access_states 한 행. [accessUntil]은 잠기는(잠긴) 시각, [deleteAt]은 삭제 예정 시각.
  * [keptByRecipient] — 받은 사람이 자기 편지권으로 영구로 만든 편지(보낸 사람에게만 true, 삭제 확인 경고용).
+ * [keepRequestCount] — 간직 요청 수. 보낸 사람에게만, 아직 영구가 아닌 편지(open·locked)에만 0보다 크다.
  */
 data class LetterAccessState(
     val letterId: String,
@@ -30,6 +31,7 @@ data class LetterAccessState(
     val accessUntil: Instant?,
     val deleteAt: Instant?,
     val keptByRecipient: Boolean = false,
+    val keepRequestCount: Int = 0,
 ) {
     /** [now] 기준 잠기기까지 남은 일수(올림). 아직 아무도 안 열었거나 영구면 null. */
     fun daysLeft(now: Instant): Int? =
@@ -39,6 +41,7 @@ data class LetterAccessState(
 /**
  * 봉투 — get_letter_cover. 본문 없음. [sealed]면 이유를 구분할 수 없는 상태라 나머지 값이 비어 있다.
  * [loginRequired]는 "이 편지가 로그인을 요구하는가"이며 호출자의 로그인 여부와 무관하다.
+ * [keepRequested]는 호출한 로그인 사용자가 이 편지에 간직 요청을 이미 보냈는지(익명이면 false).
  */
 data class LetterCover(
     val sealed: Boolean,
@@ -49,6 +52,7 @@ data class LetterCover(
     val accessUntil: Instant?,
     val deleteAt: Instant?,
     val loginRequired: Boolean,
+    val keepRequested: Boolean = false,
 )
 
 /** 내 편지를 연 사람 — get_letter_readers 한 행(처음 연 순). */
@@ -58,6 +62,13 @@ data class LetterReader(
     val firstOpenedAt: Instant,
     val lastOpenedAt: Instant,
     val openCount: Int,
+)
+
+/** 내 편지를 간직하고 싶어 하는 사람 — get_letter_keep_requests 한 행(요청한 순). */
+data class LetterKeepRequest(
+    val userId: String,
+    val nickname: String?,
+    val requestedAt: Instant,
 )
 
 /** 남은 일수 계산(올림). 0 이하면 0 — 화면은 0을 "오늘"로 보인다. */

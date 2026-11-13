@@ -84,8 +84,20 @@ fun MutterNavHost(
     onConnectConsumed: () -> Unit = {},
     pendingRoute: FeatureRoute? = null,
     onRouteConsumed: () -> Unit = {},
+    openInboxTab: Boolean = false,
+    onInboxTabOpened: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+    // 탭 선택 — 알림(letter_kept)이 받은 편지 탭을 고를 수 있게 여기서 쥔다. 재구성 후에도 유지.
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+
+    // 받은 편지 탭으로(알림 탭) — 위에 쌓인 상세 화면을 걷고 탭을 바꾼다.
+    LaunchedEffect(openInboxTab) {
+        if (!openInboxTab) return@LaunchedEffect
+        navController.popBackStack(MainTabs, inclusive = false)
+        selectedTab = AppTab.INBOX.ordinal
+        onInboxTabOpened()
+    }
 
     // 바깥(알림 탭·편지 오버레이)에서 들어온 목적지 — 메인이 뜬 뒤 한 번 이동하고 비운다.
     LaunchedEffect(pendingRoute) {
@@ -108,7 +120,12 @@ fun MutterNavHost(
     ) {
         // ─── 탭 호스트 ─────────────────────────────────────────────────────
         composable<MainTabs> {
-            MainScaffold(navController = navController, onSignedOut = onSignedOut)
+            MainScaffold(
+                navController = navController,
+                onSignedOut = onSignedOut,
+                selectedIndex = selectedTab,
+                onSelect = { selectedTab = it },
+            )
         }
 
         // ─── 편지 작성 ─────────────────────────────────────────────────────
@@ -199,15 +216,16 @@ fun MutterNavHost(
 /**
  * 5탭 NavigationBar + 탭별 화면 전환 Scaffold.
  *
- * 탭 선택 상태는 [rememberSaveable]로 재구성 후에도 유지.
+ * 탭 선택 상태는 [MutterNavHost]가 쥔다(재구성 후에도 유지, 알림이 탭을 고를 수 있게).
  * 탭 콜백 → NavController로 Detail 화면 push.
  */
 @Composable
 private fun MainScaffold(
     navController: NavController,
     onSignedOut: () -> Unit,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
 ) {
-    var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
     val tabs = AppTab.entries
 
     Scaffold(
@@ -217,7 +235,7 @@ private fun MainScaffold(
                     val selected = selectedIndex == index
                     NavigationBarItem(
                         selected = selected,
-                        onClick = { selectedIndex = index },
+                        onClick = { onSelect(index) },
                         icon = {
                             Icon(
                                 painter = painterResource(if (selected) tab.iconFill else tab.icon),

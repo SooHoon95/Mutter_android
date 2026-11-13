@@ -10,6 +10,9 @@
     <string name="viewer_keep_refund_notice">If the sender deletes the letter, it disappears too and your letter pass is refunded.</string>
     <string name="viewer_keep_confirm">Keep</string>
     <string name="viewer_cancel">Cancel</string>
+    <string name="viewer_keep_request">Let the sender know</string>
+    <string name="viewer_keep_request_done">The sender has been notified</string>
+    <string name="viewer_keep_request_hint">It opens again if the sender makes it a permanent letter.</string>
     <string name="viewer_gone">This letter can no longer be opened</string>
     <string name="viewer_closing_in_days">This letter closes in %1$d days</string>
     <string name="viewer_closing_today">This letter closes today</string>

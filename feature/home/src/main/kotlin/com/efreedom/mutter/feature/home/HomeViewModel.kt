@@ -40,6 +40,8 @@ data class HomeUiState(
     val accessLabels: Map<String, LetterAccessLabel> = emptyMap(),
     /** 받은 사람이 편지권으로 간직한 보낸 편지 — 지우기 전에 "영구가 풀려요" 확인을 받는다. */
     val keptByRecipientIds: Set<String> = emptySet(),
+    /** 간직 요청 수(0보다 큰 편지만). 상태 옆에 "간직 요청 {n}". */
+    val keepRequestCounts: Map<String, Int> = emptyMap(),
 ) {
     val sentRows: List<LetterRow> get() = rows.filter { it.isSent }
     val draftRows: List<LetterRow> get() = rows.filter { !it.isSent }
@@ -113,7 +115,12 @@ class HomeViewModel @Inject constructor(
             val now = Instant.now()
             val labels = states.mapValues { (_, st) -> LetterAccessLabel.of(st, showPermanent, now) }
             val kept = states.values.filter { it.keptByRecipient }.mapTo(HashSet()) { it.letterId }
-            _state.value = _state.value.copy(accessLabels = labels, keptByRecipientIds = kept)
+            val keepRequests = states.filterValues { it.keepRequestCount > 0 }.mapValues { (_, st) -> st.keepRequestCount }
+            _state.value = _state.value.copy(
+                accessLabels = labels,
+                keptByRecipientIds = kept,
+                keepRequestCounts = keepRequests,
+            )
         }
     }
 

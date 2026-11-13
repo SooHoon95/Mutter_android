@@ -209,6 +209,7 @@ fun HomeScreen(
                                 LetterCard(
                                     row = row,
                                     accessLabel = state.accessLabels[row.id],
+                                    keepRequestCount = state.keepRequestCounts[row.id] ?: 0,
                                     onClick = {
                                         if (row.isSent) onOpenDelivery(row.letter.id)
                                         else onEditDraft(row.letter.id)
@@ -280,7 +281,7 @@ private fun StatCard(sentCount: Int, openedCount: Int) {
 }
 
 @Composable
-private fun LetterCard(row: LetterRow, accessLabel: LetterAccessLabel?, onClick: () -> Unit) {
+private fun LetterCard(row: LetterRow, accessLabel: LetterAccessLabel?, keepRequestCount: Int, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -325,6 +326,13 @@ private fun LetterCard(row: LetterRow, accessLabel: LetterAccessLabel?, onClick:
                     )
                     accessLabelText(accessLabel)?.let { label ->
                         Text(text = "· $label", style = MutterText.caption, color = InkFaint)
+                    }
+                    if (keepRequestCount > 0) {
+                        Text(
+                            text = "· " + stringResource(R.string.home_keep_request_count, keepRequestCount),
+                            style = MutterText.caption,
+                            color = Gold,
+                        )
                     }
                 }
             }

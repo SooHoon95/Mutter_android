@@ -30,12 +30,22 @@ object PushNotifications {
     private const val TYPE_LETTER_LOCK_SOON = "letter_lock_soon"
     private const val TYPE_LETTER_LOCKED = "letter_locked"
 
+    /** 받은 사람의 간직 요청(보낸 사람에게) — 닫힘 알림과 같이 그 보낸 편지 상세로. */
+    private const val TYPE_LETTER_KEEP_REQUEST = "letter_keep_request"
+
+    /** 간직 요청한 편지가 영구가 됨(요청했던 사람에게) — 받은 편지 목록으로. */
+    private const val TYPE_LETTER_KEPT = "letter_kept"
+
     /** data 키 — 백그라운드 알림 탭은 시스템이 이 키 그대로 인텐트 extra에 싣는다. */
     const val KEY_TYPE = "type"
     const val KEY_LETTER_ID = "letter_id"
 
     /** 보낸 편지 상세로 가는 알림인지. */
-    fun opensSentLetter(type: String?): Boolean = type == TYPE_LETTER_LOCK_SOON || type == TYPE_LETTER_LOCKED
+    fun opensSentLetter(type: String?): Boolean =
+        type == TYPE_LETTER_LOCK_SOON || type == TYPE_LETTER_LOCKED || type == TYPE_LETTER_KEEP_REQUEST
+
+    /** 받은 편지 목록(탭)으로 가는 알림인지. */
+    fun opensReceivedLetters(type: String?): Boolean = type == TYPE_LETTER_KEPT
 
     /** 앱 시작 시 1회. 채널이 없으면 Android 8+ 에서 알림이 조용히 버려진다. */
     fun ensureChannel(context: Context) {
@@ -67,7 +77,7 @@ object PushNotifications {
 
         // 같은 편지의 알림이 쌓이지 않도록 토큰을 태그로 쓴다(없으면 type).
         // 닫힘 알림은 편지마다 따로 남아야 하므로 letter_id를 태그로 쓴다(type이면 서로 덮어쓴다).
-        val tag = if (opensSentLetter(data[KEY_TYPE])) {
+        val tag = if (opensSentLetter(data[KEY_TYPE]) || opensReceivedLetters(data[KEY_TYPE])) {
             data[KEY_LETTER_ID] ?: data[KEY_TYPE] ?: "mutter"
         } else {
             data["token"] ?: data["type"] ?: "mutter"
@@ -86,11 +96,17 @@ object PushNotifications {
         val token = data["token"]
         val letterId = data[KEY_LETTER_ID]
         val opensSent = opensSentLetter(data[KEY_TYPE]) && !letterId.isNullOrBlank()
+        val opensReceived = opensReceivedLetters(data[KEY_TYPE])
         val intent = if (data["type"] == TYPE_LETTER_RECEIVED && !token.isNullOrBlank()) {
             Intent(Intent.ACTION_VIEW, Uri.parse("mutter://l/$token"))
                 .setPackage(context.packageName)
         } else if (opensSent) {
             // MainActivity가 extra(type·letter_id)를 읽어 보낸 편지 상세로 보낸다 — 백그라운드 알림과 같은 키.
+            Intent(context, MainActivity::class.java)
+                .putExtra(KEY_TYPE, data[KEY_TYPE])
+                .putExtra(KEY_LETTER_ID, letterId)
+        } else if (opensReceived) {
+            // MainActivity가 type을 읽어 받은 편지 탭으로 보낸다.
             Intent(context, MainActivity::class.java)
                 .putExtra(KEY_TYPE, data[KEY_TYPE])
                 .putExtra(KEY_LETTER_ID, letterId)
@@ -102,7 +118,7 @@ object PushNotifications {
 
         // extra만 다른 인텐트는 PendingIntent가 같다고 보아 FLAG_UPDATE_CURRENT가 앞 알림의 extra를 덮는다
         // → 닫힘 알림은 편지마다 다른 requestCode를 쓴다.
-        val requestCode = if (opensSent) letterId.hashCode() else 0
+        val requestCode = if (opensSent || opensReceived) letterId.hashCode() else 0
         return PendingIntent.getActivity(
             context,
             requestCode,

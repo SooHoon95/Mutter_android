@@ -55,6 +55,9 @@ class MainActivity : ComponentActivity() {
     // OAuth 리다이렉트로 세션이 확립될 때마다 증가 → 컴포즈가 관찰해 루트 상태를 refresh().
     private val oauthSessionBump = MutableStateFlow(0)
 
+    /** 받은 편지 탭을 열어야 한다(letter_kept 알림 탭). 메인이 소비하면 false. */
+    private val pendingInboxTab = MutableStateFlow(false)
+
     // 알림 권한 요청 런처. 거부돼도 앱은 그대로 동작한다(알림만 안 옴) → 결과를 쓰지 않는다.
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -81,7 +84,7 @@ class MainActivity : ComponentActivity() {
         // 최초 실행에서만 파싱 — 회전/다크모드 등 구성 변경 재생성 때 같은 링크를 재처리하지 않도록.
         if (savedInstanceState == null) {
             incomingDeeplink.value = Deeplink.parse(intent?.data)
-            pushRoute(intent)?.let { pendingRoute.value = it }
+            handlePush(intent)
             intent?.let { supabaseProvider.handleOAuthCallback(it) { oauthSessionBump.value++ } }
         }
         setContent {
@@ -92,6 +95,7 @@ class MainActivity : ComponentActivity() {
                 val deeplink by incomingDeeplink.collectAsStateWithLifecycle()
                 val oauthBump by oauthSessionBump.collectAsStateWithLifecycle()
                 val route by pendingRoute.collectAsStateWithLifecycle()
+                val openInbox by pendingInboxTab.collectAsStateWithLifecycle()
 
                 // OAuth(Apple 등) 리다이렉트로 세션이 확립되면 루트 상태를 갱신해 메인/닉네임으로 진입.
                 LaunchedEffect(oauthBump) {
@@ -154,6 +158,8 @@ class MainActivity : ComponentActivity() {
                                 onConnectConsumed = { pendingConnectToken = null },
                                 pendingRoute = route,
                                 onRouteConsumed = { pendingRoute.value = null },
+                                openInboxTab = openInbox,
+                                onInboxTabOpened = { pendingInboxTab.value = false },
                             )
                         }
                     }
@@ -190,21 +196,24 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         incomingDeeplink.value = Deeplink.parse(intent.data)
-        pushRoute(intent)?.let { pendingRoute.value = it }
+        handlePush(intent)
         supabaseProvider.handleOAuthCallback(intent) { oauthSessionBump.value++ }
     }
 
     /**
-     * 편지 닫힘 알림(letter_lock_soon·letter_locked) 탭 → 그 보낸 편지 상세(Delivery).
+     * 알림 탭 라우팅.
+     * - 편지 닫힘·간직 요청(letter_lock_soon·letter_locked·letter_keep_request) → 그 보낸 편지 상세(Delivery).
+     * - 간직 요청한 편지가 영구가 됨(letter_kept) → 받은 편지 탭.
      * 백그라운드 알림은 시스템이 data를 인텐트 extra로, 포그라운드 알림은 [PushNotifications]가 같은 키로 싣는다.
      */
-    private fun pushRoute(intent: Intent?): FeatureRoute? {
-        val extras = intent?.extras ?: return null
-        val letterId = extras.getString(PushNotifications.KEY_LETTER_ID)?.takeIf { it.isNotBlank() } ?: return null
-        return if (PushNotifications.opensSentLetter(extras.getString(PushNotifications.KEY_TYPE))) {
-            FeatureRoute.Delivery(letterId)
-        } else {
-            null
+    private fun handlePush(intent: Intent?) {
+        val extras = intent?.extras ?: return
+        val type = extras.getString(PushNotifications.KEY_TYPE)
+        if (PushNotifications.opensReceivedLetters(type)) {
+            pendingInboxTab.value = true
+            return
         }
+        val letterId = extras.getString(PushNotifications.KEY_LETTER_ID)?.takeIf { it.isNotBlank() } ?: return
+        if (PushNotifications.opensSentLetter(type)) pendingRoute.value = FeatureRoute.Delivery(letterId)
     }
 }
