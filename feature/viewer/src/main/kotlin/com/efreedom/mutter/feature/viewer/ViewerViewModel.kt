@@ -25,8 +25,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
@@ -127,8 +125,8 @@ class ViewerViewModel @Inject constructor(
         private set
 
     /**
-     * 받은 사람(로그인·소유자 아님)이 연 기간 제한 편지 — 편지 끝 안내("이 편지는 {M}월 {D}일까지 열려요")를 보인다.
-     * 영구 편지·익명·내 편지면 false.
+     * 받은 사람(로그인·`is_mine == false`)이 연 기간 제한 편지 — 편지 끝 안내("이 편지는 {M}월 {D}일까지 열려요")를 보인다.
+     * 영구 편지·익명·내 편지(`is_mine`)면 false.
      */
     var isRecipient by mutableStateOf(false)
         private set
@@ -241,7 +239,7 @@ class ViewerViewModel @Inject constructor(
         runCatching { deliveryUseCase.open(token, password) }
             .onSuccess {
                 // 간직 안내는 오디오 준비(present)를 기다리지 않게 따로 받는다.
-                if (isSignedIn && !it.isPermanent) viewModelScope.launch { loadKeepOffer(it.id) }
+                if (isSignedIn && !it.isPermanent && !it.isMine) viewModelScope.launch { loadKeepOffer() }
                 present(it)
                 // 로그인 상태면 서버가 받은함에 자동 저장했으므로 표시(익명 수신자는 표시 안 함).
                 if (isSignedIn) {
@@ -267,18 +265,14 @@ class ViewerViewModel @Inject constructor(
     }
 
     /**
-     * 기간 제한 편지를 연 로그인 사용자 — 받은 사람인지(소유자 아님)와 간직 버튼·닫힘 예고 기준을 받는다.
-     * 소유자 판정은 letters 직접 조회로 한다(RLS가 소유자에게만 행을 준다). 실패하면 안내·버튼 없이 기존 화면.
+     * 기간 제한 편지를 연 받은 사람(로그인·`is_mine == false`) — 간직 버튼 노출과 닫힘 예고 기준을 받는다.
+     * 잔액 조회가 실패하면 안내만 보이고 버튼은 없다.
      */
-    private suspend fun loadKeepOffer(letterId: String) {
-        val (isOwner, entitlements) = coroutineScope {
-            val ownerDeferred = async { runCatching { letterUseCase.letter(letterId) != null }.getOrNull() }
-            val entitlementsDeferred = async { ticketUseCase.entitlementsOrNull() }
-            ownerDeferred.await() to entitlementsDeferred.await()
-        }
-        entitlements?.let { warnDays = it.warnDays }
-        isRecipient = isOwner == false
-        canKeep = isRecipient && entitlements?.canKeepReceived == true
+    private suspend fun loadKeepOffer() {
+        isRecipient = true
+        val entitlements = ticketUseCase.entitlementsOrNull() ?: return
+        warnDays = entitlements.warnDays
+        canKeep = entitlements.canKeepReceived
     }
 
     /** 봉투(제목·보낸 사람). 봉인됐거나 실패하면 null — 화면은 제목 없이 안내만 보인다. */

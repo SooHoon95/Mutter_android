@@ -84,6 +84,8 @@ data class LetterPayloadDto(
     // 영구 편지권 계약에서 더해진 키 — 서버 반영 전 응답에는 없으므로 기존 동작(영구)으로 받는다.
     @SerialName("is_permanent") val isPermanent: Boolean? = null,
     @SerialName("access_until") val accessUntil: String? = null,
+    // 호출자가 보낸 사람 본인인가(0041). 키가 없으면 false.
+    @SerialName("is_mine") val isMine: Boolean = false,
 ) {
     fun toDomain(): LetterPayload = LetterPayload(
         id = id,
@@ -94,5 +96,6 @@ data class LetterPayloadDto(
         audioDisabled = audioDisabled,
         isPermanent = isPermanent ?: true,
         accessUntil = Timestamps.parse(accessUntil),
+        isMine = isMine,
     )
 }

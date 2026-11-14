@@ -122,6 +122,8 @@ data class LetterPayload(
     val isPermanent: Boolean = true,
     /** 잠기는 시각. 영구거나 서버 반영 전이면 null. */
     val accessUntil: Instant? = null,
+    /** 호출자가 보낸 사람 본인 — 받은 사람의 간직 안내·버튼을 보이지 않는다(자기 편지는 보낸 편지 상세에서 영구로). */
+    val isMine: Boolean = false,
 ) {
     constructor(
         id: String,

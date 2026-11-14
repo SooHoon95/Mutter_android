@@ -549,10 +549,11 @@ private data class KeepOffer(
 
 /**
  * ② 닫힘 예고 — 영구가 아니고 남은 기간이 warn_days 이하일 때 조용히 한 줄 + "간직하기"(간직할 수 있는 받은 사람).
- * 방금 간직했으면 "간직한 편지예요".
+ * 방금 간직했으면 "간직한 편지예요". 보낸 사람 본인(`is_mine`)에게는 아무것도 없다.
  */
 @Composable
 private fun ClosingSoonLine(payload: LetterPayload, keepOffer: KeepOffer) {
+    if (payload.isMine) return
     if (keepOffer.isKept) {
         Text(
             text = stringResource(R.string.viewer_kept),
