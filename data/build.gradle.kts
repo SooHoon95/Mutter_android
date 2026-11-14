@@ -24,6 +24,20 @@ android {
         buildConfigField("String", "SUPABASE_URL", "\"${localProps.getProperty("SUPABASE_URL", "")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProps.getProperty("SUPABASE_ANON_KEY", "")}\"")
     }
+    buildTypes {
+        // 개발 서버 — secrets.properties(또는 local.properties)에 DEV_SUPABASE_URL이 있으면 debug 빌드만 그 서버를 본다.
+        // 없으면 debug도 운영 서버(SUPABASE_URL)를 그대로 쓴다. release는 영향이 없다.
+        debug {
+            localProps.getProperty("DEV_SUPABASE_URL")?.takeIf { it.isNotBlank() }?.let { devUrl ->
+                buildConfigField("String", "SUPABASE_URL", "\"$devUrl\"")
+                buildConfigField(
+                    "String",
+                    "SUPABASE_ANON_KEY",
+                    "\"${localProps.getProperty("DEV_SUPABASE_ANON_KEY", "")}\"",
+                )
+            }
+        }
+    }
     buildFeatures {
         buildConfig = true
     }
