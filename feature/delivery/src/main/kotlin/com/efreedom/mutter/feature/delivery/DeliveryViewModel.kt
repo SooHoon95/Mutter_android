@@ -84,6 +84,9 @@ class DeliveryViewModel @Inject constructor(
     /** 편지권 화면에 다녀오는 중 — 돌아오면([onResume]) 잔액을 다시 받는다. */
     private var awaitingTickets = false
 
+    /** 영구 편지를 보내려고 편지권 구매 화면에 갔다 — 돌아와 편지권이 있으면 이어서 영구로 만든다. */
+    private var wantsPermanentAfterPurchase = false
+
     /** Screen의 LaunchedEffect에서 한 번 호출. */
     fun start(letterId: String) {
         if (this.letterId == letterId) return
@@ -170,19 +173,21 @@ class DeliveryViewModel @Inject constructor(
     /** 편지권 1장으로 영구화(make_letter_permanent). 편지권이 없으면 구매 화면으로. */
     fun makePermanent() {
         if (_state.value.isMakingPermanent) return
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isMakingPermanent = true, error = null)
-            try {
-                letterAccessUseCase.makePermanent(letterId)
-                loadAccess()
-            } catch (e: MutterError.NoTicket) {
-                _state.value = _state.value.copy(needTickets = true)
-            } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
-                _state.value = _state.value.copy(error = message)
-            } finally {
-                _state.value = _state.value.copy(isMakingPermanent = false)
-            }
+        viewModelScope.launch { runMakePermanent() }
+    }
+
+    private suspend fun runMakePermanent() {
+        _state.value = _state.value.copy(isMakingPermanent = true, error = null)
+        try {
+            letterAccessUseCase.makePermanent(letterId)
+            loadAccess()
+        } catch (e: MutterError.NoTicket) {
+            _state.value = _state.value.copy(needTickets = true)
+        } catch (e: Throwable) {
+            val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
+            _state.value = _state.value.copy(error = message)
+        } finally {
+            _state.value = _state.value.copy(isMakingPermanent = false)
         }
     }
 
@@ -191,9 +196,18 @@ class DeliveryViewModel @Inject constructor(
         _state.value = _state.value.copy(needTickets = false)
     }
 
-    /** 보내기 전 선택 — 편지권이 없어 편지권 화면으로. */
-    fun openTicketsForChoice() {
-        _state.value = _state.value.copy(needTickets = true)
+    /**
+     * 보내기 전 선택 — 영구 편지를 고르고 버튼을 눌렀다.
+     * 편지권이 있으면(관리자 포함) 바로 영구로 만들고, 없으면 구매 화면으로 보낸 뒤 사 오면 이어서 영구로 만든다([onResume]).
+     */
+    fun choosePermanent() {
+        if (_state.value.isMakingPermanent) return
+        if (_state.value.entitlements?.hasTicketForPermanent == true) {
+            makePermanent()
+        } else {
+            wantsPermanentAfterPurchase = true
+            _state.value = _state.value.copy(needTickets = true)
+        }
     }
 
     /** 보내기 전 선택 — 무료 기간. 발급 폼을 연다. */
@@ -201,12 +215,28 @@ class DeliveryViewModel @Inject constructor(
         _state.value = _state.value.copy(choseFreeDays = true)
     }
 
-    /** 화면 복귀 — 편지권 화면에서 돌아왔으면 잔액을 다시 받아 선택 카드의 보유 수를 갱신한다. */
+    /**
+     * 화면 복귀 — 편지권 화면에서 돌아왔으면 잔액을 다시 받는다.
+     * 영구 편지를 보내려고 사러 갔다 왔고 편지권이 생겼으면, 다시 고르게 하지 않고 바로 영구로 만든다.
+     * 사지 않고 돌아왔으면 선택 카드가 그대로 보인다.
+     */
     fun onResume() {
         if (!awaitingTickets) return
         awaitingTickets = false
+        val continuePermanent = wantsPermanentAfterPurchase
+        wantsPermanentAfterPurchase = false
         viewModelScope.launch {
-            ticketUseCase.entitlementsOrNull()?.let { _state.value = _state.value.copy(entitlements = it) }
+            // 이어서 영구로 만들 참이면 잔액을 받는 동안에도 버튼을 로딩으로 둔다 — 옛 잔액의 "구매하고 보내기"가 다시 눌리지 않게.
+            if (continuePermanent) _state.value = _state.value.copy(isMakingPermanent = true)
+            try {
+                ticketUseCase.entitlementsOrNull()?.let { _state.value = _state.value.copy(entitlements = it) }
+                val st = _state.value
+                if (continuePermanent && st.showsSendChoice && st.entitlements?.hasTicketForPermanent == true) {
+                    runMakePermanent()
+                }
+            } finally {
+                if (continuePermanent) _state.value = _state.value.copy(isMakingPermanent = false)
+            }
         }
     }
 

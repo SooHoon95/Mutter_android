@@ -82,7 +82,7 @@ fun ComposeScreen(
     mode: ComposeMode,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
-    /** 보내기 전 선택에서 편지권이 없을 때 편지권 화면으로. 돌아오면 시트·선택 카드가 그대로 있다. */
+    /** 보내기 전 선택에서 영구 편지를 골랐는데 편지권이 없을 때 구매 화면으로. 사 오면 이어서 영구로, 아니면 선택 카드 그대로. */
     onOpenTickets: () -> Unit = {},
     viewModel: ComposeViewModel = hiltViewModel(),
 ) {
@@ -95,7 +95,7 @@ fun ComposeScreen(
             onOpenTickets()
         }
     }
-    // 편지권 화면에서 돌아오면 잔액 갱신(선택 카드의 보유 수).
+    // 구매 화면에서 돌아오면 잔액 갱신 — 영구 편지를 보내려던 참이고 편지권이 생겼으면 이어서 영구로 만든다.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
 
     // 화면 진입 시 한 번만 모드 초기화(이어쓰기면 기존 편지 로드).

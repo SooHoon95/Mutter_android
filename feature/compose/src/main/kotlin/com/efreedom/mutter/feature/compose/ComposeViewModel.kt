@@ -218,6 +218,8 @@ class ComposeViewModel @Inject constructor(
     private var started = false
     // 편지권 화면에 다녀오는 중 — 돌아오면(onResume) 잔액을 다시 받는다.
     private var awaitingTickets = false
+    // 영구 편지를 보내려고 편지권 구매 화면에 갔다 — 돌아와 편지권이 있으면 이어서 영구로 만든다.
+    private var wantsPermanentAfterPurchase = false
 
     // ─── 초기화 ───────────────────────────────────────────────────────────────
 
@@ -557,31 +559,38 @@ class ComposeViewModel @Inject constructor(
         }
     }
 
-    /** 보내기 전 선택 — 편지권 1장으로 영구화. 성공하면 상태를 다시 받아 카드를 걷고 "영구"와 보내기 탭을 연다. */
+    /**
+     * 보내기 전 선택 — 영구 편지를 고르고 버튼을 눌렀다.
+     * 편지권이 있으면(관리자 포함) 바로 영구로 만들고, 없으면 구매 화면으로 보낸 뒤 사 오면 이어서 영구로 만든다([onResume]).
+     */
     fun choosePermanent() {
-        val id = _state.value.sentLetterId ?: return
         if (_state.value.isMakingPermanent) return
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isMakingPermanent = true, error = null)
-            try {
-                letterAccessUseCase.makePermanent(id)
-                val access = letterAccessUseCase.accessStates(listOf(id))[id]
-                val entitlements = ticketUseCase.entitlementsOrNull() ?: _state.value.entitlements
-                _state.value = _state.value.copy(sendAccess = access, entitlements = entitlements)
-            } catch (e: MutterError.NoTicket) {
-                _state.value = _state.value.copy(needTickets = true)
-            } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
-                _state.value = _state.value.copy(error = message)
-            } finally {
-                _state.value = _state.value.copy(isMakingPermanent = false)
-            }
+        if (_state.value.entitlements?.hasTicketForPermanent == true) {
+            viewModelScope.launch { makePermanent() }
+        } else {
+            wantsPermanentAfterPurchase = true
+            _state.value = _state.value.copy(needTickets = true)
         }
     }
 
-    /** 보내기 전 선택 — 편지권이 없어 편지권 화면으로. */
-    fun openTicketsForChoice() {
-        _state.value = _state.value.copy(needTickets = true)
+    /** 편지권 1장으로 영구화. 성공하면 상태를 다시 받아 카드를 걷고 "영구"와 보내기 탭을 연다. */
+    private suspend fun makePermanent() {
+        val id = _state.value.sentLetterId ?: return
+        _state.value = _state.value.copy(isMakingPermanent = true, error = null)
+        try {
+            letterAccessUseCase.makePermanent(id)
+            val access = letterAccessUseCase.accessStates(listOf(id))[id]
+            val entitlements = ticketUseCase.entitlementsOrNull() ?: _state.value.entitlements
+            _state.value = _state.value.copy(sendAccess = access, entitlements = entitlements)
+        } catch (e: MutterError.NoTicket) {
+            // 화면의 잔액이 낡았다(다른 기기에서 사용 등) — 구매 화면으로.
+            _state.value = _state.value.copy(needTickets = true)
+        } catch (e: Throwable) {
+            val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
+            _state.value = _state.value.copy(error = message)
+        } finally {
+            _state.value = _state.value.copy(isMakingPermanent = false)
+        }
     }
 
     fun onNeedTicketsHandled() {
@@ -594,12 +603,28 @@ class ComposeViewModel @Inject constructor(
         _state.value = _state.value.copy(choseFreeDays = true)
     }
 
-    /** 화면 복귀 — 편지권 화면에서 돌아왔으면 잔액을 다시 받아 카드의 보유 수를 갱신한다(카드·시트는 그대로). */
+    /**
+     * 화면 복귀 — 편지권 화면에서 돌아왔으면 잔액을 다시 받는다(시트는 그대로 떠 있다).
+     * 영구 편지를 보내려고 사러 갔다 왔고 편지권이 생겼으면, 다시 고르게 하지 않고 바로 영구로 만든다.
+     * 사지 않고 돌아왔으면 선택 카드가 그대로 보인다.
+     */
     fun onResume() {
         if (!awaitingTickets) return
         awaitingTickets = false
+        val continuePermanent = wantsPermanentAfterPurchase
+        wantsPermanentAfterPurchase = false
         viewModelScope.launch {
-            ticketUseCase.entitlementsOrNull()?.let { _state.value = _state.value.copy(entitlements = it) }
+            // 이어서 영구로 만들 참이면 잔액을 받는 동안에도 버튼을 로딩으로 둔다 — 옛 잔액의 "구매하고 보내기"가 다시 눌리지 않게.
+            if (continuePermanent) _state.value = _state.value.copy(isMakingPermanent = true)
+            try {
+                ticketUseCase.entitlementsOrNull()?.let { _state.value = _state.value.copy(entitlements = it) }
+                val st = _state.value
+                if (continuePermanent && st.showsSendChoice && st.entitlements?.hasTicketForPermanent == true) {
+                    makePermanent()
+                }
+            } finally {
+                if (continuePermanent) _state.value = _state.value.copy(isMakingPermanent = false)
+            }
         }
     }
 

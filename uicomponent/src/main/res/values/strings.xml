@@ -1,14 +1,22 @@
 <resources>
     <!-- 보내기 전 선택 — 영구 편지권 계약 문구(docs/specs/permanent-letter-contract.md, 세 플랫폼 동일) -->
     <string name="send_choice_title">어떻게 보낼까요?</string>
-    <string name="send_choice_permanent_title">영구 편지로 보내기</string>
+    <string name="send_choice_permanent_title">영구 편지</string>
     <string name="send_choice_permanent_body">받는 분이 기간 제한 없이 간직해요</string>
     <string name="send_choice_permanent_price">편지권 1장</string>
     <string name="send_choice_tickets_owned">보유 편지권 %1$d장</string>
-    <string name="send_choice_free_title">%1$d일 편지로 보내기</string>
+    <string name="send_choice_free_title">%1$d일 편지</string>
     <string name="send_choice_free_body">받는 분이 처음 연 날부터 %1$d일 동안 열려요</string>
     <string name="send_choice_free_price">무료</string>
-    <string name="send_choice_confirm_body">편지권 1장을 사용해요</string>
-    <string name="send_choice_confirm">확인</string>
-    <string name="send_choice_cancel">취소</string>
+    <!-- 영구 편지를 골랐을 때 버튼 위 한 줄 — 편지권이 있으면 사용 안내, 없으면 구매 안내 -->
+    <string name="send_choice_uses_ticket">편지권 1장을 사용해요</string>
+    <string name="send_choice_needs_ticket">편지권이 없어요. 구매하면 이어서 영구 편지로 보낼 수 있어요.</string>
+    <!-- 카드 맨 아래 버튼 — 고른 선택지·편지권 유무에 따라 -->
+    <string name="send_choice_permanent_button">영구 편지로 보내기</string>
+    <string name="send_choice_buy_button">편지권 구매하고 보내기</string>
+    <string name="send_choice_free_button">%1$d일 편지로 보내기</string>
+
+    <!-- 편지권 화면 — 영구 편지를 보내려다 들어온 구매 화면의 이유 한 줄, 스토어 상품을 못 받았을 때의 안내 -->
+    <string name="ticket_needed_for_permanent">영구 편지로 보내려면 편지권이 필요해요.</string>
+    <string name="ticket_purchase_unavailable">지금은 편지권을 살 수 없어요.</string>
 </resources>

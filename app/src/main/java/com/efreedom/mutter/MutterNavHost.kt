@@ -116,7 +116,7 @@ fun MutterNavHost(
             ComposeScreen(
                 mode = ComposeMode.New,
                 onDone = { navController.popBackStack() },
-                onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
+                onOpenTickets = { navController.navigate(FeatureRoute.TicketPurchase) { launchSingleTop = true } },
             )
         }
         composable<FeatureRoute.ComposeEdit> { entry ->
@@ -124,7 +124,7 @@ fun MutterNavHost(
             ComposeScreen(
                 mode = ComposeMode.Edit(route.letterId),
                 onDone = { navController.popBackStack() },
-                onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
+                onOpenTickets = { navController.navigate(FeatureRoute.TicketPurchase) { launchSingleTop = true } },
             )
         }
         composable<FeatureRoute.ComposeReply> { entry ->
@@ -132,7 +132,7 @@ fun MutterNavHost(
             ComposeScreen(
                 mode = ComposeMode.Reply(route.recipientId),
                 onDone = { navController.popBackStack() },
-                onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
+                onOpenTickets = { navController.navigate(FeatureRoute.TicketPurchase) { launchSingleTop = true } },
             )
         }
 
@@ -166,13 +166,20 @@ fun MutterNavHost(
                 onPreview = { navController.navigate(FeatureRoute.ViewerMyLetter(route.letterId)) },
                 // 사본은 링크가 없는 새 편지 — 그 편지의 발송 화면으로 이어 간다(뒤로 오면 원본 상세).
                 onDuplicated = { newId -> navController.navigate(FeatureRoute.Delivery(newId)) },
-                onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
+                onOpenTickets = { navController.navigate(FeatureRoute.TicketPurchase) { launchSingleTop = true } },
             )
         }
 
         // ─── 편지권 ────────────────────────────────────────────────────────
         composable<FeatureRoute.Tickets> {
             TicketsScreen()
+        }
+        // 영구 편지를 보내려다 들어온 구매 화면 — 구매가 끝나면 닫혀 보내기 화면(작성 시트·링크 관리)으로 돌아간다.
+        composable<FeatureRoute.TicketPurchase> {
+            TicketsScreen(
+                closesAfterPurchase = true,
+                onClose = { navController.popBackStack() },
+            )
         }
 
         // ─── 연결 초대 ─────────────────────────────────────────────────────

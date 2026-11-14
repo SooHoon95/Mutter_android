@@ -79,7 +79,7 @@ fun DeliveryScreen(
     letterId: String,
     onPreview: () -> Unit,
     modifier: Modifier = Modifier,
-    /** 편지권이 없을 때(NO_TICKET) 편지권 화면으로. */
+    /** 편지권이 없을 때(보내기 전 선택의 영구 편지·NO_TICKET) 구매 화면으로. */
     onOpenTickets: () -> Unit = {},
     /** 사본을 만든 뒤 그 새 편지의 발송 화면으로. */
     onDuplicated: (String) -> Unit = {},
@@ -89,7 +89,7 @@ fun DeliveryScreen(
     val context = LocalContext.current
 
     LaunchedEffect(letterId) { viewModel.start(letterId) }
-    // 편지권 화면에서 돌아오면 잔액 갱신(보내기 전 선택의 보유 수).
+    // 구매 화면에서 돌아오면 잔액 갱신 — 영구 편지를 보내려던 참이고 편지권이 생겼으면 이어서 영구로 만든다.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
 
     LaunchedEffect(state.needTickets) {
@@ -142,9 +142,9 @@ fun DeliveryScreen(
                     SendChoiceCard(
                         tickets = state.entitlements?.tickets ?: 0,
                         freeDays = state.entitlements?.freeDays ?: 0,
-                        isMakingPermanent = state.isMakingPermanent,
-                        onPermanent = viewModel::makePermanent,
-                        onNeedTickets = viewModel::openTicketsForChoice,
+                        hasTicket = state.entitlements?.hasTicketForPermanent == true,
+                        isLoading = state.isMakingPermanent,
+                        onPermanent = viewModel::choosePermanent,
                         onFreeDays = viewModel::chooseFreeDays,
                     )
                 } else {

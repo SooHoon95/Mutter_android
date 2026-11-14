@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.domain.model.TicketHistoryItem
 import com.efreedom.mutter.domain.model.TicketProduct
 import com.efreedom.mutter.domain.model.TicketReason
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.theme.Danger
@@ -46,13 +47,24 @@ import java.time.format.DateTimeFormatter
 /**
  * 편지권 화면 — 잔액·설명·구매(1장/5장)·내역. 프로필의 "편지권" 행과 편지권 부족(NO_TICKET)에서 들어온다.
  * 구매 버튼은 유료 전환된 일반 계정에만(관리자는 차감 없이 영구라 구매 UI가 없다).
+ *
+ * @param closesAfterPurchase 영구 편지를 보내려다 들어온 구매 화면이면 true —
+ *   왜 왔는지 한 줄로 알리고, 내역은 숨기고, 구매가 끝나면 [onClose]로 스스로 닫혀 보내기로 돌아간다.
  */
 @Composable
 fun TicketsScreen(
     modifier: Modifier = Modifier,
+    closesAfterPurchase: Boolean = false,
+    onClose: () -> Unit = {},
     viewModel: TicketsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    if (closesAfterPurchase) {
+        LaunchedEffect(state.purchaseCount) {
+            if (state.purchaseCount > 0) onClose()
+        }
+    }
 
     if (state.notice != null) {
         LaunchedEffect(state.notice) {
@@ -86,6 +98,14 @@ fun TicketsScreen(
                 Text(text = stringResource(R.string.tickets_description), style = MutterText.bodyMedium, color = InkSoft)
             }
 
+            if (closesAfterPurchase) {
+                Text(
+                    text = stringResource(DsR.string.ticket_needed_for_permanent),
+                    style = MutterText.bodyMediumBold,
+                    color = Ink,
+                )
+            }
+
             if (ent.canPurchase) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     ProductButton(
@@ -117,9 +137,12 @@ fun TicketsScreen(
             )
         }
 
-        state.error?.let { Text(text = it, style = MutterText.caption, color = Danger) }
+        // 스토어 상품을 못 받으면 버튼이 꺼진 채 이유가 안 보인다 — 살 수 없는 상태임을 알린다(다른 오류가 있으면 그쪽이 우선).
+        val error = state.error
+            ?: stringResource(DsR.string.ticket_purchase_unavailable).takeIf { state.purchaseUnavailable }
+        error?.let { Text(text = it, style = MutterText.caption, color = Danger) }
 
-        if (state.history.isNotEmpty()) {
+        if (!closesAfterPurchase && state.history.isNotEmpty()) {
             HistorySection(state.history)
         }
     }

@@ -23,11 +23,15 @@ data class TicketsUiState(
     val history: List<TicketHistoryItem> = emptyList(),
     /** 스토어에서 찾은 상품. 없는 상품의 버튼은 끈다(Play Console 미등록·Play 없는 기기). */
     val products: Map<String, TicketProduct> = emptyMap(),
+    /** 구매 UI는 보이는데 스토어 상품을 하나도 못 받았다 — 버튼이 꺼진 이유를 화면이 알린다. */
+    val purchaseUnavailable: Boolean = false,
     val isLoading: Boolean = false,
     /** 구매 진행 중인 상품 id. */
     val purchasingId: String? = null,
     val notice: TicketNotice? = null,
     val error: String? = null,
+    /** 이 화면에서 구매(지급)가 끝난 횟수 — 보내기 흐름에서 들어온 화면이 구매 뒤 닫히는 신호로 쓴다. */
+    val purchaseCount: Int = 0,
 )
 
 /** 편지권 화면 — 잔액·내역·구매(1장/5장). 진입 때 남은 거래를 먼저 다시 보낸다. */
@@ -56,7 +60,10 @@ class TicketsViewModel @Inject constructor(
                 _state.value = _state.value.copy(entitlements = entitlements, history = history)
                 if (entitlements.canPurchase && _state.value.products.isEmpty()) {
                     val products = runCatching { ticketUseCase.products() }.getOrDefault(emptyList())
-                    _state.value = _state.value.copy(products = products.associateBy { it.id })
+                    _state.value = _state.value.copy(
+                        products = products.associateBy { it.id },
+                        purchaseUnavailable = products.isEmpty(),
+                    )
                 }
             } catch (e: Throwable) {
                 val message = (e as? MutterError)?.userMessage ?: MutterError.Unknown.userMessage
@@ -74,7 +81,10 @@ class TicketsViewModel @Inject constructor(
             try {
                 when (ticketUseCase.purchase(productId)) {
                     is TicketPurchaseOutcome.Granted -> {
-                        _state.value = _state.value.copy(notice = TicketNotice.GRANTED)
+                        _state.value = _state.value.copy(
+                            notice = TicketNotice.GRANTED,
+                            purchaseCount = _state.value.purchaseCount + 1,
+                        )
                         load()
                     }
                     TicketPurchaseOutcome.Pending -> _state.value = _state.value.copy(notice = TicketNotice.PENDING)

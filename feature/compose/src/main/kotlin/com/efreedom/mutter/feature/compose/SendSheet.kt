@@ -101,9 +101,9 @@ internal fun SendSheet(
                 SendChoiceCard(
                     tickets = state.entitlements?.tickets ?: 0,
                     freeDays = state.entitlements?.freeDays ?: 0,
-                    isMakingPermanent = state.isMakingPermanent,
+                    hasTicket = state.entitlements?.hasTicketForPermanent == true,
+                    isLoading = state.isMakingPermanent,
                     onPermanent = viewModel::choosePermanent,
-                    onNeedTickets = viewModel::openTicketsForChoice,
                     onFreeDays = viewModel::chooseFreeDays,
                 )
             } else {
