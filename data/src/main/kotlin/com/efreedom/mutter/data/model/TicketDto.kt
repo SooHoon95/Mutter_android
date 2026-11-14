@@ -16,6 +16,8 @@ data class EntitlementsDto(
     @SerialName("paid_enabled") val paidEnabled: Boolean = false,
     @SerialName("free_days") val freeDays: Int,
     @SerialName("grace_days") val graceDays: Int,
+    // 닫힘 예고를 며칠 전부터 보일지. 서버 반영 전에는 키가 없다 → 계약 기본값 2.
+    @SerialName("warn_days") val warnDays: Int = Entitlements.DEFAULT_WARN_DAYS,
 ) {
     fun toDomain(): Entitlements = Entitlements(
         isAdmin = isAdmin,
@@ -23,6 +25,7 @@ data class EntitlementsDto(
         paidEnabled = paidEnabled,
         freeDays = freeDays,
         graceDays = graceDays,
+        warnDays = warnDays,
     )
 }
 

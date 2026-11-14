@@ -5,6 +5,7 @@
     <string name="tickets_description">편지권 1장으로 편지 한 통을 기간 제한 없이 간직할 수 있어요.</string>
     <string name="tickets_none">편지권이 없어요</string>
     <string name="profile_delete_tickets_warning">남은 편지권 %1$d장이 사라져요.</string>
+    <string name="profile_delete_sent_letters_remain">보낸 편지는 받은 분의 편지함에 남아요.</string>
 
     <!-- 계약 표에 없는 보조 문구 -->
     <string name="tickets_buy_one">편지권 1장</string>

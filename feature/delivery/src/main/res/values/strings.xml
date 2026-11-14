@@ -9,6 +9,4 @@
     <string name="delivery_readers_title">열어본 사람</string>
     <string name="delivery_reader_row">%1$s · %2$d월 %3$d일에 열어봄</string>
     <string name="delivery_reader_unnamed">이름 없는 사용자</string>
-    <string name="delivery_keep_request_row">%1$s님이 간직하고 싶어 해요</string>
-    <string name="delivery_keep_request_row_unnamed">이름 없는 사용자가 간직하고 싶어 해요</string>
 </resources>

@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.domain.error.MutterError
+import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.domain.model.LetterCover
 import com.efreedom.mutter.domain.model.LetterBlocks
 import com.efreedom.mutter.domain.model.LetterPayload
@@ -24,6 +25,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
@@ -52,14 +55,8 @@ sealed interface ViewerState {
     /**
      * 무료 기간이 끝난 편지(LETTER_LOCKED). [deleteAt]까지 편지권으로 다시 열 수 있다.
      * [canKeep] — 로그인 상태이고 `tickets > 0 || paid_enabled || is_admin`일 때 "편지권으로 간직하기"를 보인다.
-     * [canRequestKeep] — 로그인 상태면 편지권 UI와 무관하게 "보낸 분께 알리기"를 보인다.
      */
-    data class Locked(
-        val deleteAt: Instant?,
-        val cover: LetterCover?,
-        val canKeep: Boolean,
-        val canRequestKeep: Boolean,
-    ) : ViewerState
+    data class Locked(val deleteAt: Instant?, val cover: LetterCover?, val canKeep: Boolean) : ViewerState
 
     /** 유예까지 끝난 편지(LETTER_GONE). */
     object Gone : ViewerState
@@ -125,16 +122,27 @@ class ViewerViewModel @Inject constructor(
     var keepError by mutableStateOf<String?>(null)
         private set
 
-    /** 잠긴 편지 "보낸 분께 알리기" 진행 중. */
-    var isRequestingKeep by mutableStateOf(false)
-        private set
-
-    /** 이미 간직 요청을 보냈다(봉투의 keep_requested 또는 방금 성공) — 버튼을 "보낸 분께 알렸어요"로 끈다. */
-    var keepRequested by mutableStateOf(false)
-        private set
-
     /** 편지권이 없어 구매 화면으로 가야 한다(NO_TICKET). 화면이 이동한 뒤 [onNeedTicketsHandled]로 끈다. */
     var needTickets by mutableStateOf(false)
+        private set
+
+    /**
+     * 받은 사람(로그인·소유자 아님)이 연 기간 제한 편지 — 편지 끝 안내("이 편지는 {M}월 {D}일까지 열려요")를 보인다.
+     * 영구 편지·익명·내 편지면 false.
+     */
+    var isRecipient by mutableStateOf(false)
+        private set
+
+    /** 받은 사람의 "간직하기" 버튼(편지 끝·닫힘 예고). [isRecipient]이고 `tickets > 0 || paid_enabled || is_admin`. */
+    var canKeep by mutableStateOf(false)
+        private set
+
+    /** 닫힘 예고를 보이는 기준(남은 기간 ≤ warnDays). 잔액 조회 실패면 계약 기본값. */
+    var warnDays by mutableStateOf(Entitlements.DEFAULT_WARN_DAYS)
+        private set
+
+    /** 방금 간직했다 — 편지 끝·닫힘 예고 자리를 "간직한 편지예요"로 바꾼다. */
+    var isKept by mutableStateOf(false)
         private set
 
     /** 로그인 상태 — 봉투의 "편지 열기"가 로그인으로 갈지, 그냥 다시 불러올지 정한다. */
@@ -162,7 +170,8 @@ class ViewerViewModel @Inject constructor(
     fun reload() = load()
 
     /**
-     * 잠긴 편지를 편지권 1장으로 간직한다(keep_received_letter). 성공하면 받은 편지함에 들어가고 다시 연다.
+     * 받은 편지를 편지권 1장으로 간직한다(keep_received_letter — 잠기기 전에도 쓸 수 있다).
+     * 열린 편지면 본문을 그대로 두고 안내만 "간직한 편지예요"로 바꾸고, 잠긴 편지면 다시 불러와 연다.
      * 편지권이 없으면 구매 화면으로 보낸다.
      */
     fun keep() {
@@ -173,7 +182,10 @@ class ViewerViewModel @Inject constructor(
             keepError = null
             try {
                 letterAccessUseCase.keepReceived(src.token, password)
-                load()
+                isKept = true
+                // 간직할 수 있었던 사람은 받은 사람이다 — 잠김에서 연 편지(이제 영구)에도 편지 끝 안내를 남긴다.
+                isRecipient = true
+                if (_state.value is ViewerState.Locked) load()
             } catch (e: MutterError.NoTicket) {
                 needTickets = true
             } catch (e: Throwable) {
@@ -184,31 +196,6 @@ class ViewerViewModel @Inject constructor(
                 }
             } finally {
                 isKeeping = false
-            }
-        }
-    }
-
-    /**
-     * 보낸 사람에게 간직 요청을 보낸다(request_keep_letter). true(새로 알림)·false(이미 알렸거나 알릴 일 없음) 모두 성공.
-     * 오류는 간직하기와 같은 자리([keepError])에 보인다.
-     */
-    fun requestKeep() {
-        val src = source as? Source.Token ?: return
-        if (isRequestingKeep || keepRequested) return
-        viewModelScope.launch {
-            isRequestingKeep = true
-            keepError = null
-            try {
-                letterAccessUseCase.requestKeep(src.token, password)
-                keepRequested = true
-            } catch (e: Throwable) {
-                if (e is MutterError.LetterGone) {
-                    _state.value = ViewerState.Gone
-                } else {
-                    keepError = (e as? MutterError)?.userMessage ?: MutterError.Unknown.userMessage
-                }
-            } finally {
-                isRequestingKeep = false
             }
         }
     }
@@ -253,6 +240,8 @@ class ViewerViewModel @Inject constructor(
         isSignedIn = runCatching { authUseCase.currentSession() }.getOrNull() != null
         runCatching { deliveryUseCase.open(token, password) }
             .onSuccess {
+                // 간직 안내는 오디오 준비(present)를 기다리지 않게 따로 받는다.
+                if (isSignedIn && !it.isPermanent) viewModelScope.launch { loadKeepOffer(it.id) }
                 present(it)
                 // 로그인 상태면 서버가 받은함에 자동 저장했으므로 표시(익명 수신자는 표시 안 함).
                 if (isSignedIn) {
@@ -264,22 +253,32 @@ class ViewerViewModel @Inject constructor(
                     is MutterError.WrongPassword -> ViewerState.PasswordRequired
                     is MutterError.LinkNotYetRevealed -> ViewerState.RevealPending(e.revealAt)
                     is MutterError.LoginRequired -> ViewerState.Envelope(coverOrNull(token))
-                    is MutterError.LetterLocked -> {
-                        val cover = coverOrNull(token)
-                        keepRequested = cover?.keepRequested == true
-                        ViewerState.Locked(
-                            deleteAt = e.deleteAt,
-                            cover = cover,
-                            // 계약 "잠김 화면(받은 사람)" 앱 규칙(tickets > 0 || paid_enabled || is_admin). 조회 실패면 숨긴다.
-                            canKeep = isSignedIn && ticketUseCase.entitlementsOrNull()?.showsKeepOnLocked == true,
-                            canRequestKeep = isSignedIn,
-                        )
-                    }
+                    is MutterError.LetterLocked -> ViewerState.Locked(
+                        deleteAt = e.deleteAt,
+                        cover = coverOrNull(token),
+                        // 계약 "받은 사람의 간직하기" 앱 규칙. 조회 실패면 숨긴다.
+                        canKeep = isSignedIn && ticketUseCase.entitlementsOrNull()?.canKeepReceived == true,
+                    )
                     is MutterError.LetterGone -> ViewerState.Gone
                     is MutterError -> ViewerState.Failed(e.userMessage)
                     else -> ViewerState.Failed("편지를 불러오지 못했어요.")
                 }
             }
+    }
+
+    /**
+     * 기간 제한 편지를 연 로그인 사용자 — 받은 사람인지(소유자 아님)와 간직 버튼·닫힘 예고 기준을 받는다.
+     * 소유자 판정은 letters 직접 조회로 한다(RLS가 소유자에게만 행을 준다). 실패하면 안내·버튼 없이 기존 화면.
+     */
+    private suspend fun loadKeepOffer(letterId: String) {
+        val (isOwner, entitlements) = coroutineScope {
+            val ownerDeferred = async { runCatching { letterUseCase.letter(letterId) != null }.getOrNull() }
+            val entitlementsDeferred = async { ticketUseCase.entitlementsOrNull() }
+            ownerDeferred.await() to entitlementsDeferred.await()
+        }
+        entitlements?.let { warnDays = it.warnDays }
+        isRecipient = isOwner == false
+        canKeep = isRecipient && entitlements?.canKeepReceived == true
     }
 
     /** 봉투(제목·보낸 사람). 봉인됐거나 실패하면 null — 화면은 제목 없이 안내만 보인다. */

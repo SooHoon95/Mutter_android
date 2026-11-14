@@ -287,7 +287,9 @@ fun ProfileScreen(
             text = {
                 val tickets = state.entitlements?.tickets ?: 0
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("삭제하면 모든 편지와 데이터가 영구히 사라져요.")
+                    Text("삭제하면 내 계정과 데이터가 영구히 사라져요.")
+                    // 계정 단위 삭제(0041) — 받은 분이 가진 편지는 남는다(계약 문구).
+                    Text(stringResource(R.string.profile_delete_sent_letters_remain))
                     // 편지권이 남은 계정 — 환불 없이 사라진다는 경고(계약 문구).
                     if (tickets > 0) {
                         Text(stringResource(R.string.profile_delete_tickets_warning, tickets), color = Danger)

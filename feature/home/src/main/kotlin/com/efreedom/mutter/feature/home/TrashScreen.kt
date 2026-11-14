@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.domain.model.DeletedLetter
@@ -45,7 +46,8 @@ fun TrashScreen(
 
     TrashScreenLayout(
         title = "보낸 편지 삭제함",
-        notice = "삭제한 편지는 30일 동안 보관된 뒤 완전히 지워져요.",
+        notice = "삭제한 편지는 30일 동안 보관된 뒤 완전히 지워져요. " +
+            stringResource(R.string.home_sent_delete_kept_notice),
         isInitialLoading = state.letters.isEmpty() && (state.isLoading || !state.hasLoaded),
         isEmpty = state.letters.isEmpty(),
         error = state.error,
@@ -68,6 +70,7 @@ fun TrashScreen(
         AlertDialog(
             onDismissRequest = { purgeTarget = null },
             title = { Text("완전히 삭제할까요? 되돌릴 수 없어요.") },
+            text = { Text(stringResource(R.string.home_sent_delete_kept_notice)) },
             confirmButton = {
                 TextButton(onClick = {
                     purgeTarget = null

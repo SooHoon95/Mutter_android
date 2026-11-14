@@ -7,7 +7,6 @@ import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.domain.model.LetterAccessKind
 import com.efreedom.mutter.domain.model.LetterAccessState
-import com.efreedom.mutter.domain.model.LetterKeepRequest
 import com.efreedom.mutter.domain.model.LetterReader
 import com.efreedom.mutter.domain.model.SendChoice
 import com.efreedom.mutter.domain.usecase.DeliveryUseCase
@@ -44,8 +43,6 @@ data class DeliveryUiState(
     val entitlements: Entitlements? = null,
     /** 열람자(처음 연 순). 조회 실패면 비어 있다. */
     val readers: List<LetterReader> = emptyList(),
-    /** 간직 요청자(요청한 순). 요청 수가 0이거나(영구가 되면 0) 조회 실패면 비어 있다. */
-    val keepRequests: List<LetterKeepRequest> = emptyList(),
     val isMakingPermanent: Boolean = false,
     val isDuplicating: Boolean = false,
     /** 편지권이 없어 구매 화면으로 보내야 한다(NO_TICKET). */
@@ -167,24 +164,7 @@ class DeliveryViewModel @Inject constructor(
             }
             Triple(accessDeferred.await(), entitlementsDeferred.await(), readersDeferred.await())
         }
-        // 요청자 — 건수가 있을 때만 부른다(영구가 되면 건수가 0이 되어 사라진다).
-        val keepRequests = if ((access?.keepRequestCount ?: 0) > 0) {
-            try {
-                letterAccessUseCase.keepRequests(letterId)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Throwable) {
-                emptyList()
-            }
-        } else {
-            emptyList()
-        }
-        _state.value = _state.value.copy(
-            access = access,
-            entitlements = entitlements,
-            readers = readers,
-            keepRequests = keepRequests,
-        )
+        _state.value = _state.value.copy(access = access, entitlements = entitlements, readers = readers)
     }
 
     /** 편지권 1장으로 영구화(make_letter_permanent). 편지권이 없으면 구매 화면으로. */

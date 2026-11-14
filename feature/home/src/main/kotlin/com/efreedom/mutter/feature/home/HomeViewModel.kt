@@ -36,12 +36,10 @@ data class HomeUiState(
     val error: String? = null,
     /** 방금 삭제함으로 옮긴 편지 id — 화면이 "되돌리기" 스낵바를 띄우고 [HomeViewModel.undoDismissed]로 비운다. */
     val undoLetterId: String? = null,
+    /** [undoLetterId]가 보낸 편지였다 — 스낵바에 "이미 받은 분의 편지함에는 남아요."를 붙인다(계정 단위 삭제). */
+    val undoWasSent: Boolean = false,
     /** 보낸 편지 상태 표시(영구·n일 남음·닫힘). 서버 반영 전·조회 실패면 비어 있다 — 기존 목록 그대로. */
     val accessLabels: Map<String, LetterAccessLabel> = emptyMap(),
-    /** 받은 사람이 편지권으로 간직한 보낸 편지 — 지우기 전에 "영구가 풀려요" 확인을 받는다. */
-    val keptByRecipientIds: Set<String> = emptySet(),
-    /** 간직 요청 수(0보다 큰 편지만). 상태 옆에 "간직 요청 {n}". */
-    val keepRequestCounts: Map<String, Int> = emptyMap(),
 ) {
     val sentRows: List<LetterRow> get() = rows.filter { it.isSent }
     val draftRows: List<LetterRow> get() = rows.filter { !it.isSent }
@@ -114,13 +112,7 @@ class HomeViewModel @Inject constructor(
             val showPermanent = entitlements?.showsTicketUi == true
             val now = Instant.now()
             val labels = states.mapValues { (_, st) -> LetterAccessLabel.of(st, showPermanent, now) }
-            val kept = states.values.filter { it.keptByRecipient }.mapTo(HashSet()) { it.letterId }
-            val keepRequests = states.filterValues { it.keepRequestCount > 0 }.mapValues { (_, st) -> st.keepRequestCount }
-            _state.value = _state.value.copy(
-                accessLabels = labels,
-                keptByRecipientIds = kept,
-                keepRequestCounts = keepRequests,
-            )
+            _state.value = _state.value.copy(accessLabels = labels)
         }
     }
 
@@ -137,7 +129,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 letterUseCase.delete(letterId)
-                _state.value = _state.value.copy(undoLetterId = letterId)
+                _state.value = _state.value.copy(undoLetterId = letterId, undoWasSent = removed.isSent)
             } catch (e: Throwable) {
                 val latest = _state.value.rows.toMutableList()
                 latest.add(index.coerceAtMost(latest.size), removed)

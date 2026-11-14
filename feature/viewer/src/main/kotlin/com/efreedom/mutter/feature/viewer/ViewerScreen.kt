@@ -60,7 +60,6 @@ import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.LetterPhotoImage
 import com.efreedom.mutter.uicomponent.component.MutterButton
-import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.MutterEqualizer
 import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.SoundCloudAttribution
@@ -115,6 +114,17 @@ fun ViewerScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isOpened = viewModel.isOpened
+    // 간직하기 확인(편지 끝·닫힘 예고·잠김 화면 공통). 확인 뒤 편지권 1장을 쓴다.
+    var confirmingKeep by remember { mutableStateOf(false) }
+    val keepOffer = KeepOffer(
+        isRecipient = viewModel.isRecipient,
+        canKeep = viewModel.canKeep,
+        isKept = viewModel.isKept,
+        isKeeping = viewModel.isKeeping,
+        error = viewModel.keepError,
+        warnDays = viewModel.warnDays,
+        onKeep = { confirmingKeep = true },
+    )
 
     LaunchedEffect(viewModel.needTickets) {
         if (viewModel.needTickets) {
@@ -163,15 +173,17 @@ fun ViewerScreen(
             is ViewerState.Locked -> LockedContent(
                 state = s,
                 isKeeping = viewModel.isKeeping,
-                isRequestingKeep = viewModel.isRequestingKeep,
-                keepRequested = viewModel.keepRequested,
                 error = viewModel.keepError,
-                onKeep = viewModel::keep,
-                onRequestKeep = viewModel::requestKeep,
+                onKeep = { confirmingKeep = true },
             )
             is ViewerState.Ready -> {
                 if (isOpened) {
-                    LetterReader(payload = s.payload, player = viewModel.player, photoUrls = viewModel.photoUrls)
+                    LetterReader(
+                        payload = s.payload,
+                        player = viewModel.player,
+                        photoUrls = viewModel.photoUrls,
+                        keepOffer = keepOffer,
+                    )
                     // 받은함 자동 저장 표시(인증 + 토큰 수신 시). iOS ViewerView savedToInbox 대응.
                     if (viewModel.savedToInbox) {
                         SavedToInboxBadge(
@@ -183,13 +195,29 @@ fun ViewerScreen(
                         )
                     }
                 } else {
-                    OpenGate(payload = s.payload, onOpen = viewModel::open)
+                    OpenGate(payload = s.payload, keepOffer = keepOffer, onOpen = viewModel::open)
                 }
             }
         }
 
         // 뒤로가기 오버레이는 두지 않는다 — 시스템 뒤로(제스처/버튼)로 이 화면을 벗어난다.
         // NavHost 목적지라 시스템 뒤로가 popBackStack을 그대로 수행하며, 편지를 가리는 요소도 없어진다.
+    }
+
+    if (confirmingKeep) {
+        AlertDialog(
+            onDismissRequest = { confirmingKeep = false },
+            text = { Text(stringResource(R.string.viewer_keep_confirm_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingKeep = false
+                    viewModel.keep()
+                }) { Text(stringResource(R.string.viewer_keep_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingKeep = false }) { Text(stringResource(R.string.viewer_cancel)) }
+            },
+        )
     }
 }
 
@@ -302,22 +330,14 @@ private fun EnvelopeBadge() {
 
 // ─── Locked (LETTER_LOCKED) ──────────────────────────────────────────────────
 
-/**
- * 무료 기간이 끝난 편지 — 삭제 예정일까지 편지권으로 간직할 수 있다. 확인창에 환급 안내를 싣는다.
- * 로그인 상태면 "보낸 분께 알리기"(간직 요청)를 항상 함께 보인다.
- */
+/** 무료 기간이 끝난 편지 — 삭제 예정일까지 편지권으로 간직할 수 있다(확인은 [ViewerScreen]이 띄운다). */
 @Composable
 private fun LockedContent(
     state: ViewerState.Locked,
     isKeeping: Boolean,
-    isRequestingKeep: Boolean,
-    keepRequested: Boolean,
     error: String?,
     onKeep: () -> Unit,
-    onRequestKeep: () -> Unit,
 ) {
-    var confirming by remember { mutableStateOf(false) }
-
     Box(
         modifier = Modifier.fillMaxSize().background(Ivory),
         contentAlignment = Alignment.Center,
@@ -356,55 +376,15 @@ private fun LockedContent(
             if (state.canKeep) {
                 MutterButton(
                     text = stringResource(R.string.viewer_locked_keep),
-                    onClick = { confirming = true },
+                    onClick = onKeep,
                     isLoading = isKeeping,
                     modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
                 )
-            }
-            if (state.canRequestKeep) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    MutterButton(
-                        text = stringResource(
-                            if (keepRequested) R.string.viewer_keep_request_done else R.string.viewer_keep_request,
-                        ),
-                        onClick = onRequestKeep,
-                        style = MutterButtonStyle.Secondary,
-                        enabled = !keepRequested,
-                        isLoading = isRequestingKeep,
-                        modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
-                    )
-                    Text(
-                        text = stringResource(R.string.viewer_keep_request_hint),
-                        style = MutterText.caption,
-                        color = InkSoft,
-                        textAlign = TextAlign.Center,
-                    )
-                }
             }
             error?.let {
                 Text(text = it, style = MutterText.caption, color = GoldDeep, textAlign = TextAlign.Center)
             }
         }
-    }
-
-    if (confirming) {
-        AlertDialog(
-            onDismissRequest = { confirming = false },
-            title = { Text(stringResource(R.string.viewer_locked_keep)) },
-            text = { Text(stringResource(R.string.viewer_keep_refund_notice)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirming = false
-                    onKeep()
-                }) { Text(stringResource(R.string.viewer_keep_confirm)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.viewer_cancel)) }
-            },
-        )
     }
 }
 
@@ -507,6 +487,7 @@ private fun RevealPendingContent(revealAt: Instant) {
 @Composable
 private fun OpenGate(
     payload: LetterPayload,
+    keepOffer: KeepOffer,
     onOpen: () -> Unit,
 ) {
     Box(
@@ -547,28 +528,122 @@ private fun OpenGate(
                 modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
             )
 
-            ClosingSoonLine(payload)
+            ClosingSoonLine(payload, keepOffer)
         }
     }
 }
 
-/** 닫힘 예고 — 영구가 아니고 남은 기간이 3일 이하일 때만 조용히 한 줄. */
+/**
+ * 받은 사람의 간직하기 상태 — 편지 끝 안내(①)·닫힘 예고(②)가 같이 쓴다.
+ * [isRecipient] 로그인·소유자 아님, [canKeep] 버튼 노출(`tickets > 0 || paid_enabled || is_admin`).
+ */
+private data class KeepOffer(
+    val isRecipient: Boolean,
+    val canKeep: Boolean,
+    val isKept: Boolean,
+    val isKeeping: Boolean,
+    val error: String?,
+    val warnDays: Int,
+    val onKeep: () -> Unit,
+)
+
+/**
+ * ② 닫힘 예고 — 영구가 아니고 남은 기간이 warn_days 이하일 때 조용히 한 줄 + "간직하기"(간직할 수 있는 받은 사람).
+ * 방금 간직했으면 "간직한 편지예요".
+ */
 @Composable
-private fun ClosingSoonLine(payload: LetterPayload) {
+private fun ClosingSoonLine(payload: LetterPayload, keepOffer: KeepOffer) {
+    if (keepOffer.isKept) {
+        Text(
+            text = stringResource(R.string.viewer_kept),
+            style = MutterText.caption,
+            color = InkFaint,
+            textAlign = TextAlign.Center,
+        )
+        return
+    }
     val accessUntil = payload.accessUntil ?: return
     if (payload.isPermanent) return
     val days = remember(accessUntil) { LetterAccessDays.until(accessUntil, Instant.now()) }
-    if (days > LetterAccessDays.CLOSING_SOON_DAYS) return
-    Text(
-        text = if (days <= 0) {
-            stringResource(R.string.viewer_closing_today)
-        } else {
-            stringResource(R.string.viewer_closing_in_days, days)
-        },
-        style = MutterText.caption,
-        color = InkFaint,
-        textAlign = TextAlign.Center,
-    )
+    if (days > keepOffer.warnDays) return
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = if (days <= 0) {
+                    stringResource(R.string.viewer_closing_today)
+                } else {
+                    stringResource(R.string.viewer_closing_in_days, days)
+                },
+                style = MutterText.caption,
+                color = InkFaint,
+                textAlign = TextAlign.Center,
+            )
+            if (keepOffer.isRecipient && keepOffer.canKeep) {
+                KeepTextButton(
+                    text = stringResource(R.string.viewer_closing_keep),
+                    color = GoldDeep,
+                    keepOffer = keepOffer,
+                )
+            }
+        }
+        keepOffer.error?.let {
+            Text(text = it, style = MutterText.caption, color = GoldDeep, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+/** 간직하기 글자 버튼 — 진행 중이면 작은 원형 표시. */
+@Composable
+private fun KeepTextButton(text: String, color: Color, keepOffer: KeepOffer) {
+    if (keepOffer.isKeeping) {
+        CircularProgressIndicator(
+            modifier = Modifier.padding(horizontal = 12.dp).size(16.dp),
+            strokeWidth = 2.dp,
+            color = color,
+        )
+    } else {
+        TextButton(onClick = keepOffer.onKeep) {
+            Text(text = text, style = MutterText.captionBold, color = color)
+        }
+    }
+}
+
+/**
+ * ① 편지 맨 끝 — 기간 제한 편지를 연 받은 사람에게 작은 한 줄 "이 편지는 {M}월 {D}일까지 열려요" + "계속 간직하기".
+ * 영구 편지·익명·내 편지는 아무것도 없다. 방금 간직했으면 "간직한 편지예요".
+ */
+@Composable
+private fun LetterEndKeepLine(payload: LetterPayload, keepOffer: KeepOffer, foreground: Color) {
+    val muted = foreground.copy(alpha = 0.6f)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 24.dp),
+    ) {
+        if (keepOffer.isKept) {
+            Text(text = stringResource(R.string.viewer_kept), style = MutterText.caption, color = muted)
+            return@Column
+        }
+        val accessUntil = payload.accessUntil ?: return@Column
+        val date = remember(accessUntil) { accessUntil.atZone(ZoneId.systemDefault()).toLocalDate() }
+        Text(
+            text = stringResource(R.string.viewer_letter_end_until, date.monthValue, date.dayOfMonth),
+            style = MutterText.caption,
+            color = muted,
+            textAlign = TextAlign.Center,
+        )
+        if (keepOffer.canKeep) {
+            KeepTextButton(
+                text = stringResource(R.string.viewer_letter_end_keep),
+                color = foreground,
+                keepOffer = keepOffer,
+            )
+        }
+        keepOffer.error?.let {
+            Text(text = it, style = MutterText.caption, color = muted, textAlign = TextAlign.Center)
+        }
+    }
 }
 
 // ─── Letter Reader (Screen 5) ────────────────────────────────────────────────
@@ -585,6 +660,7 @@ private fun LetterReader(
     payload: LetterPayload,
     player: LetterAudioPlayer,
     photoUrls: Map<String, String>,
+    keepOffer: KeepOffer,
 ) {
     val theme = remember(payload.templateId) { LetterThemes.byId(payload.templateId) }
     // 줄 단위 등장(iOS per-line reveal) — 텍스트 블록을 하드 개행(\n)으로 분할, 빈 줄은 문단 간격.
@@ -725,6 +801,13 @@ private fun LetterReader(
                             .alpha(alpha)
                             .offset(y = offsetY),
                     )
+                }
+            }
+
+            // ── ① 편지 끝 간직 안내(받은 사람, 기간 제한 편지) — 본문·사진이 끝난 자리, 스크롤 내용의 일부 ──
+            if (keepOffer.isRecipient && (keepOffer.isKept || (!payload.isPermanent && payload.accessUntil != null))) {
+                item(key = "keep-end") {
+                    LetterEndKeepLine(payload = payload, keepOffer = keepOffer, foreground = theme.foreground)
                 }
             }
 

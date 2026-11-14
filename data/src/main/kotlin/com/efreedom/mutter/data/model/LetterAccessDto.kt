@@ -4,7 +4,6 @@ import com.efreedom.mutter.data.support.Timestamps
 import com.efreedom.mutter.domain.model.LetterAccessKind
 import com.efreedom.mutter.domain.model.LetterAccessState
 import com.efreedom.mutter.domain.model.LetterCover
-import com.efreedom.mutter.domain.model.LetterKeepRequest
 import com.efreedom.mutter.domain.model.LetterReader
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -28,13 +27,6 @@ data class KeepReceivedLetterParams(
     @SerialName("p_password") val password: String?,
 )
 
-/** request_keep_letter 파라미터. p_password는 암호가 없어도 null을 명시로 보낸다(기본값 금지). */
-@Serializable
-data class RequestKeepLetterParams(
-    @SerialName("p_token") val token: String,
-    @SerialName("p_password") val password: String?,
-)
-
 /** get_letter_cover 반환(json 단일 객체). 봉인(`sealed: true`)이면 나머지 키가 없다. */
 @Serializable
 data class LetterCoverDto(
@@ -46,8 +38,6 @@ data class LetterCoverDto(
     @SerialName("access_until") val accessUntil: String? = null,
     @SerialName("delete_at") val deleteAt: String? = null,
     @SerialName("login_required") val loginRequired: Boolean = false,
-    // 서버 반영 전에는 키가 없다 → false.
-    @SerialName("keep_requested") val keepRequested: Boolean = false,
 ) {
     fun toDomain(): LetterCover = LetterCover(
         sealed = sealed,
@@ -58,7 +48,6 @@ data class LetterCoverDto(
         accessUntil = Timestamps.parse(accessUntil),
         deleteAt = Timestamps.parse(deleteAt),
         loginRequired = loginRequired,
-        keepRequested = keepRequested,
     )
 }
 
@@ -69,17 +58,12 @@ data class LetterAccessStateRow(
     val state: String,
     @SerialName("access_until") val accessUntil: String? = null,
     @SerialName("delete_at") val deleteAt: String? = null,
-    @SerialName("kept_by_recipient") val keptByRecipient: Boolean = false,
-    // 서버 반영 전에는 키가 없다 → 0.
-    @SerialName("keep_request_count") val keepRequestCount: Int = 0,
 ) {
     fun toDomain(): LetterAccessState = LetterAccessState(
         letterId = letterId,
         kind = LetterAccessKind.from(state),
         accessUntil = Timestamps.parse(accessUntil),
         deleteAt = Timestamps.parse(deleteAt),
-        keptByRecipient = keptByRecipient,
-        keepRequestCount = keepRequestCount,
     )
 }
 
@@ -102,20 +86,6 @@ data class LetterReaderRow(
             openCount = openCount,
         )
     }
-}
-
-/** get_letter_keep_requests 한 행(요청한 순). */
-@Serializable
-data class LetterKeepRequestRow(
-    @SerialName("user_id") val userId: String,
-    val nickname: String? = null,
-    @SerialName("requested_at") val requestedAt: String? = null,
-) {
-    fun toDomain(): LetterKeepRequest = LetterKeepRequest(
-        userId = userId,
-        nickname = nickname,
-        requestedAt = Timestamps.parse(requestedAt) ?: Instant.EPOCH,
-    )
 }
 
 /** duplicate-letter 요청 본문. */

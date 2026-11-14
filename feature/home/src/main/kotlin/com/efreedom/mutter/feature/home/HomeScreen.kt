@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,7 +28,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,8 +82,6 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableStateOf(HomeTab.SENT) }
-    // 받은 사람이 간직한 편지를 지우려 할 때의 확인 대상(삭제하면 받은 사람의 영구가 풀린다).
-    var keptDeleteTarget by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // 삭제함 등 다른 화면에서 돌아오면 이 컴포저블이 다시 들어오며 재실행된다 → 복구·영구 삭제가 목록에 반영된다.
@@ -93,9 +89,12 @@ fun HomeScreen(
 
     // 방금 삭제한 편지마다 5초 "되돌리기" 스낵바. 연속 삭제면 키가 바뀌어 이전 스낵바는 취소(닫힘)되고 새로 뜬다.
     state.undoLetterId?.let { letterId ->
+        // 보낸 편지를 지워도 이미 받은 분의 편지함에는 남는다(계정 단위 삭제) — 그 사실을 같이 알린다.
+        val keptNotice = stringResource(R.string.home_sent_delete_kept_notice)
+        val message = if (state.undoWasSent) "편지를 삭제함으로 옮겼어요. $keptNotice" else "편지를 삭제함으로 옮겼어요"
         LaunchedEffect(letterId) {
             try {
-                if (snackbarHostState.showUndo("편지를 삭제함으로 옮겼어요")) viewModel.undoDelete(letterId)
+                if (snackbarHostState.showUndo(message)) viewModel.undoDelete(letterId)
             } finally {
                 viewModel.undoDismissed(letterId)
             }
@@ -175,14 +174,8 @@ fun HomeScreen(
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = { value ->
                                     if (value == SwipeToDismissBoxValue.EndToStart) {
-                                        if (row.id in state.keptByRecipientIds) {
-                                            // 바로 지우지 않고 경고부터 — 카드는 제자리로 돌아간다.
-                                            keptDeleteTarget = row.id
-                                            false
-                                        } else {
-                                            viewModel.delete(row.letter.id)
-                                            true
-                                        }
+                                        viewModel.delete(row.letter.id)
+                                        true
                                     } else {
                                         false
                                     }
@@ -209,7 +202,6 @@ fun HomeScreen(
                                 LetterCard(
                                     row = row,
                                     accessLabel = state.accessLabels[row.id],
-                                    keepRequestCount = state.keepRequestCounts[row.id] ?: 0,
                                     onClick = {
                                         if (row.isSent) onOpenDelivery(row.letter.id)
                                         else onEditDraft(row.letter.id)
@@ -230,22 +222,6 @@ fun HomeScreen(
         MutterSnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
-        )
-    }
-
-    keptDeleteTarget?.let { target ->
-        AlertDialog(
-            onDismissRequest = { keptDeleteTarget = null },
-            text = { Text(stringResource(R.string.home_kept_delete_warning)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    keptDeleteTarget = null
-                    viewModel.delete(target)
-                }) { Text(stringResource(R.string.home_delete), color = Danger) }
-            },
-            dismissButton = {
-                TextButton(onClick = { keptDeleteTarget = null }) { Text(stringResource(R.string.home_cancel)) }
-            },
         )
     }
 }
@@ -281,7 +257,7 @@ private fun StatCard(sentCount: Int, openedCount: Int) {
 }
 
 @Composable
-private fun LetterCard(row: LetterRow, accessLabel: LetterAccessLabel?, keepRequestCount: Int, onClick: () -> Unit) {
+private fun LetterCard(row: LetterRow, accessLabel: LetterAccessLabel?, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -326,13 +302,6 @@ private fun LetterCard(row: LetterRow, accessLabel: LetterAccessLabel?, keepRequ
                     )
                     accessLabelText(accessLabel)?.let { label ->
                         Text(text = "· $label", style = MutterText.caption, color = InkFaint)
-                    }
-                    if (keepRequestCount > 0) {
-                        Text(
-                            text = "· " + stringResource(R.string.home_keep_request_count, keepRequestCount),
-                            style = MutterText.caption,
-                            color = Gold,
-                        )
                     }
                 }
             }
