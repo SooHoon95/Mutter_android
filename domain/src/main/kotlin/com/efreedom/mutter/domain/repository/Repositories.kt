@@ -59,11 +59,13 @@ interface ConnectionRepository {
     suspend fun accept(token: String)
     suspend fun myConnections(): List<Connection>
     suspend fun disconnect(otherUserId: String)
-    suspend fun send(letterId: String, recipientId: String)
+    /** [permanent]면 서버가 발송과 편지권 1장 사용을 한 트랜잭션으로 처리한다(`p_permanent`). 편지권이 없으면 `MutterError.NoTicket`. */
+    suspend fun send(letterId: String, recipientId: String, permanent: Boolean = false)
 }
 
 interface DeliveryRepository {
-    suspend fun issue(letterId: String, password: String?, revealAt: Instant?): DeliveryLink
+    /** [permanent]면 서버가 링크 발급과 편지권 1장 사용을 한 트랜잭션으로 처리한다(`p_permanent`). 편지권이 없으면 `MutterError.NoTicket`. */
+    suspend fun issue(letterId: String, password: String?, revealAt: Instant?, permanent: Boolean = false): DeliveryLink
     suspend fun revoke(token: String)
     suspend fun links(letterId: String): List<DeliveryLink>
     suspend fun open(token: String, password: String?): LetterPayload

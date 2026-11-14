@@ -28,7 +28,6 @@ import com.efreedom.mutter.domain.usecase.DeliveryUseCase
 import com.efreedom.mutter.domain.usecase.LetterAccessUseCase
 import com.efreedom.mutter.domain.usecase.LetterPhotoUseCase
 import com.efreedom.mutter.domain.usecase.LetterUseCase
-import com.efreedom.mutter.domain.usecase.PermanentSendUseCase
 import com.efreedom.mutter.domain.usecase.TicketUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -210,7 +209,6 @@ class ComposeViewModel @Inject constructor(
     private val audioUseCase: AudioUseCase,
     private val letterAccessUseCase: LetterAccessUseCase,
     private val ticketUseCase: TicketUseCase,
-    private val permanentSendUseCase: PermanentSendUseCase,
 ) : ViewModel() {
 
     /** Compose mutableStateOf 관찰 — 화면이 isPlaying/isReady/isUnavailable/currentSource를 읽는다. */
@@ -634,11 +632,7 @@ class ComposeViewModel @Inject constructor(
                 // 영구 편지를 골랐으면 서버가 링크 발급과 편지권 1장 사용을 한 트랜잭션으로 처리한다.
                 val permanent = _state.value.showsPermanentPending
                 val password = if (_state.value.usePassword) _state.value.password else null
-                val link = if (permanent) {
-                    permanentSendUseCase.issueLink(letterId = id, password = password, revealAt = null)
-                } else {
-                    deliveryUseCase.issue(letterId = id, password = password, revealAt = null)
-                }
+                val link = deliveryUseCase.issue(letterId = id, password = password, revealAt = null, permanent = permanent)
                 _state.value = _state.value.copy(
                     issuedLink = link,
                     password = "",
@@ -661,11 +655,7 @@ class ComposeViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(isSending = true, error = null)
             try {
-                if (_state.value.showsPermanentPending) {
-                    permanentSendUseCase.sendToConnection(id, recipientId)
-                } else {
-                    connectionUseCase.send(id, recipientId)
-                }
+                connectionUseCase.send(id, recipientId, permanent = _state.value.showsPermanentPending)
                 finishSend()
             } catch (e: MutterError.NoTicket) {
                 _state.value = _state.value.copy(isSending = false)

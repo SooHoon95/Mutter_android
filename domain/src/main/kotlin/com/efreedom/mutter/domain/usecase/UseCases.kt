@@ -88,12 +88,15 @@ class ConnectionUseCase @Inject constructor(private val repository: ConnectionRe
     suspend fun accept(token: String) = repository.accept(token)
     suspend fun myConnections(): List<Connection> = repository.myConnections()
     suspend fun disconnect(otherUserId: String) = repository.disconnect(otherUserId)
-    suspend fun send(letterId: String, recipientId: String) = repository.send(letterId, recipientId)
+    /** [permanent]는 보내기 전 선택에서 영구 편지를 골랐을 때 — 이때 비로소 편지권 1장이 쓰인다(서버가 발송과 함께 처리). */
+    suspend fun send(letterId: String, recipientId: String, permanent: Boolean = false) =
+        repository.send(letterId, recipientId, permanent)
 }
 
 class DeliveryUseCase @Inject constructor(private val repository: DeliveryRepository) {
-    suspend fun issue(letterId: String, password: String?, revealAt: Instant?): DeliveryLink =
-        repository.issue(letterId, password, revealAt)
+    /** [permanent]는 보내기 전 선택에서 영구 편지를 골랐을 때 — 이때 비로소 편지권 1장이 쓰인다(서버가 발급과 함께 처리). */
+    suspend fun issue(letterId: String, password: String?, revealAt: Instant?, permanent: Boolean = false): DeliveryLink =
+        repository.issue(letterId, password, revealAt, permanent)
     suspend fun revoke(token: String) = repository.revoke(token)
     suspend fun links(letterId: String): List<DeliveryLink> = repository.links(letterId)
     suspend fun open(token: String, password: String?): LetterPayload = repository.open(token, password)

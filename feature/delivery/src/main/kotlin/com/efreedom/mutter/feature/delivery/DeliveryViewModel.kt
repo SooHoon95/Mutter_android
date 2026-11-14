@@ -12,7 +12,6 @@ import com.efreedom.mutter.domain.model.LetterReader
 import com.efreedom.mutter.domain.model.SendChoice
 import com.efreedom.mutter.domain.usecase.DeliveryUseCase
 import com.efreedom.mutter.domain.usecase.LetterAccessUseCase
-import com.efreedom.mutter.domain.usecase.PermanentSendUseCase
 import com.efreedom.mutter.domain.usecase.TicketUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -92,7 +91,6 @@ class DeliveryViewModel @Inject constructor(
     private val deliveryUseCase: DeliveryUseCase,
     private val letterAccessUseCase: LetterAccessUseCase,
     private val ticketUseCase: TicketUseCase,
-    private val permanentSendUseCase: PermanentSendUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DeliveryUiState())
@@ -131,11 +129,7 @@ class DeliveryViewModel @Inject constructor(
                 val password = if (st.usePassword) st.password else null
                 val revealAt = if (st.useReveal) st.revealAt else null
                 // 영구 편지를 골랐으면 서버가 링크 발급과 편지권 1장 사용을 한 트랜잭션으로 처리한다.
-                val link = if (st.showsPermanentPending) {
-                    permanentSendUseCase.issueLink(letterId, password, revealAt)
-                } else {
-                    deliveryUseCase.issue(letterId, password, revealAt)
-                }
+                val link = deliveryUseCase.issue(letterId, password, revealAt, permanent = st.showsPermanentPending)
                 _state.value = _state.value.copy(
                     lastIssuedLink = link,
                     password = "",

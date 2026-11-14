@@ -1,4 +1,4 @@
-package com.efreedom.mutter.feature.profile
+package com.efreedom.mutter.feature.ticket
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -72,13 +72,13 @@ fun TicketsScreen(
             .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Text(text = stringResource(R.string.tickets_title), style = MutterText.titleLarge, color = Ink)
+        Text(text = stringResource(R.string.tickets_screen_title), style = MutterText.titleLarge, color = Ink)
 
         state.entitlements?.let { ent ->
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = if (ent.tickets > 0) {
-                        stringResource(R.string.tickets_balance, ent.tickets)
+                        stringResource(R.string.tickets_screen_balance, ent.tickets)
                     } else {
                         stringResource(R.string.tickets_none)
                     },

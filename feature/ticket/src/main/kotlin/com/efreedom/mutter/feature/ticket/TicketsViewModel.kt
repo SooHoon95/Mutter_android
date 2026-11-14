@@ -1,4 +1,4 @@
-package com.efreedom.mutter.feature.profile
+package com.efreedom.mutter.feature.ticket
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

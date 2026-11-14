@@ -1,4 +1,20 @@
 <resources>
+    <!-- 편지권 화면(프로필 → 편지권) — 잔액·상품·내역. 프로필 메뉴 줄의 "편지권"·"N장"은 프로필 모듈에 있다 -->
+    <string name="tickets_screen_title">편지권</string>
+    <string name="tickets_screen_balance">%1$d장</string>
+    <string name="tickets_description">편지권 1장으로 편지 한 통을 기간 제한 없이 간직할 수 있어요.</string>
+    <string name="tickets_none">편지권이 없어요</string>
+    <string name="tickets_buy_one">편지권 1장</string>
+    <string name="tickets_buy_five">편지권 5장</string>
+    <string name="tickets_history">내역</string>
+    <string name="tickets_reason_purchase">구매</string>
+    <string name="tickets_reason_use">사용</string>
+    <string name="tickets_reason_grant">지급</string>
+    <string name="tickets_reason_refund">환급</string>
+    <string name="tickets_reason_other">기타</string>
+    <string name="tickets_granted">편지권이 들어왔어요.</string>
+    <string name="tickets_pending">결제가 끝나면 편지권이 들어와요.</string>
+
     <!-- 결제 안내 시트 — 계약 "결제 안내 시트(앱)" 문구 표(docs/specs/permanent-letter-contract.md, iOS와 동일) -->
     <!-- 보내는 사람(공통) -->
     <string name="checkout_send_subtitle">받는 분이 기간 제한 없이 간직해요</string>

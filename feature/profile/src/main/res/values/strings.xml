@@ -2,20 +2,6 @@
     <!-- 영구 편지권 계약 문구(docs/specs/permanent-letter-contract.md, 세 플랫폼 동일) -->
     <string name="tickets_title">편지권</string>
     <string name="tickets_balance">%1$d장</string>
-    <string name="tickets_description">편지권 1장으로 편지 한 통을 기간 제한 없이 간직할 수 있어요.</string>
-    <string name="tickets_none">편지권이 없어요</string>
     <string name="profile_delete_tickets_warning">남은 편지권 %1$d장이 사라져요.</string>
     <string name="profile_delete_sent_letters_remain">보낸 편지는 받은 분의 편지함에 남아요.</string>
-
-    <!-- 계약 표에 없는 보조 문구 -->
-    <string name="tickets_buy_one">편지권 1장</string>
-    <string name="tickets_buy_five">편지권 5장</string>
-    <string name="tickets_history">내역</string>
-    <string name="tickets_reason_purchase">구매</string>
-    <string name="tickets_reason_use">사용</string>
-    <string name="tickets_reason_grant">지급</string>
-    <string name="tickets_reason_refund">환급</string>
-    <string name="tickets_reason_other">기타</string>
-    <string name="tickets_granted">편지권이 들어왔어요.</string>
-    <string name="tickets_pending">결제가 끝나면 편지권이 들어와요.</string>
 </resources>

@@ -27,11 +27,8 @@ class DeliveryRepositoryImpl @Inject constructor(
 
     private val client get() = provider.client
 
-    override suspend fun issue(letterId: String, password: String?, revealAt: Instant?): DeliveryLink =
-        issueLink(letterId, password, revealAt, permanent = false)
-
-    /** issue_link. [permanent]면 서버가 링크 발급과 편지권 1장 사용을 한 트랜잭션으로 처리한다([PermanentSendRepositoryImpl]). */
-    internal suspend fun issueLink(
+    /** issue_link. [permanent]면 서버가 링크 발급과 편지권 1장 사용을 한 트랜잭션으로 처리한다. */
+    override suspend fun issue(
         letterId: String,
         password: String?,
         revealAt: Instant?,

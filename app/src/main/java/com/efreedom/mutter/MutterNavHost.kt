@@ -46,9 +46,9 @@ import com.efreedom.mutter.feature.inbox.InboxTrashScreen
 import com.efreedom.mutter.feature.legal.LegalDocScreen
 import com.efreedom.mutter.feature.legal.TakedownScreen
 import com.efreedom.mutter.feature.profile.ProfileScreen
-import com.efreedom.mutter.feature.profile.TicketsScreen
 import com.efreedom.mutter.feature.threads.ThreadsScreen
 import com.efreedom.mutter.feature.ticket.TicketCheckoutSheet
+import com.efreedom.mutter.feature.ticket.TicketsScreen
 import com.efreedom.mutter.feature.viewer.ViewerScreen
 import kotlinx.serialization.Serializable
 
