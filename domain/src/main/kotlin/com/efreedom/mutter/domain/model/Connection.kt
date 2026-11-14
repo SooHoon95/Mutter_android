@@ -30,6 +30,8 @@ data class Counterpart(
     val userId: String,
     val nickname: String?,
     val exchangeCount: Int,
+    /** 상대가 탈퇴했다 — 받은 편지는 남지만 편지를 보낼 수는 없다. */
+    val isGone: Boolean = false,
 ) {
     val id: String get() = userId
 }

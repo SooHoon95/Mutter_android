@@ -14,11 +14,14 @@ data class CounterpartRow(
     @SerialName("counterpart_id") val counterpartId: String,
     val nickname: String? = null,
     @SerialName("letter_count") val letterCount: Int,
+    /** 0041 — 상대가 탈퇴했다. 서버 반영 전에는 없다(false). */
+    val gone: Boolean = false,
 ) {
     fun toDomain(): Counterpart = Counterpart(
         userId = counterpartId,
         nickname = nickname,
         exchangeCount = letterCount,
+        isGone = gone,
     )
 }
 

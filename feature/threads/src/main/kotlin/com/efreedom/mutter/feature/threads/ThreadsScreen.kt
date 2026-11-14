@@ -311,15 +311,17 @@ private fun ThreadSheetContent(
             }
         }
 
-        // 하단 편지 쓰기 바
-        Divider(color = Hairline)
-        val buttonTitle = counterpart.nickname?.let { "${it}에게 편지 쓰기" } ?: "편지 쓰기"
-        MutterButton(
-            text = buttonTitle,
-            onClick = { onReply(counterpart) },
-            leadingIconRes = DsR.drawable.compose,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-        )
+        // 하단 편지 쓰기 바 — 탈퇴한 상대에게는 보낼 수 없어 숨긴다.
+        if (!counterpart.isGone) {
+            Divider(color = Hairline)
+            val buttonTitle = counterpart.nickname?.let { "${it}에게 편지 쓰기" } ?: "편지 쓰기"
+            MutterButton(
+                text = buttonTitle,
+                onClick = { onReply(counterpart) },
+                leadingIconRes = DsR.drawable.compose,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            )
+        }
     }
 }
 
