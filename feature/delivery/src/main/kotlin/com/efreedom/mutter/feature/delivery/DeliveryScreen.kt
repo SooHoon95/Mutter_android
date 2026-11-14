@@ -44,8 +44,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.component.SendChoiceCard
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.shareText
 import com.efreedom.mutter.uicomponent.theme.Danger
@@ -86,6 +89,8 @@ fun DeliveryScreen(
     val context = LocalContext.current
 
     LaunchedEffect(letterId) { viewModel.start(letterId) }
+    // 편지권 화면에서 돌아오면 잔액 갱신(보내기 전 선택의 보유 수).
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
 
     LaunchedEffect(state.needTickets) {
         if (state.needTickets) {
@@ -132,14 +137,26 @@ fun DeliveryScreen(
 
                 AccessSection(state = state, onMakePermanent = viewModel::makePermanent)
 
-                IssueCard(
-                    state = state,
-                    onUsePasswordChange = viewModel::setUsePassword,
-                    onPasswordChange = viewModel::setPassword,
-                    onUseRevealChange = viewModel::setUseReveal,
-                    onRevealAtChange = viewModel::setRevealAt,
-                    onIssue = viewModel::issue,
-                )
+                // 보내기 전 선택 — 고르기 전에는 발급 폼을 보이지 않는다.
+                if (state.showsSendChoice) {
+                    SendChoiceCard(
+                        tickets = state.entitlements?.tickets ?: 0,
+                        freeDays = state.entitlements?.freeDays ?: 0,
+                        isMakingPermanent = state.isMakingPermanent,
+                        onPermanent = viewModel::makePermanent,
+                        onNeedTickets = viewModel::openTicketsForChoice,
+                        onFreeDays = viewModel::chooseFreeDays,
+                    )
+                } else {
+                    IssueCard(
+                        state = state,
+                        onUsePasswordChange = viewModel::setUsePassword,
+                        onPasswordChange = viewModel::setPassword,
+                        onUseRevealChange = viewModel::setUseReveal,
+                        onRevealAtChange = viewModel::setRevealAt,
+                        onIssue = viewModel::issue,
+                    )
+                }
 
                 state.lastIssuedLink?.let { link ->
                     IssuedLinkRow(
@@ -407,7 +424,8 @@ private fun AccessSection(state: DeliveryUiState, onMakePermanent: () -> Unit) {
         is LetterAccessLabel.DaysLeft -> stringResource(R.string.delivery_access_days_left, label.days)
         LetterAccessLabel.Closed -> stringResource(R.string.delivery_access_closed)
     }
-    val notice = state.freeDaysNotice
+    // 선택 카드가 보이는 동안은 무료 기간 안내가 카드 선택지와 겹치므로 숨긴다.
+    val notice = state.freeDaysNotice?.takeIf { !state.showsSendChoice }
     if (labelText == null && notice == null && state.keepRequests.isEmpty() && !state.canMakePermanent) return
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

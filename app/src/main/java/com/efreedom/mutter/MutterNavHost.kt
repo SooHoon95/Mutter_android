@@ -133,6 +133,7 @@ fun MutterNavHost(
             ComposeScreen(
                 mode = ComposeMode.New,
                 onDone = { navController.popBackStack() },
+                onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
             )
         }
         composable<FeatureRoute.ComposeEdit> { entry ->
@@ -140,6 +141,7 @@ fun MutterNavHost(
             ComposeScreen(
                 mode = ComposeMode.Edit(route.letterId),
                 onDone = { navController.popBackStack() },
+                onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
             )
         }
         composable<FeatureRoute.ComposeReply> { entry ->
@@ -147,6 +149,7 @@ fun MutterNavHost(
             ComposeScreen(
                 mode = ComposeMode.Reply(route.recipientId),
                 onDone = { navController.popBackStack() },
+                onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
             )
         }
 

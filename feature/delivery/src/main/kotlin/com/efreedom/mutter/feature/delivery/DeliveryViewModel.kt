@@ -9,6 +9,7 @@ import com.efreedom.mutter.domain.model.LetterAccessKind
 import com.efreedom.mutter.domain.model.LetterAccessState
 import com.efreedom.mutter.domain.model.LetterKeepRequest
 import com.efreedom.mutter.domain.model.LetterReader
+import com.efreedom.mutter.domain.model.SendChoice
 import com.efreedom.mutter.domain.usecase.DeliveryUseCase
 import com.efreedom.mutter.domain.usecase.LetterAccessUseCase
 import com.efreedom.mutter.domain.usecase.TicketUseCase
@@ -51,12 +52,18 @@ data class DeliveryUiState(
     val needTickets: Boolean = false,
     /** 방금 만든 사본 id — 화면이 그 편지의 발송 화면으로 이어 간다. */
     val duplicatedLetterId: String? = null,
+    /** 보내기 전 선택에서 무료 기간을 골랐다. 이 화면에 머무는 동안만 기억한다(저장 안 함). */
+    val choseFreeDays: Boolean = false,
 ) {
+    /** 보내기 전 선택 카드. 보이는 동안 발급 폼과 "영구 편지로 만들기"를 숨긴다(카드가 대신한다). */
+    val showsSendChoice: Boolean
+        get() = SendChoice.shows(access, entitlements, hasLinks = links.isNotEmpty(), choseFreeDays = choseFreeDays)
+
     val canIssue: Boolean get() = if (usePassword) password.isNotEmpty() else true
 
     /** "영구 편지로 만들기" — 편지권 UI가 보이는 계정이고, 아직 영구가 아니며 되살릴 수 있는 편지. */
     val canMakePermanent: Boolean
-        get() = entitlements?.showsTicketUi == true && access != null &&
+        get() = entitlements?.showsTicketUi == true && access != null && !showsSendChoice &&
             access.kind != LetterAccessKind.PERMANENT && access.kind != LetterAccessKind.GONE
 
     /** 링크 발급 안내(받는 분이 처음 연 날부터 N일) — 기간 제한이 있는 편지에만. */
@@ -76,6 +83,9 @@ class DeliveryViewModel @Inject constructor(
     val state: StateFlow<DeliveryUiState> = _state.asStateFlow()
 
     private var letterId: String = ""
+
+    /** 편지권 화면에 다녀오는 중 — 돌아오면([onResume]) 잔액을 다시 받는다. */
+    private var awaitingTickets = false
 
     /** Screen의 LaunchedEffect에서 한 번 호출. */
     fun start(letterId: String) {
@@ -197,7 +207,27 @@ class DeliveryViewModel @Inject constructor(
     }
 
     fun onNeedTicketsHandled() {
+        awaitingTickets = true
         _state.value = _state.value.copy(needTickets = false)
+    }
+
+    /** 보내기 전 선택 — 편지권이 없어 편지권 화면으로. */
+    fun openTicketsForChoice() {
+        _state.value = _state.value.copy(needTickets = true)
+    }
+
+    /** 보내기 전 선택 — 무료 기간. 발급 폼을 연다. */
+    fun chooseFreeDays() {
+        _state.value = _state.value.copy(choseFreeDays = true)
+    }
+
+    /** 화면 복귀 — 편지권 화면에서 돌아왔으면 잔액을 다시 받아 선택 카드의 보유 수를 갱신한다. */
+    fun onResume() {
+        if (!awaitingTickets) return
+        awaitingTickets = false
+        viewModelScope.launch {
+            ticketUseCase.entitlementsOrNull()?.let { _state.value = _state.value.copy(entitlements = it) }
+        }
     }
 
     /** 같은 내용으로 새 편지를 만든다(duplicate-letter). 새 편지는 링크가 없어 발송 화면으로 이어 간다. */

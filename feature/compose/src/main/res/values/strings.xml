@@ -11,4 +11,6 @@
     <string name="compose_photo_remove">사진 빼기</string>
     <string name="compose_photo_failed">사진을 불러올 수 없었어요. 다른 사진을 골라 주세요.</string>
     <string name="compose_photo_description">편지 사진</string>
+    <!-- 보내기 시트에서 영구 편지로 만든 뒤 표시(영구 편지권 계약 목록 상태 문구). -->
+    <string name="compose_send_permanent">영구</string>
 </resources>

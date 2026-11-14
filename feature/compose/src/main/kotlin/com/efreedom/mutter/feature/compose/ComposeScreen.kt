@@ -50,6 +50,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.domain.model.LetterPhoto
 import com.efreedom.mutter.domain.model.MusicSource
@@ -80,10 +82,21 @@ fun ComposeScreen(
     mode: ComposeMode,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 보내기 전 선택에서 편지권이 없을 때 편지권 화면으로. 돌아오면 시트·선택 카드가 그대로 있다. */
+    onOpenTickets: () -> Unit = {},
     viewModel: ComposeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val theme = LetterThemes.byId(state.templateId)
+
+    LaunchedEffect(state.needTickets) {
+        if (state.needTickets) {
+            viewModel.onNeedTicketsHandled()
+            onOpenTickets()
+        }
+    }
+    // 편지권 화면에서 돌아오면 잔액 갱신(선택 카드의 보유 수).
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
 
     // 화면 진입 시 한 번만 모드 초기화(이어쓰기면 기존 편지 로드).
     LaunchedEffect(Unit) {

@@ -10,4 +10,5 @@
     <string name="compose_photo_remove">Remove photo</string>
     <string name="compose_photo_failed">Couldn\'t load that photo. Please choose another one.</string>
     <string name="compose_photo_description">Letter photo</string>
+    <string name="compose_send_permanent">Permanent</string>
 </resources>

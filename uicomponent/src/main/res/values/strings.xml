@@ -1,0 +1,14 @@
+<resources>
+    <!-- 보내기 전 선택 — 영구 편지권 계약 문구(docs/specs/permanent-letter-contract.md, 세 플랫폼 동일) -->
+    <string name="send_choice_title">어떻게 보낼까요?</string>
+    <string name="send_choice_permanent_title">영구 편지로 보내기</string>
+    <string name="send_choice_permanent_body">받는 분이 기간 제한 없이 간직해요</string>
+    <string name="send_choice_permanent_price">편지권 1장</string>
+    <string name="send_choice_tickets_owned">보유 편지권 %1$d장</string>
+    <string name="send_choice_free_title">%1$d일 편지로 보내기</string>
+    <string name="send_choice_free_body">받는 분이 처음 연 날부터 %1$d일 동안 열려요</string>
+    <string name="send_choice_free_price">무료</string>
+    <string name="send_choice_confirm_body">편지권 1장을 사용해요</string>
+    <string name="send_choice_confirm">확인</string>
+    <string name="send_choice_cancel">취소</string>
+</resources>

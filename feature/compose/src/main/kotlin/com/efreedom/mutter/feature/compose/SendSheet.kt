@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -41,6 +42,7 @@ import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.MutterIcon
+import com.efreedom.mutter.uicomponent.component.SendChoiceCard
 import com.efreedom.mutter.uicomponent.component.shareText
 import com.efreedom.mutter.domain.LetterShareMessage
 import com.efreedom.mutter.uicomponent.theme.Gold
@@ -94,30 +96,50 @@ internal fun SendSheet(
                 .padding(bottom = 36.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // 커스텀 세그먼트 컨트롤 — iOS Capsule 스타일 이식.
-            SendMethodSelector(
-                selected = method,
-                onSelect = { method = it },
-            )
+            // 보내기 전 선택 — 고르기 전에는 링크·연결 탭을 보이지 않는다.
+            if (state.showsSendChoice) {
+                SendChoiceCard(
+                    tickets = state.entitlements?.tickets ?: 0,
+                    freeDays = state.entitlements?.freeDays ?: 0,
+                    isMakingPermanent = state.isMakingPermanent,
+                    onPermanent = viewModel::choosePermanent,
+                    onNeedTickets = viewModel::openTicketsForChoice,
+                    onFreeDays = viewModel::chooseFreeDays,
+                )
+            } else {
+                if (state.showsPermanentLabel) {
+                    Text(
+                        text = stringResource(R.string.compose_send_permanent),
+                        style = MutterText.bodyMediumBold,
+                        color = GoldDeep,
+                    )
+                }
 
-            when (method) {
-                SendMethod.LINK -> LinkTab(
-                    state = state,
-                    linkCopied = linkCopied,
-                    onTogglePassword = viewModel::setUsePassword,
-                    onPasswordChange = viewModel::setPassword,
-                    onIssueLink = viewModel::issueLink,
-                    onCopyLink = { link ->
-                        clipboard.setText(AnnotatedString(link))
-                        linkCopied = true
-                    },
-                    onShare = { text -> shareText(context, text) },
-                    onDone = viewModel::finishSend,
+                // 커스텀 세그먼트 컨트롤 — iOS Capsule 스타일 이식.
+                SendMethodSelector(
+                    selected = method,
+                    onSelect = { method = it },
                 )
-                SendMethod.CONNECTION -> ConnectionTab(
-                    state = state,
-                    onSend = viewModel::sendToConnection,
-                )
+
+                when (method) {
+                    SendMethod.LINK -> LinkTab(
+                        state = state,
+                        linkCopied = linkCopied,
+                        onTogglePassword = viewModel::setUsePassword,
+                        onPasswordChange = viewModel::setPassword,
+                        onIssueLink = viewModel::issueLink,
+                        onCopyLink = { link ->
+                            clipboard.setText(AnnotatedString(link))
+                            linkCopied = true
+                        },
+                        onShare = { text -> shareText(context, text) },
+                        onDone = viewModel::finishSend,
+                    )
+                    SendMethod.CONNECTION -> ConnectionTab(
+                        state = state,
+                        onSend = viewModel::sendToConnection,
+                    )
+                }
             }
 
             // 에러는 탭 아래에 공통 표시
