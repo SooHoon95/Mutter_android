@@ -42,6 +42,7 @@ import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.MutterIcon
+import com.efreedom.mutter.uicomponent.component.PermanentSendNotice
 import com.efreedom.mutter.uicomponent.component.SendChoiceCard
 import com.efreedom.mutter.uicomponent.component.shareText
 import com.efreedom.mutter.domain.LetterShareMessage
@@ -101,8 +102,7 @@ internal fun SendSheet(
                 SendChoiceCard(
                     tickets = state.entitlements?.tickets ?: 0,
                     freeDays = state.entitlements?.freeDays ?: 0,
-                    hasTicket = state.entitlements?.hasTicketForPermanent == true,
-                    isLoading = state.isMakingPermanent,
+                    hasTicket = state.entitlements?.hasTicket == true,
                     onPermanent = viewModel::choosePermanent,
                     onFreeDays = viewModel::chooseFreeDays,
                 )
@@ -113,6 +113,10 @@ internal fun SendSheet(
                         style = MutterText.bodyMediumBold,
                         color = GoldDeep,
                     )
+                }
+                // 영구를 골랐지만 아직 보내지 않았다 — 편지권은 아래에서 링크를 만들거나 보낼 때 쓰인다.
+                if (state.showsPermanentPending) {
+                    PermanentSendNotice(onChooseAgain = viewModel::chooseAgain)
                 }
 
                 // 커스텀 세그먼트 컨트롤 — iOS Capsule 스타일 이식.

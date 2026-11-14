@@ -24,6 +24,12 @@ data class IssueLinkParams(
     @SerialName("p_password") val password: String?,
     @SerialName("p_expires_at") val expiresAt: String?,
     @SerialName("p_reveal_at") val revealAt: String?,
+    /**
+     * 영구 편지로 보낸다 — 서버가 링크 발급과 편지권 1장 사용을 한 트랜잭션으로 처리한다.
+     * **true일 때만 전송된다**(기본값 false + `encodeDefaults=false`): 서버 기본값이 false이고,
+     * 이 인자가 없는 예전 서버에는 늘 보내면 함수를 못 찾아 발급 자체가 실패한다. 위 규칙의 의도된 예외.
+     */
+    @SerialName("p_permanent") val permanent: Boolean = false,
 )
 
 /** get_letter_by_token RPC 파라미터. p_password는 서버 default가 없어 null도 명시 전송(위 설명 참고). */

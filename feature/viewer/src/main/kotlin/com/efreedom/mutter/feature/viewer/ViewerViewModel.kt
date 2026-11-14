@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
+import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.domain.model.LetterCover
@@ -116,12 +117,19 @@ class ViewerViewModel @Inject constructor(
     var isKeeping by mutableStateOf(false)
         private set
 
-    /** 간직하기 실패 문구(편지권 부족 제외 — 그건 [needTickets]로 구매 화면에 보낸다). */
+    /** 간직하기 실패 문구(잠김 화면·편지 끝 공통). */
     var keepError by mutableStateOf<String?>(null)
         private set
 
-    /** 편지권이 없어 구매 화면으로 가야 한다(NO_TICKET). 화면이 이동한 뒤 [onNeedTicketsHandled]로 끈다. */
-    var needTickets by mutableStateOf(false)
+    /** 결제 안내 시트 — 간직하려는데 편지권이 없을 때 띄운다(null이면 닫힘). */
+    var checkoutRoute by mutableStateOf<TicketCheckoutRoute?>(null)
+        private set
+
+    /**
+     * 간직하는 데 쓸 편지권이 지금 있는지(관리자는 차감 없음) — 있으면 그 자리에서 쓰고(편지 끝은 같은 자리에서 한 번 더 묻는다),
+     * 없으면 결제 안내 시트를 띄운다.
+     */
+    var hasTicket by mutableStateOf(false)
         private set
 
     /**
@@ -149,6 +157,8 @@ class ViewerViewModel @Inject constructor(
 
     private var source: Source? = null
     private var password: String? = null
+    /** 경합(NO_TICKET) 때 결제 안내 시트를 띄울지 — 살 수 있는 계정만. */
+    private var canPurchase = false
 
     /**
      * 로드를 시작한다. LaunchedEffect에서 한 번만 호출한다(중복 호출 무시).
@@ -168,24 +178,45 @@ class ViewerViewModel @Inject constructor(
     fun reload() = load()
 
     /**
-     * 받은 편지를 편지권 1장으로 간직한다(keep_received_letter — 잠기기 전에도 쓸 수 있다).
-     * 열린 편지면 본문을 그대로 두고 안내만 "간직한 편지예요"로 바꾸고, 잠긴 편지면 다시 불러와 연다.
-     * 편지권이 없으면 구매 화면으로 보낸다.
+     * 간직하기를 눌렀다(편지 끝·닫힘 예고·잠김 화면 공통) — 편지권이 있으면 바로 쓰고, 없으면 결제 안내 시트를 띄운다.
+     * 편지 끝의 글자 버튼은 화면이 같은 자리에서 한 번 더 물은 뒤에 부른다.
      */
-    fun keep() {
+    fun requestKeep() {
         val src = source as? Source.Token ?: return
         if (isKeeping) return
+        if (hasTicket) keep(src) else checkoutRoute = TicketCheckoutRoute.KeepReceived(src.token, password)
+    }
+
+    /**
+     * 결제 안내 시트가 닫혔다. 간직까지 마쳤으면 "간직한 편지예요"로 바꾸고, 잠김 화면이었다면 같은 편지를 다시 연다.
+     * 아니면 잔액만 다시 받는다 — 사 놓고 닫았을 수 있다(다음 누름이 바로 쓰도록).
+     */
+    fun checkoutFinished(completed: Boolean) {
+        checkoutRoute = null
+        if (completed) {
+            onKept()
+        } else {
+            viewModelScope.launch { ticketUseCase.entitlementsOrNull()?.let(::applyEntitlements) }
+        }
+    }
+
+    /**
+     * 받은 편지를 편지권 1장으로 간직한다(keep_received_letter — 잠기기 전에도 쓸 수 있다).
+     * 잔액이 없으면(경합) 살 수 있는 계정은 결제 안내 시트로, 아니면 문구로 알린다.
+     */
+    private fun keep(src: Source.Token) {
         viewModelScope.launch {
             isKeeping = true
             keepError = null
             try {
                 letterAccessUseCase.keepReceived(src.token, password)
-                isKept = true
-                // 간직할 수 있었던 사람은 받은 사람이다 — 잠김에서 연 편지(이제 영구)에도 편지 끝 안내를 남긴다.
-                isRecipient = true
-                if (_state.value is ViewerState.Locked) load()
+                onKept()
             } catch (e: MutterError.NoTicket) {
-                needTickets = true
+                if (canPurchase) {
+                    checkoutRoute = TicketCheckoutRoute.KeepReceived(src.token, password)
+                } else {
+                    keepError = e.userMessage
+                }
             } catch (e: Throwable) {
                 if (e is MutterError.LetterGone) {
                     _state.value = ViewerState.Gone
@@ -198,8 +229,19 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
-    fun onNeedTicketsHandled() {
-        needTickets = false
+    /** 간직됐다 — 열린 편지면 본문을 그대로 두고 안내만 "간직한 편지예요"로 바꾸고, 잠긴 편지면 다시 불러와 연다. */
+    private fun onKept() {
+        isKept = true
+        // 간직할 수 있었던 사람은 받은 사람이다 — 잠김에서 연 편지(이제 영구)에도 편지 끝 안내를 남긴다.
+        isRecipient = true
+        if (_state.value is ViewerState.Locked) load()
+    }
+
+    private fun applyEntitlements(entitlements: Entitlements) {
+        warnDays = entitlements.warnDays
+        canKeep = entitlements.canKeepReceived
+        hasTicket = entitlements.hasTicket
+        canPurchase = entitlements.canPurchase
     }
 
     /** 암호 입력 후 재시도. */
@@ -251,12 +293,16 @@ class ViewerViewModel @Inject constructor(
                     is MutterError.WrongPassword -> ViewerState.PasswordRequired
                     is MutterError.LinkNotYetRevealed -> ViewerState.RevealPending(e.revealAt)
                     is MutterError.LoginRequired -> ViewerState.Envelope(coverOrNull(token))
-                    is MutterError.LetterLocked -> ViewerState.Locked(
-                        deleteAt = e.deleteAt,
-                        cover = coverOrNull(token),
-                        // 계약 "받은 사람의 간직하기" 앱 규칙. 조회 실패면 숨긴다.
-                        canKeep = isSignedIn && ticketUseCase.entitlementsOrNull()?.canKeepReceived == true,
-                    )
+                    is MutterError.LetterLocked -> {
+                        // 계약 "받은 사람의 간직하기" 앱 규칙. 조회 실패면 버튼을 숨긴다.
+                        val entitlements = if (isSignedIn) ticketUseCase.entitlementsOrNull() else null
+                        entitlements?.let(::applyEntitlements)
+                        ViewerState.Locked(
+                            deleteAt = e.deleteAt,
+                            cover = coverOrNull(token),
+                            canKeep = entitlements?.canKeepReceived == true,
+                        )
+                    }
                     is MutterError.LetterGone -> ViewerState.Gone
                     is MutterError -> ViewerState.Failed(e.userMessage)
                     else -> ViewerState.Failed("편지를 불러오지 못했어요.")
@@ -270,9 +316,7 @@ class ViewerViewModel @Inject constructor(
      */
     private suspend fun loadKeepOffer() {
         isRecipient = true
-        val entitlements = ticketUseCase.entitlementsOrNull() ?: return
-        warnDays = entitlements.warnDays
-        canKeep = entitlements.canKeepReceived
+        ticketUseCase.entitlementsOrNull()?.let(::applyEntitlements)
     }
 
     /** 봉투(제목·보낸 사람). 봉인됐거나 실패하면 null — 화면은 제목 없이 안내만 보인다. */

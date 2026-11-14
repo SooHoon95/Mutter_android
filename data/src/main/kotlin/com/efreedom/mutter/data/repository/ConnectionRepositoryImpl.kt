@@ -58,13 +58,18 @@ class ConnectionRepositoryImpl @Inject constructor(
         Unit
     }
 
-    override suspend fun send(letterId: String, recipientId: String) = wrap {
+    override suspend fun send(letterId: String, recipientId: String) =
+        sendToConnection(letterId, recipientId, permanent = false)
+
+    /** send_to_connection. [permanent]면 서버가 발송과 편지권 1장 사용을 한 트랜잭션으로 처리한다([PermanentSendRepositoryImpl]). */
+    internal suspend fun sendToConnection(letterId: String, recipientId: String, permanent: Boolean) = wrap {
         client.postgrest.rpc(
             "send_to_connection",
             SendToConnectionParams(
                 letterId = letterId,
                 recipient = recipientId,
                 token = TokenGenerator.make(),
+                permanent = permanent,
             ),
         )
         Unit

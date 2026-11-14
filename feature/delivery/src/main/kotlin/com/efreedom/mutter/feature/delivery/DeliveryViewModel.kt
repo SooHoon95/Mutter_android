@@ -2,6 +2,7 @@ package com.efreedom.mutter.feature.delivery
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.Entitlements
@@ -11,6 +12,7 @@ import com.efreedom.mutter.domain.model.LetterReader
 import com.efreedom.mutter.domain.model.SendChoice
 import com.efreedom.mutter.domain.usecase.DeliveryUseCase
 import com.efreedom.mutter.domain.usecase.LetterAccessUseCase
+import com.efreedom.mutter.domain.usecase.PermanentSendUseCase
 import com.efreedom.mutter.domain.usecase.TicketUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,27 +47,43 @@ data class DeliveryUiState(
     val readers: List<LetterReader> = emptyList(),
     val isMakingPermanent: Boolean = false,
     val isDuplicating: Boolean = false,
-    /** 편지권이 없어 구매 화면으로 보내야 한다(NO_TICKET). */
-    val needTickets: Boolean = false,
+    /** 결제 안내 시트 — 영구 편지로 보내거나 만들려는데 편지권이 없을 때 띄운다(null이면 닫힘). */
+    val checkoutRoute: TicketCheckoutRoute? = null,
     /** 방금 만든 사본 id — 화면이 그 편지의 발송 화면으로 이어 간다. */
     val duplicatedLetterId: String? = null,
     /** 보내기 전 선택에서 무료 기간을 골랐다. 이 화면에 머무는 동안만 기억한다(저장 안 함). */
     val choseFreeDays: Boolean = false,
+    /** 보내기 전 선택에서 영구 편지를 골랐다 — **고른 것만 기억한다.** 편지권은 링크를 만들 때 서버가 쓴다. */
+    val chosePermanent: Boolean = false,
 ) {
     /** 보내기 전 선택 카드. 보이는 동안 발급 폼과 "영구 편지로 만들기"를 숨긴다(카드가 대신한다). */
     val showsSendChoice: Boolean
-        get() = SendChoice.shows(access, entitlements, hasLinks = links.isNotEmpty(), choseFreeDays = choseFreeDays)
+        get() = SendChoice.shows(
+            access,
+            entitlements,
+            hasLinks = links.isNotEmpty(),
+            hasChosen = choseFreeDays || chosePermanent,
+        )
+
+    /** 영구 편지를 골랐고 아직 링크를 만들지 않았다 — 발급 폼 위에 "보낼 때 편지권 1장이 사용돼요"와 "다시 고르기"를 보인다. */
+    val showsPermanentPending: Boolean
+        get() = chosePermanent && access?.kind == LetterAccessKind.OPEN && links.isEmpty()
 
     val canIssue: Boolean get() = if (usePassword) password.isNotEmpty() else true
 
-    /** "영구 편지로 만들기" — 편지권 UI가 보이는 계정이고, 아직 영구가 아니며 되살릴 수 있는 편지. */
+    /**
+     * "영구 편지로 만들기" — 편지권 UI가 보이는 계정이고, 아직 영구가 아니며 되살릴 수 있는 편지 중 **이미 보낸(링크가 있는) 편지만.**
+     * 아직 안 보낸 편지는 보내기 전 선택으로 고른다(누르는 즉시 편지권이 쓰이면 보내기 전에 차감된다).
+     */
     val canMakePermanent: Boolean
-        get() = entitlements?.showsTicketUi == true && access != null && !showsSendChoice &&
+        get() = entitlements?.showsTicketUi == true && access != null && links.isNotEmpty() &&
             access.kind != LetterAccessKind.PERMANENT && access.kind != LetterAccessKind.GONE
 
-    /** 링크 발급 안내(받는 분이 처음 연 날부터 N일) — 기간 제한이 있는 편지에만. */
+    /** 링크 발급 안내(받는 분이 처음 연 날부터 N일) — 기간 제한이 있는 편지에만. 영구 편지를 골랐으면 없다. */
     val freeDaysNotice: Int?
-        get() = entitlements?.freeDays?.takeIf { access != null && access.kind != LetterAccessKind.PERMANENT }
+        get() = entitlements?.freeDays?.takeIf {
+            access != null && access.kind != LetterAccessKind.PERMANENT && !chosePermanent
+        }
 }
 
 /** iOS DeliveryModelData 대응. 전달 링크 발급/관리 — 암호 기본 ON, 예약공개, revoke. */
@@ -74,18 +92,13 @@ class DeliveryViewModel @Inject constructor(
     private val deliveryUseCase: DeliveryUseCase,
     private val letterAccessUseCase: LetterAccessUseCase,
     private val ticketUseCase: TicketUseCase,
+    private val permanentSendUseCase: PermanentSendUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DeliveryUiState())
     val state: StateFlow<DeliveryUiState> = _state.asStateFlow()
 
     private var letterId: String = ""
-
-    /** 편지권 화면에 다녀오는 중 — 돌아오면([onResume]) 잔액을 다시 받는다. */
-    private var awaitingTickets = false
-
-    /** 영구 편지를 보내려고 편지권 구매 화면에 갔다 — 돌아와 편지권이 있으면 이어서 영구로 만든다. */
-    private var wantsPermanentAfterPurchase = false
 
     /** Screen의 LaunchedEffect에서 한 번 호출. */
     fun start(letterId: String) {
@@ -115,16 +128,26 @@ class DeliveryViewModel @Inject constructor(
             _state.value = _state.value.copy(isLoading = true, error = null)
             try {
                 val st = _state.value
-                val link = deliveryUseCase.issue(
-                    letterId = letterId,
-                    password = if (st.usePassword) st.password else null,
-                    revealAt = if (st.useReveal) st.revealAt else null,
-                )
+                val password = if (st.usePassword) st.password else null
+                val revealAt = if (st.useReveal) st.revealAt else null
+                // 영구 편지를 골랐으면 서버가 링크 발급과 편지권 1장 사용을 한 트랜잭션으로 처리한다.
+                val link = if (st.showsPermanentPending) {
+                    permanentSendUseCase.issueLink(letterId, password, revealAt)
+                } else {
+                    deliveryUseCase.issue(letterId, password, revealAt)
+                }
                 _state.value = _state.value.copy(
                     lastIssuedLink = link,
                     password = "",
                 )
                 load()
+            } catch (e: MutterError.NoTicket) {
+                // 영구 편지로 링크를 만들려는데 편지권이 없어졌다(다른 기기에서 사용 등) — 살 수 있는 계정은 결제 안내 시트(구매)로.
+                _state.value = if (_state.value.entitlements?.canPurchase == true) {
+                    _state.value.copy(checkoutRoute = TicketCheckoutRoute.SendPermanent)
+                } else {
+                    _state.value.copy(error = e.userMessage)
+                }
             } catch (e: Throwable) {
                 val message = (e as? MutterError)?.userMessage ?: "발급할 수 없었어요. 다시 시도해 주세요."
                 _state.value = _state.value.copy(error = message)
@@ -170,19 +193,50 @@ class DeliveryViewModel @Inject constructor(
         _state.value = _state.value.copy(access = access, entitlements = entitlements, readers = readers)
     }
 
-    /** 편지권 1장으로 영구화(make_letter_permanent). 편지권이 없으면 구매 화면으로. */
-    fun makePermanent() {
-        if (_state.value.isMakingPermanent) return
-        viewModelScope.launch { runMakePermanent() }
+    /**
+     * 보내기 전 선택 — 영구 편지를 고르고 버튼을 눌렀다.
+     * 편지권이 있으면(관리자 포함) 선택만 기억하고 발급 폼을 연다. 없으면 결제 안내 시트(구매)를 띄운다.
+     * **여기서는 편지권을 쓰지 않는다** — 고르고 나서 링크를 만들지 않으면 편지권만 나가기 때문이다.
+     */
+    fun choosePermanent() {
+        _state.value = if (_state.value.entitlements?.hasTicket == true) {
+            _state.value.copy(chosePermanent = true)
+        } else {
+            _state.value.copy(checkoutRoute = TicketCheckoutRoute.SendPermanent)
+        }
     }
 
-    private suspend fun runMakePermanent() {
+    /** "다시 고르기" — 선택 카드로 돌아간다. */
+    fun chooseAgain() {
+        _state.value = _state.value.copy(chosePermanent = false, choseFreeDays = false)
+    }
+
+    /**
+     * 이미 보낸 편지의 "영구 편지로 만들기 · 편지권 1장" — 문구가 편지권 1장을 말하므로 확인 없이,
+     * 편지권이 있으면(관리자 포함) 바로 쓰고 없으면 결제 안내 시트(구매 후 사용)를 띄운다.
+     */
+    fun makeSentLetterPermanent() {
+        if (_state.value.isMakingPermanent) return
+        if (_state.value.entitlements?.hasTicket == true) {
+            viewModelScope.launch { makePermanent() }
+        } else {
+            _state.value = _state.value.copy(checkoutRoute = TicketCheckoutRoute.MakePermanent(letterId))
+        }
+    }
+
+    /** 편지권 1장으로 영구화(make_letter_permanent). */
+    private suspend fun makePermanent() {
         _state.value = _state.value.copy(isMakingPermanent = true, error = null)
         try {
             letterAccessUseCase.makePermanent(letterId)
             loadAccess()
         } catch (e: MutterError.NoTicket) {
-            _state.value = _state.value.copy(needTickets = true)
+            // 화면의 잔액이 낡았다(다른 기기에서 사용 등) — 살 수 있는 계정이면 결제 안내 시트로.
+            _state.value = if (_state.value.entitlements?.canPurchase == true) {
+                _state.value.copy(checkoutRoute = TicketCheckoutRoute.MakePermanent(letterId))
+            } else {
+                _state.value.copy(error = e.userMessage)
+            }
         } catch (e: Throwable) {
             val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
             _state.value = _state.value.copy(error = message)
@@ -191,53 +245,27 @@ class DeliveryViewModel @Inject constructor(
         }
     }
 
-    fun onNeedTicketsHandled() {
-        awaitingTickets = true
-        _state.value = _state.value.copy(needTickets = false)
-    }
-
     /**
-     * 보내기 전 선택 — 영구 편지를 고르고 버튼을 눌렀다.
-     * 편지권이 있으면(관리자 포함) 바로 영구로 만들고, 없으면 구매 화면으로 보낸 뒤 사 오면 이어서 영구로 만든다([onResume]).
+     * 결제 안내 시트가 닫혔다. 하려던 일을 마쳤으면 다시 불러와 잔액·상태를 맞추고,
+     * 보내기 전 구매였으면 영구 편지를 고른 것으로 넘어간다(발급 폼이 열린다).
+     * 마치지 않고 닫았어도 잔액은 다시 받는다 — 결제 대기가 그 사이 끝났을 수 있다(카드의 보유 수).
      */
-    fun choosePermanent() {
-        if (_state.value.isMakingPermanent) return
-        if (_state.value.entitlements?.hasTicketForPermanent == true) {
-            makePermanent()
+    fun checkoutFinished(completed: Boolean) {
+        val route = _state.value.checkoutRoute
+        _state.value = _state.value.copy(checkoutRoute = null)
+        if (completed) {
+            if (route == TicketCheckoutRoute.SendPermanent) _state.value = _state.value.copy(chosePermanent = true)
+            load()
         } else {
-            wantsPermanentAfterPurchase = true
-            _state.value = _state.value.copy(needTickets = true)
+            viewModelScope.launch {
+                ticketUseCase.entitlementsOrNull()?.let { _state.value = _state.value.copy(entitlements = it) }
+            }
         }
     }
 
     /** 보내기 전 선택 — 무료 기간. 발급 폼을 연다. */
     fun chooseFreeDays() {
         _state.value = _state.value.copy(choseFreeDays = true)
-    }
-
-    /**
-     * 화면 복귀 — 편지권 화면에서 돌아왔으면 잔액을 다시 받는다.
-     * 영구 편지를 보내려고 사러 갔다 왔고 편지권이 생겼으면, 다시 고르게 하지 않고 바로 영구로 만든다.
-     * 사지 않고 돌아왔으면 선택 카드가 그대로 보인다.
-     */
-    fun onResume() {
-        if (!awaitingTickets) return
-        awaitingTickets = false
-        val continuePermanent = wantsPermanentAfterPurchase
-        wantsPermanentAfterPurchase = false
-        viewModelScope.launch {
-            // 이어서 영구로 만들 참이면 잔액을 받는 동안에도 버튼을 로딩으로 둔다 — 옛 잔액의 "구매하고 보내기"가 다시 눌리지 않게.
-            if (continuePermanent) _state.value = _state.value.copy(isMakingPermanent = true)
-            try {
-                ticketUseCase.entitlementsOrNull()?.let { _state.value = _state.value.copy(entitlements = it) }
-                val st = _state.value
-                if (continuePermanent && st.showsSendChoice && st.entitlements?.hasTicketForPermanent == true) {
-                    runMakePermanent()
-                }
-            } finally {
-                if (continuePermanent) _state.value = _state.value.copy(isMakingPermanent = false)
-            }
-        }
     }
 
     /** 같은 내용으로 새 편지를 만든다(duplicate-letter). 새 편지는 링크가 없어 발송 화면으로 이어 간다. */

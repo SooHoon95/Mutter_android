@@ -30,8 +30,6 @@ data class TicketsUiState(
     val purchasingId: String? = null,
     val notice: TicketNotice? = null,
     val error: String? = null,
-    /** 이 화면에서 구매(지급)가 끝난 횟수 — 보내기 흐름에서 들어온 화면이 구매 뒤 닫히는 신호로 쓴다. */
-    val purchaseCount: Int = 0,
 )
 
 /** 편지권 화면 — 잔액·내역·구매(1장/5장). 진입 때 남은 거래를 먼저 다시 보낸다. */
@@ -81,10 +79,7 @@ class TicketsViewModel @Inject constructor(
             try {
                 when (ticketUseCase.purchase(productId)) {
                     is TicketPurchaseOutcome.Granted -> {
-                        _state.value = _state.value.copy(
-                            notice = TicketNotice.GRANTED,
-                            purchaseCount = _state.value.purchaseCount + 1,
-                        )
+                        _state.value = _state.value.copy(notice = TicketNotice.GRANTED)
                         load()
                     }
                     TicketPurchaseOutcome.Pending -> _state.value = _state.value.copy(notice = TicketNotice.PENDING)

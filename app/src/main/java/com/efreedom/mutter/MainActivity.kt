@@ -171,11 +171,8 @@ class MainActivity : ComponentActivity() {
                                 pendingLetterToken = token
                                 letterToken = null
                             },
-                            // 편지권이 없어 간직 못 함 → 오버레이를 걷고 편지권 화면으로.
-                            onNeedTickets = {
-                                letterToken = null
-                                pendingRoute.value = FeatureRoute.Tickets
-                            },
+                            // 간직하려는데 편지권이 없으면 편지 위로 결제 안내 시트가 올라온다(편지·음악은 뒤에 그대로).
+                            ticketCheckout = ticketCheckoutSheet,
                         )
                     }
 

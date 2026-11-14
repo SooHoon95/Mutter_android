@@ -44,10 +44,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.component.PermanentSendNotice
 import com.efreedom.mutter.uicomponent.component.SendChoiceCard
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.shareText
@@ -62,6 +61,7 @@ import com.efreedom.mutter.uicomponent.theme.InkSoft
 import com.efreedom.mutter.uicomponent.theme.Ivory
 import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.Surface as MutterSurface
+import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
 import com.efreedom.mutter.domain.AppLink
 import com.efreedom.mutter.domain.LetterShareMessage
 import com.efreedom.mutter.domain.model.DeliveryLink
@@ -79,8 +79,8 @@ fun DeliveryScreen(
     letterId: String,
     onPreview: () -> Unit,
     modifier: Modifier = Modifier,
-    /** 편지권이 없을 때(보내기 전 선택의 영구 편지·NO_TICKET) 구매 화면으로. */
-    onOpenTickets: () -> Unit = {},
+    /** 영구 편지로 보내거나 만들려는데 편지권이 없을 때 띄우는 결제 안내 시트(앱이 주입). */
+    ticketCheckout: @Composable (TicketCheckoutRoute, (Boolean) -> Unit) -> Unit = { _, _ -> },
     /** 사본을 만든 뒤 그 새 편지의 발송 화면으로. */
     onDuplicated: (String) -> Unit = {},
     viewModel: DeliveryViewModel = hiltViewModel(),
@@ -89,15 +89,8 @@ fun DeliveryScreen(
     val context = LocalContext.current
 
     LaunchedEffect(letterId) { viewModel.start(letterId) }
-    // 구매 화면에서 돌아오면 잔액 갱신 — 영구 편지를 보내려던 참이고 편지권이 생겼으면 이어서 영구로 만든다.
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
+    state.checkoutRoute?.let { route -> ticketCheckout(route, viewModel::checkoutFinished) }
 
-    LaunchedEffect(state.needTickets) {
-        if (state.needTickets) {
-            viewModel.onNeedTicketsHandled()
-            onOpenTickets()
-        }
-    }
     LaunchedEffect(state.duplicatedLetterId) {
         state.duplicatedLetterId?.let { newId ->
             viewModel.onDuplicatedHandled()
@@ -135,19 +128,22 @@ fun DeliveryScreen(
                     style = MutterButtonStyle.Ghost,
                 )
 
-                AccessSection(state = state, onMakePermanent = viewModel::makePermanent)
+                AccessSection(state = state, onMakePermanent = viewModel::makeSentLetterPermanent)
 
                 // 보내기 전 선택 — 고르기 전에는 발급 폼을 보이지 않는다.
                 if (state.showsSendChoice) {
                     SendChoiceCard(
                         tickets = state.entitlements?.tickets ?: 0,
                         freeDays = state.entitlements?.freeDays ?: 0,
-                        hasTicket = state.entitlements?.hasTicketForPermanent == true,
-                        isLoading = state.isMakingPermanent,
+                        hasTicket = state.entitlements?.hasTicket == true,
                         onPermanent = viewModel::choosePermanent,
                         onFreeDays = viewModel::chooseFreeDays,
                     )
                 } else {
+                    // 영구를 골랐지만 아직 링크를 만들지 않았다 — 편지권은 아래에서 링크를 만들 때 쓰인다.
+                    if (state.showsPermanentPending) {
+                        PermanentSendNotice(onChooseAgain = viewModel::chooseAgain)
+                    }
                     IssueCard(
                         state = state,
                         onUsePasswordChange = viewModel::setUsePassword,
@@ -411,7 +407,10 @@ private fun ExistingLinksSection(
     }
 }
 
-/** 상태 표시 + 링크 발급 안내 + "영구 편지로 만들기". 상태를 모르면(서버 반영 전) 아무것도 그리지 않는다. */
+/**
+ * 상태 표시 + 링크 발급 안내 + "영구 편지로 만들기 · 편지권 1장"(이미 보낸 편지에만). 상태를 모르면(서버 반영 전) 아무것도 그리지 않는다.
+ * 버튼 문구가 편지권 1장을 말하므로 확인 없이 진행한다(편지권이 없으면 결제 안내 시트).
+ */
 @Composable
 private fun AccessSection(state: DeliveryUiState, onMakePermanent: () -> Unit) {
     val access = state.access ?: return

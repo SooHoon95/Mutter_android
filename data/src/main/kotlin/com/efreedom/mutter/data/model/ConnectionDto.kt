@@ -61,4 +61,9 @@ data class SendToConnectionParams(
     @SerialName("p_letter_id") val letterId: String,
     @SerialName("p_recipient") val recipient: String,
     @SerialName("p_token") val token: String,
+    /**
+     * 영구 편지로 보낸다 — 서버가 발송과 편지권 1장 사용을 한 트랜잭션으로 처리한다.
+     * **true일 때만 전송된다**(기본값 false + `encodeDefaults=false`) — 이 인자가 없는 예전 서버에서도 일반 발송이 되게.
+     */
+    @SerialName("p_permanent") val permanent: Boolean = false,
 )

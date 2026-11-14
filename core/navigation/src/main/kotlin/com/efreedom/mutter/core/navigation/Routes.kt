@@ -27,10 +27,8 @@ sealed interface FeatureRoute {
     @Serializable data object InboxTrash : FeatureRoute
 
     @Serializable data class Delivery(val letterId: String) : FeatureRoute
-    /** 편지권(잔액·구매·내역) — 프로필 항목, 편지권 부족(NO_TICKET)에서 진입. */
+    /** 편지권(잔액·구매·내역) — 프로필 항목에서 진입. 편지권이 필요한데 없을 때는 이 화면이 아니라 결제 안내 시트([TicketCheckoutRoute])가 뜬다. */
     @Serializable data object Tickets : FeatureRoute
-    /** 영구 편지를 보내려다 편지권이 없어 들어온 구매 화면 — 구매하면 닫히고 보내기로 돌아간다. */
-    @Serializable data object TicketPurchase : FeatureRoute
     @Serializable data class ConnectInvite(val token: String) : FeatureRoute
     @Serializable data class Thread(val counterpartId: String) : FeatureRoute
 

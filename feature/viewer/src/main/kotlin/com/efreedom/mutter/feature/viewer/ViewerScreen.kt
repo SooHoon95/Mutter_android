@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -57,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
+import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
 import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.LetterPhotoImage
 import com.efreedom.mutter.uicomponent.component.MutterButton
@@ -102,36 +102,28 @@ import java.util.Locale
  *
  * [onLoginRequest] — 로그인해야 열리는 편지의 봉투에서 "편지 열기"를 누르면(로그아웃 상태) 호출된다.
  * 호출부가 로그인 화면을 보인 뒤 같은 토큰으로 이 화면을 다시 띄운다. null이면 그냥 다시 불러온다.
- * [onNeedTickets] — 잠긴 편지를 간직하려는데 편지권이 없을 때(NO_TICKET) 구매 화면으로 보낸다.
+ * [ticketCheckout] — 간직하려는데 편지권이 없을 때 편지 위로 띄우는 결제 안내 시트(앱이 주입). null이면 띄우지 않는다.
  */
 @Composable
 fun ViewerScreen(
     token: String? = null,
     letterId: String? = null,
     onLoginRequest: (() -> Unit)? = null,
-    onNeedTickets: () -> Unit = {},
+    ticketCheckout: (@Composable (TicketCheckoutRoute, (Boolean) -> Unit) -> Unit)? = null,
     viewModel: ViewerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isOpened = viewModel.isOpened
-    // 간직하기 확인(편지 끝·닫힘 예고·잠김 화면 공통). 확인 뒤 편지권 1장을 쓴다.
-    var confirmingKeep by remember { mutableStateOf(false) }
     val keepOffer = KeepOffer(
         isRecipient = viewModel.isRecipient,
         canKeep = viewModel.canKeep,
+        hasTicket = viewModel.hasTicket,
         isKept = viewModel.isKept,
         isKeeping = viewModel.isKeeping,
         error = viewModel.keepError,
         warnDays = viewModel.warnDays,
-        onKeep = { confirmingKeep = true },
+        onKeep = viewModel::requestKeep,
     )
-
-    LaunchedEffect(viewModel.needTickets) {
-        if (viewModel.needTickets) {
-            viewModel.onNeedTicketsHandled()
-            onNeedTickets()
-        }
-    }
 
     // 소스를 한 번만 결정해 ViewModel에 전달한다 (ViewModel 내부에서 중복 호출 가드).
     LaunchedEffect(token, letterId) {
@@ -172,9 +164,10 @@ fun ViewerScreen(
             )
             is ViewerState.Locked -> LockedContent(
                 state = s,
+                hasTicket = viewModel.hasTicket,
                 isKeeping = viewModel.isKeeping,
                 error = viewModel.keepError,
-                onKeep = { confirmingKeep = true },
+                onKeep = viewModel::requestKeep,
             )
             is ViewerState.Ready -> {
                 if (isOpened) {
@@ -204,21 +197,8 @@ fun ViewerScreen(
         // NavHost 목적지라 시스템 뒤로가 popBackStack을 그대로 수행하며, 편지를 가리는 요소도 없어진다.
     }
 
-    if (confirmingKeep) {
-        AlertDialog(
-            onDismissRequest = { confirmingKeep = false },
-            text = { Text(stringResource(R.string.viewer_keep_confirm_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmingKeep = false
-                    viewModel.keep()
-                }) { Text(stringResource(R.string.viewer_keep_confirm)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmingKeep = false }) { Text(stringResource(R.string.viewer_cancel)) }
-            },
-        )
-    }
+    // 간직하려는데 편지권이 없으면 편지 위로 결제 안내가 올라온다(편지와 음악은 뒤에 그대로).
+    viewModel.checkoutRoute?.let { route -> ticketCheckout?.invoke(route, viewModel::checkoutFinished) }
 }
 
 // ─── Loading ─────────────────────────────────────────────────────────────────
@@ -330,10 +310,15 @@ private fun EnvelopeBadge() {
 
 // ─── Locked (LETTER_LOCKED) ──────────────────────────────────────────────────
 
-/** 무료 기간이 끝난 편지 — 삭제 예정일까지 편지권으로 간직할 수 있다(확인은 [ViewerScreen]이 띄운다). */
+/**
+ * 무료 기간이 끝난 편지 — 삭제 예정일까지 편지권으로 간직할 수 있다.
+ * 버튼 문구가 편지권을 말하므로 확인 없이 바로 진행한다. [hasTicket]이면 누르는 즉시 1장을 쓰므로 버튼 아래에 미리 알리고,
+ * 없으면 결제 안내 시트가 뜬다.
+ */
 @Composable
 private fun LockedContent(
     state: ViewerState.Locked,
+    hasTicket: Boolean,
     isKeeping: Boolean,
     error: String?,
     onKeep: () -> Unit,
@@ -380,6 +365,14 @@ private fun LockedContent(
                     isLoading = isKeeping,
                     modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
                 )
+                if (hasTicket) {
+                    Text(
+                        text = stringResource(R.string.viewer_keep_confirm_body),
+                        style = MutterText.caption,
+                        color = InkSoft,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
             error?.let {
                 Text(text = it, style = MutterText.caption, color = GoldDeep, textAlign = TextAlign.Center)
@@ -536,10 +529,12 @@ private fun OpenGate(
 /**
  * 받은 사람의 간직하기 상태 — 편지 끝 안내(①)·닫힘 예고(②)가 같이 쓴다.
  * [isRecipient] 로그인·소유자 아님, [canKeep] 버튼 노출(`tickets > 0 || paid_enabled || is_admin`).
+ * [hasTicket] 지금 쓸 편지권이 있는지 — 있으면 글자 버튼을 누른 자리에서 한 번 더 묻고, 없으면 바로 [onKeep](결제 안내 시트).
  */
 private data class KeepOffer(
     val isRecipient: Boolean,
     val canKeep: Boolean,
+    val hasTicket: Boolean,
     val isKept: Boolean,
     val isKeeping: Boolean,
     val error: String?,
@@ -567,24 +562,30 @@ private fun ClosingSoonLine(payload: LetterPayload, keepOffer: KeepOffer) {
     if (payload.isPermanent) return
     val days = remember(accessUntil) { LetterAccessDays.until(accessUntil, Instant.now()) }
     if (days > keepOffer.warnDays) return
+    var confirming by remember { mutableStateOf(false) }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = if (days <= 0) {
-                    stringResource(R.string.viewer_closing_today)
-                } else {
-                    stringResource(R.string.viewer_closing_in_days, days)
-                },
-                style = MutterText.caption,
-                color = InkFaint,
-                textAlign = TextAlign.Center,
-            )
-            if (keepOffer.isRecipient && keepOffer.canKeep) {
-                KeepTextButton(
-                    text = stringResource(R.string.viewer_closing_keep),
-                    color = GoldDeep,
-                    keepOffer = keepOffer,
+        if (confirming) {
+            KeepInlineConfirm(keepOffer = keepOffer, muted = InkFaint, accent = GoldDeep, onCancel = { confirming = false })
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (days <= 0) {
+                        stringResource(R.string.viewer_closing_today)
+                    } else {
+                        stringResource(R.string.viewer_closing_in_days, days)
+                    },
+                    style = MutterText.caption,
+                    color = InkFaint,
+                    textAlign = TextAlign.Center,
                 )
+                if (keepOffer.isRecipient && keepOffer.canKeep) {
+                    KeepTextButton(
+                        text = stringResource(R.string.viewer_closing_keep),
+                        color = GoldDeep,
+                        keepOffer = keepOffer,
+                        onConfirmRequest = { confirming = true },
+                    )
+                }
             }
         }
         keepOffer.error?.let {
@@ -593,18 +594,45 @@ private fun ClosingSoonLine(payload: LetterPayload, keepOffer: KeepOffer) {
     }
 }
 
-/** 간직하기 글자 버튼 — 진행 중이면 작은 원형 표시. */
+/**
+ * 간직하기 글자 버튼(편지 끝·닫힘 예고). 편지권이 있으면 [onConfirmRequest]로 같은 자리의 확인([KeepInlineConfirm])을 열고,
+ * 없으면 바로 [KeepOffer.onKeep] — 결제 안내 시트가 뜬다.
+ */
 @Composable
-private fun KeepTextButton(text: String, color: Color, keepOffer: KeepOffer) {
-    if (keepOffer.isKeeping) {
-        CircularProgressIndicator(
-            modifier = Modifier.padding(horizontal = 12.dp).size(16.dp),
-            strokeWidth = 2.dp,
-            color = color,
+private fun KeepTextButton(text: String, color: Color, keepOffer: KeepOffer, onConfirmRequest: () -> Unit) {
+    TextButton(onClick = { if (keepOffer.hasTicket) onConfirmRequest() else keepOffer.onKeep() }) {
+        Text(text = text, style = MutterText.captionBold, color = color)
+    }
+}
+
+/**
+ * 글자 버튼을 누른 그 자리의 확인 — "편지권 1장을 사용해요. …" + 취소 / 간직하기(팝업 없이).
+ * 작은 글자 버튼 한 번에 편지권이 쓰이지 않게 한다. 계약 "편지권이 있을 때의 확인".
+ */
+@Composable
+private fun KeepInlineConfirm(keepOffer: KeepOffer, muted: Color, accent: Color, onCancel: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = stringResource(R.string.viewer_keep_confirm_body),
+            style = MutterText.caption,
+            color = muted,
+            textAlign = TextAlign.Center,
         )
-    } else {
-        TextButton(onClick = keepOffer.onKeep) {
-            Text(text = text, style = MutterText.captionBold, color = color)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = onCancel, enabled = !keepOffer.isKeeping) {
+                Text(text = stringResource(R.string.viewer_cancel), style = MutterText.caption, color = muted)
+            }
+            if (keepOffer.isKeeping) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(horizontal = 12.dp).size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = accent,
+                )
+            } else {
+                TextButton(onClick = keepOffer.onKeep) {
+                    Text(text = stringResource(R.string.viewer_keep_confirm), style = MutterText.captionBold, color = accent)
+                }
+            }
         }
     }
 }
@@ -628,18 +656,24 @@ private fun LetterEndKeepLine(payload: LetterPayload, keepOffer: KeepOffer, fore
         }
         val accessUntil = payload.accessUntil ?: return@Column
         val date = remember(accessUntil) { accessUntil.atZone(ZoneId.systemDefault()).toLocalDate() }
-        Text(
-            text = stringResource(R.string.viewer_letter_end_until, date.monthValue, date.dayOfMonth),
-            style = MutterText.caption,
-            color = muted,
-            textAlign = TextAlign.Center,
-        )
-        if (keepOffer.canKeep) {
-            KeepTextButton(
-                text = stringResource(R.string.viewer_letter_end_keep),
-                color = foreground,
-                keepOffer = keepOffer,
+        var confirming by remember { mutableStateOf(false) }
+        if (confirming) {
+            KeepInlineConfirm(keepOffer = keepOffer, muted = muted, accent = foreground, onCancel = { confirming = false })
+        } else {
+            Text(
+                text = stringResource(R.string.viewer_letter_end_until, date.monthValue, date.dayOfMonth),
+                style = MutterText.caption,
+                color = muted,
+                textAlign = TextAlign.Center,
             )
+            if (keepOffer.canKeep) {
+                KeepTextButton(
+                    text = stringResource(R.string.viewer_letter_end_keep),
+                    color = foreground,
+                    keepOffer = keepOffer,
+                    onConfirmRequest = { confirming = true },
+                )
+            }
         }
         keepOffer.error?.let {
             Text(text = it, style = MutterText.caption, color = muted, textAlign = TextAlign.Center)

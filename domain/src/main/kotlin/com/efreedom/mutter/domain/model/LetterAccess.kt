@@ -62,15 +62,15 @@ data class LetterReader(
 object SendChoice {
     /**
      * 아직 영구가 아닌 열린 편지([LetterAccessKind.OPEN]) · 유료 전환([Entitlements.paidEnabled]) ·
-     * 발급된 링크 없음 · 이 화면에서 무료 기간을 고르지 않음 — 모두 참일 때만 보인다.
+     * 발급된 링크 없음 · 이 화면에서 아직 고르지 않음([hasChosen] — 영구든 무료 기간이든) — 모두 참일 때만 보인다.
      */
     fun shows(
         access: LetterAccessState?,
         entitlements: Entitlements?,
         hasLinks: Boolean,
-        choseFreeDays: Boolean,
+        hasChosen: Boolean,
     ): Boolean = access?.kind == LetterAccessKind.OPEN && entitlements?.paidEnabled == true &&
-        !hasLinks && !choseFreeDays
+        !hasLinks && !hasChosen
 }
 
 /** 남은 일수 계산(올림). 0 이하면 0 — 화면은 0을 "오늘"로 보인다. */

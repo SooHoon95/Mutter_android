@@ -27,7 +27,16 @@ class DeliveryRepositoryImpl @Inject constructor(
 
     private val client get() = provider.client
 
-    override suspend fun issue(letterId: String, password: String?, revealAt: Instant?): DeliveryLink = wrap {
+    override suspend fun issue(letterId: String, password: String?, revealAt: Instant?): DeliveryLink =
+        issueLink(letterId, password, revealAt, permanent = false)
+
+    /** issue_link. [permanent]면 서버가 링크 발급과 편지권 1장 사용을 한 트랜잭션으로 처리한다([PermanentSendRepositoryImpl]). */
+    internal suspend fun issueLink(
+        letterId: String,
+        password: String?,
+        revealAt: Instant?,
+        permanent: Boolean,
+    ): DeliveryLink = wrap {
         val rows = client.postgrest.rpc(
             "issue_link",
             IssueLinkParams(
@@ -36,6 +45,7 @@ class DeliveryRepositoryImpl @Inject constructor(
                 password = password,
                 expiresAt = null,
                 revealAt = revealAt?.toString(),
+                permanent = permanent,
             ),
         ).decodeList<RpcDeliveryLinkRow>()
         rows.firstOrNull()?.toDomain() ?: throw MutterError.Server("링크 발급 응답이 비어 있어요.")

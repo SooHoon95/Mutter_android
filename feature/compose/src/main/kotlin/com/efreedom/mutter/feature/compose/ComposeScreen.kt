@@ -50,9 +50,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
 import com.efreedom.mutter.domain.model.LetterPhoto
 import com.efreedom.mutter.domain.model.MusicSource
 import com.efreedom.mutter.uicomponent.R as DsR
@@ -82,21 +81,12 @@ fun ComposeScreen(
     mode: ComposeMode,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
-    /** 보내기 전 선택에서 영구 편지를 골랐는데 편지권이 없을 때 구매 화면으로. 사 오면 이어서 영구로, 아니면 선택 카드 그대로. */
-    onOpenTickets: () -> Unit = {},
+    /** 영구 편지로 보내려는데 편지권이 없을 때 보내기 시트 위로 띄우는 결제 안내 시트(앱이 주입). */
+    ticketCheckout: @Composable (TicketCheckoutRoute, (Boolean) -> Unit) -> Unit = { _, _ -> },
     viewModel: ComposeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val theme = LetterThemes.byId(state.templateId)
-
-    LaunchedEffect(state.needTickets) {
-        if (state.needTickets) {
-            viewModel.onNeedTicketsHandled()
-            onOpenTickets()
-        }
-    }
-    // 구매 화면에서 돌아오면 잔액 갱신 — 영구 편지를 보내려던 참이고 편지권이 생겼으면 이어서 영구로 만든다.
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
 
     // 화면 진입 시 한 번만 모드 초기화(이어쓰기면 기존 편지 로드).
     LaunchedEffect(Unit) {
@@ -114,6 +104,8 @@ fun ComposeScreen(
             onDismiss = { viewModel.setShowSendSheet(false) },
         )
     }
+    // 보내기 시트보다 뒤에 그려야 그 위로 올라온다.
+    state.checkoutRoute?.let { route -> ticketCheckout(route, viewModel::checkoutFinished) }
 
     // 시스템 Photo Picker(이미지만) — 권한 요청 없이 고른 한 장만 앱에 넘어온다.
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->

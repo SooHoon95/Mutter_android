@@ -18,8 +18,11 @@ data class Entitlements(
     /** 받은 사람의 "간직하기"(편지 끝·닫힘 예고·잠김 화면, 앱). 잔액이 있으면 유료 전환 전에도 보인다. 계약 "받은 사람의 간직하기". */
     val canKeepReceived: Boolean get() = tickets > 0 || showsTicketUi
 
-    /** 영구 편지에 바로 쓸 편지권이 있는지 — 관리자는 차감 없이 영구가 되므로 잔액과 무관하게 참. */
-    val hasTicketForPermanent: Boolean get() = tickets > 0 || isAdmin
+    /**
+     * 지금 쓸 편지권이 있는지(영구 편지로 보내기·받은 편지 간직하기) — 관리자는 차감이 없어 잔액과 무관하게 참.
+     * 참이면 그 자리에서 바로 쓰고, 거짓이면 결제 안내 시트를 띄운다. 계약 "결제 안내 시트(앱)".
+     */
+    val hasTicket: Boolean get() = tickets > 0 || isAdmin
 
     /** 구매 UI — 관리자는 차감 없이 영구가 되므로 구매 UI를 숨긴다. */
     val canPurchase: Boolean get() = paidEnabled && !isAdmin

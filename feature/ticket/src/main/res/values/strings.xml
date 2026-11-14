@@ -1,0 +1,32 @@
+<resources>
+    <!-- 결제 안내 시트 — 계약 "결제 안내 시트(앱)" 문구 표(docs/specs/permanent-letter-contract.md, iOS와 동일) -->
+    <!-- 보내는 사람(공통) -->
+    <string name="checkout_send_subtitle">받는 분이 기간 제한 없이 간직해요</string>
+    <string name="checkout_send_point1">시간이 지나도 닫히지 않아요</string>
+    <string name="checkout_send_point2">내가 편지를 지워도 받은 분의 편지함에는 남아요</string>
+    <!-- 보내기 전(아직 안 보낸 편지) — 구매만 한다. 편지권은 링크를 만들거나 보낼 때 쓰인다 -->
+    <string name="checkout_send_title">영구 편지로 보내기</string>
+    <string name="checkout_send_buy">편지권 구매하고 계속하기</string>
+    <string name="checkout_send_use">계속하기</string>
+    <!-- 이미 보낸 편지 — 구매하고 바로 영구로 만든다 -->
+    <string name="checkout_make_title">영구 편지로 만들기</string>
+    <string name="checkout_make_buy">구매하고 영구 편지로 만들기</string>
+    <string name="checkout_make_use">편지권 1장으로 만들기</string>
+    <!-- 받는 사람 -->
+    <string name="checkout_keep_title">이 편지 간직하기</string>
+    <string name="checkout_keep_subtitle">기간 제한 없이 계속 열 수 있어요</string>
+    <string name="checkout_keep_point1">닫힌 편지도 다시 열려요</string>
+    <string name="checkout_keep_point2">보낸 분이 편지를 지워도 내 편지함에는 남아요</string>
+    <string name="checkout_keep_buy">구매하고 간직하기</string>
+    <string name="checkout_keep_use">편지권 1장으로 간직하기</string>
+    <!-- 공통 -->
+    <plurals name="checkout_balance">
+        <item quantity="other">보유 편지권 %1$d장</item>
+    </plurals>
+    <plurals name="checkout_product">
+        <item quantity="other">편지권 %1$d장</item>
+    </plurals>
+    <string name="checkout_unavailable">지금은 편지권을 살 수 없어요.</string>
+    <string name="checkout_pending">결제가 끝나면 편지권이 들어와요.</string>
+    <string name="checkout_cancel">취소</string>
+</resources>

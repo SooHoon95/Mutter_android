@@ -33,6 +33,7 @@ import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.InkSoft
 import com.efreedom.mutter.uicomponent.theme.Ivory
 import com.efreedom.mutter.core.navigation.FeatureRoute
+import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
 import com.efreedom.mutter.feature.compose.ComposeMode
 import com.efreedom.mutter.feature.compose.ComposeScreen
 import com.efreedom.mutter.feature.connections.ConnectInviteScreen
@@ -47,10 +48,20 @@ import com.efreedom.mutter.feature.legal.TakedownScreen
 import com.efreedom.mutter.feature.profile.ProfileScreen
 import com.efreedom.mutter.feature.profile.TicketsScreen
 import com.efreedom.mutter.feature.threads.ThreadsScreen
+import com.efreedom.mutter.feature.ticket.TicketCheckoutSheet
 import com.efreedom.mutter.feature.viewer.ViewerScreen
 import kotlinx.serialization.Serializable
 
 // ─── 앱 루트 NavHost ──────────────────────────────────────────────────────────
+
+/**
+ * 결제 안내 시트 — 편지권이 필요한데 없을 때 보던 화면 위로 올라온다(계약 "결제 안내 시트(앱)").
+ * feature끼리는 의존할 수 없어, 앱이 `:feature:ticket`의 시트를 만들어 보내기·링크 관리·뷰어 화면에 넘긴다.
+ * 화면은 "무엇을 위해"([TicketCheckoutRoute])만 정하고, 닫히면 완료 여부를 돌려받는다.
+ */
+internal val ticketCheckoutSheet: @Composable (TicketCheckoutRoute, (Boolean) -> Unit) -> Unit = { route, onFinish ->
+    TicketCheckoutSheet(route = route, onFinish = onFinish)
+}
 
 /** 탭 호스트 루트 목적지 — 직렬화 가능하도록 @Serializable 선언. */
 @Serializable
@@ -116,7 +127,7 @@ fun MutterNavHost(
             ComposeScreen(
                 mode = ComposeMode.New,
                 onDone = { navController.popBackStack() },
-                onOpenTickets = { navController.navigate(FeatureRoute.TicketPurchase) { launchSingleTop = true } },
+                ticketCheckout = ticketCheckoutSheet,
             )
         }
         composable<FeatureRoute.ComposeEdit> { entry ->
@@ -124,7 +135,7 @@ fun MutterNavHost(
             ComposeScreen(
                 mode = ComposeMode.Edit(route.letterId),
                 onDone = { navController.popBackStack() },
-                onOpenTickets = { navController.navigate(FeatureRoute.TicketPurchase) { launchSingleTop = true } },
+                ticketCheckout = ticketCheckoutSheet,
             )
         }
         composable<FeatureRoute.ComposeReply> { entry ->
@@ -132,7 +143,7 @@ fun MutterNavHost(
             ComposeScreen(
                 mode = ComposeMode.Reply(route.recipientId),
                 onDone = { navController.popBackStack() },
-                onOpenTickets = { navController.navigate(FeatureRoute.TicketPurchase) { launchSingleTop = true } },
+                ticketCheckout = ticketCheckoutSheet,
             )
         }
 
@@ -141,7 +152,7 @@ fun MutterNavHost(
             val route = entry.toRoute<FeatureRoute.ViewerToken>()
             ViewerScreen(
                 token = route.token,
-                onNeedTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
+                ticketCheckout = ticketCheckoutSheet,
             )
         }
         composable<FeatureRoute.ViewerMyLetter> { entry ->
@@ -166,20 +177,13 @@ fun MutterNavHost(
                 onPreview = { navController.navigate(FeatureRoute.ViewerMyLetter(route.letterId)) },
                 // 사본은 링크가 없는 새 편지 — 그 편지의 발송 화면으로 이어 간다(뒤로 오면 원본 상세).
                 onDuplicated = { newId -> navController.navigate(FeatureRoute.Delivery(newId)) },
-                onOpenTickets = { navController.navigate(FeatureRoute.TicketPurchase) { launchSingleTop = true } },
+                ticketCheckout = ticketCheckoutSheet,
             )
         }
 
         // ─── 편지권 ────────────────────────────────────────────────────────
         composable<FeatureRoute.Tickets> {
             TicketsScreen()
-        }
-        // 영구 편지를 보내려다 들어온 구매 화면 — 구매가 끝나면 닫혀 보내기 화면(작성 시트·링크 관리)으로 돌아간다.
-        composable<FeatureRoute.TicketPurchase> {
-            TicketsScreen(
-                closesAfterPurchase = true,
-                onClose = { navController.popBackStack() },
-            )
         }
 
         // ─── 연결 초대 ─────────────────────────────────────────────────────

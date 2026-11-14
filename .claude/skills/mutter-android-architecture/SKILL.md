@@ -19,7 +19,7 @@ Clean Architecture 멀티모듈. iOS `Mutter`(Tuist 모듈러)를 1:1로 대응�
 | `:core:audiosync` | 편지 음악 재생 — Media3 ExoPlayer(호스티드) + 숨김 WebView SoundCloud 위젯 | AudioSync |
 | `:core:common` | `NetworkMonitor` | AppFoundation |
 | `:uicomponent` | 테마·폰트·공통 컴포넌트·드로어블 | UIComponent |
-| `:feature:*` | auth, compose, viewer, delivery, inbox, connections, threads, profile, home, legal | Feature |
+| `:feature:*` | auth, compose, viewer, delivery, inbox, connections, threads, profile, ticket, home, legal | Feature |
 
 `:feature:maintab`은 build 파일만 있고 `src`가 없다 — 탭 호스트(`MainScaffold`)는 `:app`에 있다.
 
@@ -34,6 +34,7 @@ Clean Architecture 멀티모듈. iOS `Mutter`(Tuist 모듈러)를 1:1로 대응�
 
 금지: `feature → feature`, `feature → :data`, `:domain → Android/Compose/Hilt`(순수 Kotlin + `javax.inject`만), `:uicomponent → :domain|feature`.
 Feature 간 이동은 `FeatureRoute` + 콜백 람다로 `:app`이 연결한다.
+다른 feature의 화면을 **위에 띄워야** 할 때도 같다 — 결제 안내 시트(`:feature:ticket`의 `TicketCheckoutSheet`)는 `:app`이 만들어 보내기·링크 관리·뷰어 화면에 `@Composable` 람다로 주입하고, 화면은 `TicketCheckoutRoute`(무엇을 위해)만 넘긴다.
 
 컨벤션 플러그인(build-logic)은 없다. 새 모듈은 비슷한 기존 모듈의 `build.gradle.kts`를 복사해 `namespace`만 바꾼다(`/new-android-module`).
 

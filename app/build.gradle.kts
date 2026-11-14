@@ -94,6 +94,7 @@ dependencies {
     implementation(project(":feature:inbox"))
     implementation(project(":feature:connections"))
     implementation(project(":feature:profile"))
+    implementation(project(":feature:ticket"))
     implementation(project(":feature:compose"))
     implementation(project(":feature:viewer"))
     implementation(project(":feature:delivery"))
