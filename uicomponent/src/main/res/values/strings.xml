@@ -7,6 +7,8 @@
     <string name="send_choice_tickets_owned">보유 편지권 %1$d장</string>
     <string name="send_choice_free_title">%1$d일 편지</string>
     <string name="send_choice_free_body">받는 분이 처음 연 날부터 %1$d일 동안 열려요</string>
+    <!-- {n}일 편지 설명 아래 한 줄 — 무료로 보내면 닫힌 뒤 grace_days일이 지나 삭제된다(계약 "삭제 안내") -->
+    <string name="send_choice_free_purge">닫힌 뒤 %1$d일이 지나면 편지가 삭제돼요</string>
     <string name="send_choice_free_price">무료</string>
     <!-- 영구 편지를 골랐고 편지권이 있을 때 버튼 위 한 줄(없으면 버튼이 결제 안내 시트로 이어진다). 고른 뒤의 안내에도 쓴다 -->
     <string name="send_choice_permanent_hint">링크를 만들거나 보낼 때 편지권 1장이 사용돼요</string>
@@ -16,6 +18,13 @@
     <!-- 영구 편지를 고른 뒤 발급 폼·연결 상대 목록 위의 안내 — 편지권은 아직 쓰이지 않았다 -->
     <string name="send_choice_permanent_chosen">영구 편지로 보내요</string>
     <string name="send_choice_choose_again">다시 고르기</string>
+
+    <!-- 닫힌 편지 상태 표시(목록·보낸 편지 상세 공통) — 자물쇠 옆 문구. 계약 "삭제 안내" -->
+    <string name="access_closed">닫힘</string>
+    <string name="access_closed_delete_in">%1$d일 뒤 삭제</string>
+    <string name="access_closed_delete_today">오늘 삭제</string>
+    <!-- 읽어 주기 문구 — 자물쇠가 대신한 "닫힘"을 말로 넣는다(%1$s = 위 삭제 문구) -->
+    <string name="access_closed_spoken">닫힘, %1$s</string>
 
     <!-- 스토어 상품을 못 받았을 때 — 편지권 화면·결제 안내 시트 공통 -->
     <string name="ticket_purchase_unavailable">지금은 편지권을 살 수 없어요.</string>

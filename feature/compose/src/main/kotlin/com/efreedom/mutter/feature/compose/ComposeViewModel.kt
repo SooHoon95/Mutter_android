@@ -174,6 +174,13 @@ data class ComposeUiState(
     val showsPermanentLabel: Boolean
         get() = sendAccess?.kind == LetterAccessKind.PERMANENT && entitlements?.showsTicketUi == true
 
+    /**
+     * 보내기 시트 안내("받는 분이 처음 연 날부터 N일 동안 열려요. 닫힌 뒤 M일이 지나면 삭제돼요.") — 무료 기간으로 보내는 편지에만.
+     * 영구 편지를 골랐으면 없다. 일수는 서버 값만 쓰므로 권한을 못 받았으면 안내도 없다. 계약 "삭제 안내".
+     */
+    val freeDaysNotice: Entitlements?
+        get() = entitlements?.takeIf { sendAccess?.kind == LetterAccessKind.OPEN && !chosePermanent }
+
     val issuedLinkUrl: String? get() = issuedLink?.let { AppLink.letter(it.token) }
 
     val photoCount: Int get() = blocks.count { it is ComposeBlock.Photo }

@@ -2,5 +2,5 @@
     <!-- 영구 편지권 계약 목록 상태 문구(세 플랫폼 동일) -->
     <string name="inbox_access_permanent">영구</string>
     <string name="inbox_access_days_left">%1$d일 남음</string>
-    <string name="inbox_access_closed">닫힘</string>
+    <!-- 닫힌 편지 표시(자물쇠 + n일 뒤 삭제)는 uicomponent의 LockedStatusLabel이 맡는다 -->
 </resources>

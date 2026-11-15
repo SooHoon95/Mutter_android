@@ -29,6 +29,7 @@ private enum class SendChoiceOption { PERMANENT, FREE_DAYS }
  * **여기서는 편지권을 쓰지 않는다** — 고른 것을 기억할 뿐이고, 편지권은 링크를 만들거나 보낼 때 쓰인다(버튼 위 안내).
  * 편지권이 없으면 버튼이 결제 안내 시트(구매)로 이어진다.
  *
+ * @param graceDays 닫힌 뒤 삭제까지의 일수 — 있으면 {free_days}일 편지 설명 아래에 "닫힌 뒤 {n}일이 지나면 편지가 삭제돼요"를 보인다.
  * @param hasTicket 영구 편지에 쓸 편지권이 있는지(관리자는 차감이 없어 true).
  * @param onPermanent 영구 편지를 고르고 버튼을 눌렀다 — 편지권이 있으면 그대로 진행, 없으면 결제 안내(판단은 호출부).
  * @param onFreeDays {free_days}일 편지를 고르고 버튼을 눌렀다.
@@ -37,6 +38,7 @@ private enum class SendChoiceOption { PERMANENT, FREE_DAYS }
 fun SendChoiceCard(
     tickets: Int,
     freeDays: Int,
+    graceDays: Int?,
     hasTicket: Boolean,
     onPermanent: () -> Unit,
     onFreeDays: () -> Unit,
@@ -44,6 +46,13 @@ fun SendChoiceCard(
 ) {
     // 결제 안내 시트가 떴다 내려가도(화면이 다시 그려져도) 고른 것을 기억한다.
     var choice by rememberSaveable { mutableStateOf(SendChoiceOption.PERMANENT) }
+    // 무료로 보내면 편지가 언젠가 삭제된다는 것을 고르는 자리에서 알린다. 일수를 모르면 그 줄만 뺀다.
+    val freeDaysBody = stringResource(R.string.send_choice_free_body, freeDays)
+    val freeDaysDetail = if (graceDays == null) {
+        freeDaysBody
+    } else {
+        freeDaysBody + "\n" + stringResource(R.string.send_choice_free_purge, graceDays)
+    }
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.send_choice_title), style = MutterText.title, color = Ink)
@@ -60,7 +69,7 @@ fun SendChoiceCard(
             MutterChoiceRow(
                 selected = choice == SendChoiceOption.FREE_DAYS,
                 title = stringResource(R.string.send_choice_free_title, freeDays),
-                detail = stringResource(R.string.send_choice_free_body, freeDays),
+                detail = freeDaysDetail,
                 trailing = stringResource(R.string.send_choice_free_price),
                 onSelect = { choice = SendChoiceOption.FREE_DAYS },
             )

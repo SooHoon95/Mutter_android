@@ -2,8 +2,11 @@
     <!-- 영구 편지권 계약 문구(docs/specs/permanent-letter-contract.md, 세 플랫폼 동일) -->
     <string name="delivery_access_permanent">영구</string>
     <string name="delivery_access_days_left">%1$d일 남음</string>
-    <string name="delivery_access_closed">닫힘</string>
-    <string name="delivery_free_days_notice">받는 분이 처음 연 날부터 %1$d일 동안 열려요.</string>
+    <!-- 삭제 안내(계약 "삭제 안내") — 닫힌 뒤 grace_days일이 지나면 삭제된다. 일수는 서버 값(get_my_entitlements).
+         닫힌 편지의 상태 표시(자물쇠 + n일 뒤 삭제)는 uicomponent의 LockedStatusLabel이 맡는다 -->
+    <string name="delivery_free_days_notice">받는 분이 처음 연 날부터 %1$d일 동안 열려요. 닫힌 뒤 %2$d일이 지나면 삭제돼요.</string>
+    <string name="delivery_locked_notice">이 편지는 닫혔어요. %1$d월 %2$d일에 삭제돼요.</string>
+    <string name="delivery_locked_ticket_hint">편지권을 쓰면 다시 열리고 삭제되지 않아요.</string>
     <string name="delivery_make_permanent">영구 편지로 만들기 · 편지권 1장</string>
     <string name="delivery_duplicate">같은 내용으로 한 통 더 보내기</string>
     <string name="delivery_readers_title">열어본 사람</string>

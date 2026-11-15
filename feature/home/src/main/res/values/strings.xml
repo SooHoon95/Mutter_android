@@ -2,7 +2,7 @@
     <!-- 영구 편지권 계약 목록 상태 문구(세 플랫폼 동일) -->
     <string name="home_access_permanent">영구</string>
     <string name="home_access_days_left">%1$d일 남음</string>
-    <string name="home_access_closed">닫힘</string>
+    <!-- 닫힌 편지 표시(자물쇠 + n일 뒤 삭제)는 uicomponent의 LockedStatusLabel이 맡는다 -->
     <!-- 보낸 편지 삭제(계정 단위 삭제, 0041) — 계약 문구 -->
     <string name="home_sent_delete_kept_notice">이미 받은 분의 편지함에는 남아요.</string>
 </resources>

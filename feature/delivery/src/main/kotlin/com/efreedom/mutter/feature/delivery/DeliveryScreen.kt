@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.efreedom.mutter.uicomponent.component.LockedStatusLabel
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.PermanentSendNotice
 import com.efreedom.mutter.uicomponent.component.SendChoiceCard
@@ -135,6 +136,7 @@ fun DeliveryScreen(
                     SendChoiceCard(
                         tickets = state.entitlements?.tickets ?: 0,
                         freeDays = state.entitlements?.freeDays ?: 0,
+                        graceDays = state.entitlements?.graceDays,
                         hasTicket = state.entitlements?.hasTicket == true,
                         onPermanent = viewModel::choosePermanent,
                         onFreeDays = viewModel::chooseFreeDays,
@@ -408,7 +410,8 @@ private fun ExistingLinksSection(
 }
 
 /**
- * 상태 표시 + 링크 발급 안내 + "영구 편지로 만들기 · 편지권 1장"(이미 보낸 편지에만). 상태를 모르면(서버 반영 전) 아무것도 그리지 않는다.
+ * 상태 표시 + 링크 발급 안내 + 닫힌 편지의 삭제 안내 + "영구 편지로 만들기 · 편지권 1장"(이미 보낸 편지에만).
+ * 상태를 모르면(서버 반영 전) 아무것도 그리지 않는다.
  * 버튼 문구가 편지권 1장을 말하므로 확인 없이 진행한다(편지권이 없으면 결제 안내 시트).
  */
 @Composable
@@ -418,29 +421,64 @@ private fun AccessSection(state: DeliveryUiState, onMakePermanent: () -> Unit) {
         LetterAccessLabel.of(access, state.entitlements?.showsTicketUi == true, Instant.now())
     }
     val labelText = when (label) {
-        LetterAccessLabel.None -> null
+        // 닫힌 편지는 글자 대신 자물쇠 + "{n}일 뒤 삭제"(아래 LockedStatusLabel)로 보인다.
+        LetterAccessLabel.None, is LetterAccessLabel.Closed -> null
         LetterAccessLabel.Permanent -> stringResource(R.string.delivery_access_permanent)
         is LetterAccessLabel.DaysLeft -> stringResource(R.string.delivery_access_days_left, label.days)
-        LetterAccessLabel.Closed -> stringResource(R.string.delivery_access_closed)
     }
+    val closed = label as? LetterAccessLabel.Closed
     // 선택 카드가 보이는 동안은 무료 기간 안내가 카드 선택지와 겹치므로 숨긴다.
     val notice = state.freeDaysNotice?.takeIf { !state.showsSendChoice }
-    if (labelText == null && notice == null && !state.canMakePermanent) return
+    // 안내의 일수는 서버 값만 쓴다 — notice가 있으면 권한(entitlements)도 있다.
+    val graceDays = state.entitlements?.graceDays
+    if (labelText == null && closed == null && notice == null && !state.canMakePermanent) return
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         labelText?.let { Text(text = it, style = MutterText.bodyMediumBold, color = GoldDeep) }
-        notice?.let {
+        closed?.let {
+            LockedStatusLabel(
+                daysUntilDelete = it.daysUntilDelete,
+                style = MutterText.bodyMediumBold,
+                color = GoldDeep,
+                iconSize = 14.dp,
+            )
+        }
+        if (notice != null && graceDays != null) {
             Text(
-                text = stringResource(R.string.delivery_free_days_notice, it),
+                text = stringResource(R.string.delivery_free_days_notice, notice, graceDays),
                 style = MutterText.caption,
                 color = InkSoft,
             )
+        }
+        // 닫힌 편지 — 언제 삭제되는지를 "영구 편지로 만들기" 위에서 알린다.
+        state.lockedDeleteAt?.let { deleteAt ->
+            LockedNotice(deleteAt = deleteAt, showsTicketHint = state.entitlements?.showsTicketUi == true)
         }
         if (state.canMakePermanent) {
             MutterButton(
                 text = stringResource(R.string.delivery_make_permanent),
                 onClick = onMakePermanent,
                 isLoading = state.isMakingPermanent,
+            )
+        }
+    }
+}
+
+/** "이 편지는 닫혔어요. {M}월 {D}일에 삭제돼요." — 편지권 UI가 보이는 계정([showsTicketHint])에는 되살리는 방법도 한 줄. */
+@Composable
+private fun LockedNotice(deleteAt: Instant, showsTicketHint: Boolean) {
+    val date = remember(deleteAt) { deleteAt.atZone(ZoneId.systemDefault()).toLocalDate() }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = stringResource(R.string.delivery_locked_notice, date.monthValue, date.dayOfMonth),
+            style = MutterText.bodyMediumBold,
+            color = Ink,
+        )
+        if (showsTicketHint) {
+            Text(
+                text = stringResource(R.string.delivery_locked_ticket_hint),
+                style = MutterText.caption,
+                color = InkSoft,
             )
         }
     }

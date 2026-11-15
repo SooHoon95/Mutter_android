@@ -7,7 +7,9 @@
     <string name="viewer_envelope_login_hint">로그인하면 편지가 열려요</string>
     <string name="viewer_cover_sender">%1$s님이 보낸 편지</string>
     <string name="viewer_locked_title">보관 기간이 지난 편지예요</string>
-    <string name="viewer_locked_body">%1$d월 %2$d일까지 다시 열 수 있어요.</string>
+    <!-- 잠김 화면 본문 — 삭제 날짜 + (간직 버튼이 보일 때만) 간직 안내. 계약 "삭제 안내" -->
+    <string name="viewer_locked_delete_on">%1$d월 %2$d일에 삭제돼요.</string>
+    <string name="viewer_locked_keep_hint">그 전에 간직하면 계속 열 수 있어요.</string>
     <string name="viewer_locked_keep">편지권으로 간직하기</string>
     <string name="viewer_keep_confirm_body">편지권 1장을 사용해요. 보낸 분이 편지를 지워도 내 편지함에는 남아요.</string>
     <string name="viewer_keep_confirm">간직하기</string>
@@ -19,4 +21,6 @@
     <string name="viewer_letter_end_until">이 편지는 %1$d월 %2$d일까지 열려요</string>
     <string name="viewer_letter_end_keep">계속 간직하기</string>
     <string name="viewer_kept">간직한 편지예요</string>
+    <!-- 편지 끝 안내·닫힘 예고(%1$s) 뒤에 잇는 삭제 문장. 일수는 서버 값(grace_days) — 못 받았으면 붙이지 않는다 -->
+    <string name="viewer_with_purge_notice">%1$s. 닫힌 뒤 %2$d일이 지나면 삭제돼요.</string>
 </resources>

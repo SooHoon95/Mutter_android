@@ -38,7 +38,7 @@ data class HomeUiState(
     val undoLetterId: String? = null,
     /** [undoLetterId]가 보낸 편지였다 — 스낵바에 "이미 받은 분의 편지함에는 남아요."를 붙인다(계정 단위 삭제). */
     val undoWasSent: Boolean = false,
-    /** 보낸 편지 상태 표시(영구·n일 남음·닫힘). 서버 반영 전·조회 실패면 비어 있다 — 기존 목록 그대로. */
+    /** 보낸 편지 상태 표시(영구·n일 남음·자물쇠 + n일 뒤 삭제). 서버 반영 전·조회 실패면 비어 있다 — 기존 목록 그대로. */
     val accessLabels: Map<String, LetterAccessLabel> = emptyMap(),
 ) {
     val sentRows: List<LetterRow> get() = rows.filter { it.isSent }

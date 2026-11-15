@@ -11,4 +11,5 @@
     <string name="compose_photo_failed">Couldn\'t load that photo. Please choose another one.</string>
     <string name="compose_photo_description">Letter photo</string>
     <string name="compose_send_permanent">Permanent</string>
+    <string name="compose_send_free_days_notice">Opens for %1$d days from the day the recipient first opens it. It\'s deleted %2$d days after it closes.</string>
 </resources>

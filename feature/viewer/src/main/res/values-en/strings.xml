@@ -5,7 +5,8 @@
     <string name="viewer_envelope_login_hint">Sign in to open this letter</string>
     <string name="viewer_cover_sender">A letter from %1$s</string>
     <string name="viewer_locked_title">This letter\'s keeping period has ended</string>
-    <string name="viewer_locked_body">You can open it again until %1$d/%2$d.</string>
+    <string name="viewer_locked_delete_on">It will be deleted on %1$d/%2$d.</string>
+    <string name="viewer_locked_keep_hint">Keep it before then to keep opening it.</string>
     <string name="viewer_locked_keep">Keep with a letter pass</string>
     <string name="viewer_keep_confirm_body">This uses 1 letter pass. Even if the sender deletes the letter, it stays in your inbox.</string>
     <string name="viewer_keep_confirm">Keep</string>
@@ -17,4 +18,5 @@
     <string name="viewer_letter_end_until">This letter is open until %1$d/%2$d</string>
     <string name="viewer_letter_end_keep">Keep it</string>
     <string name="viewer_kept">You kept this letter</string>
+    <string name="viewer_with_purge_notice">%1$s. It\'s deleted %2$d days after it closes.</string>
 </resources>

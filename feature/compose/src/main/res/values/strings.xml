@@ -13,4 +13,6 @@
     <string name="compose_photo_description">편지 사진</string>
     <!-- 보내기 시트에서 영구 편지로 만든 뒤 표시(영구 편지권 계약 목록 상태 문구). -->
     <string name="compose_send_permanent">영구</string>
+    <!-- 보내기 시트 안내 — 무료 기간과 삭제(계약 "삭제 안내", 링크 발급 화면과 같은 문구). 일수는 서버 값 -->
+    <string name="compose_send_free_days_notice">받는 분이 처음 연 날부터 %1$d일 동안 열려요. 닫힌 뒤 %2$d일이 지나면 삭제돼요.</string>
 </resources>

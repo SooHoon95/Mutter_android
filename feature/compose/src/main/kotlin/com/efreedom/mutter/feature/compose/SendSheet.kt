@@ -102,6 +102,7 @@ internal fun SendSheet(
                 SendChoiceCard(
                     tickets = state.entitlements?.tickets ?: 0,
                     freeDays = state.entitlements?.freeDays ?: 0,
+                    graceDays = state.entitlements?.graceDays,
                     hasTicket = state.entitlements?.hasTicket == true,
                     onPermanent = viewModel::choosePermanent,
                     onFreeDays = viewModel::chooseFreeDays,
@@ -117,6 +118,18 @@ internal fun SendSheet(
                 // 영구를 골랐지만 아직 보내지 않았다 — 편지권은 아래에서 링크를 만들거나 보낼 때 쓰인다.
                 if (state.showsPermanentPending) {
                     PermanentSendNotice(onChooseAgain = viewModel::chooseAgain)
+                }
+                // 무료 기간으로 보낸다 — 링크·연결 어느 쪽으로 보내든 언제 닫히고 삭제되는지 알린다.
+                state.freeDaysNotice?.let { entitlements ->
+                    Text(
+                        text = stringResource(
+                            R.string.compose_send_free_days_notice,
+                            entitlements.freeDays,
+                            entitlements.graceDays,
+                        ),
+                        style = MutterText.caption,
+                        color = InkSoft,
+                    )
                 }
 
                 // 커스텀 세그먼트 컨트롤 — iOS Capsule 스타일 이식.

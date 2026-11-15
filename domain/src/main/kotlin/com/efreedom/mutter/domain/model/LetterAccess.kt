@@ -32,6 +32,9 @@ data class LetterAccessState(
     /** [now] 기준 잠기기까지 남은 일수(올림). 아직 아무도 안 열었거나 영구면 null. */
     fun daysLeft(now: Instant): Int? =
         if (kind == LetterAccessKind.OPEN) accessUntil?.let { LetterAccessDays.until(it, now) } else null
+
+    /** [now] 기준 삭제까지 남은 일수(올림, 0 = 오늘). 삭제 시각을 모르면 null. 계약 "삭제 안내". */
+    fun daysUntilDelete(now: Instant): Int? = deleteAt?.let { LetterAccessDays.until(it, now) }
 }
 
 /**
@@ -83,12 +86,17 @@ object LetterAccessDays {
     }
 }
 
-/** 목록 상태 표시(계약 문구 `영구` / `{n}일 남음` / `닫힘`). 문구는 화면이 리소스로 붙인다. */
+/** 목록 상태 표시(계약 문구 `영구` / `{n}일 남음` / 자물쇠 + `{n}일 뒤 삭제`). 문구는 화면이 리소스로 붙인다. */
 sealed interface LetterAccessLabel {
     data object None : LetterAccessLabel
     data object Permanent : LetterAccessLabel
     data class DaysLeft(val days: Int) : LetterAccessLabel
-    data object Closed : LetterAccessLabel
+
+    /**
+     * 닫힌 편지. [daysUntilDelete]는 삭제까지 남은 일수(올림, 0 = "오늘 삭제").
+     * null이면 삭제 시각을 모른다 — "닫힘"만 보인다.
+     */
+    data class Closed(val daysUntilDelete: Int?) : LetterAccessLabel
 
     companion object {
         /**
@@ -101,10 +109,12 @@ sealed interface LetterAccessLabel {
             LetterAccessKind.PERMANENT -> if (showPermanent) Permanent else None
             LetterAccessKind.OPEN -> when (val days = state.daysLeft(now)) {
                 null -> None
-                0 -> Closed
+                0 -> Closed(state.daysUntilDelete(now))
                 else -> DaysLeft(days)
             }
-            LetterAccessKind.LOCKED, LetterAccessKind.GONE -> Closed
+            // 닫힌 뒤 유예가 끝나면 삭제된다 — 목록에서 며칠 남았는지 함께 보인다(계약 "삭제 안내").
+            LetterAccessKind.LOCKED -> Closed(state.daysUntilDelete(now))
+            LetterAccessKind.GONE -> Closed(null)
         }
     }
 }

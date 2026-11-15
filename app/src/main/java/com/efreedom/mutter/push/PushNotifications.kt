@@ -26,12 +26,17 @@ object PushNotifications {
     /** 서버 트리거(마이그레이션 0029)가 data.type으로 보내는 값. */
     private const val TYPE_LETTER_RECEIVED = "letter_received"
 
-    /** 편지 닫힘 예고·닫힘(보낸 사람에게만). data에 letter_id가 온다 — 탭하면 그 보낸 편지 상세. */
-    private const val TYPE_LETTER_LOCK_SOON = "letter_lock_soon"
-    private const val TYPE_LETTER_LOCKED = "letter_locked"
+    /**
+     * 편지 닫힘 예고·닫힘·삭제 예고(보낸 사람에게만). data에 letter_id가 온다 — 탭하면 그 보낸 편지 상세.
+     * `letter_received`·`letter_read`도 `letter_`로 시작하므로 접두사가 아니라 목록으로 가린다.
+     */
+    private val SENT_LETTER_TYPES = setOf("letter_lock_soon", "letter_locked", "letter_purge_soon")
 
-    /** 받은 편지 닫힘 예고(간직할 수 있는 받은 사람에게). data에 letter_id·token이 온다 — 탭하면 그 편지를 연다. */
-    private const val TYPE_RECEIVED_LOCK_SOON = "received_lock_soon"
+    /**
+     * 받은 편지 닫힘 예고·닫힘·삭제 예고(간직할 수 있는 받은 사람에게). data에 letter_id·token이 온다
+     * — 탭하면 그 편지를 연다(닫힌 뒤에는 잠김 화면).
+     */
+    private val RECEIVED_LETTER_TYPES = setOf("received_lock_soon", "received_locked", "received_purge_soon")
 
     /** data 키 — 백그라운드 알림 탭은 시스템이 이 키 그대로 인텐트 extra에 싣는다. */
     const val KEY_TYPE = "type"
@@ -39,14 +44,14 @@ object PushNotifications {
     const val KEY_TOKEN = "token"
 
     /**
-     * 받은 편지를 토큰으로 여는 알림(받은 편지 닫힘 예고)의 토큰. 아니면 null.
+     * 받은 편지를 토큰으로 여는 알림(받은 편지 닫힘 예고·닫힘·삭제 예고)의 토큰. 아니면 null.
      * 백그라운드 알림은 시스템이 data를 인텐트 extra로 싣고 URI가 없으므로 MainActivity가 이걸로 연다.
      */
     fun receivedLetterToken(type: String?, token: String?): String? =
-        token?.takeIf { type == TYPE_RECEIVED_LOCK_SOON && it.isNotBlank() }
+        token?.takeIf { type in RECEIVED_LETTER_TYPES && it.isNotBlank() }
 
     /** 보낸 편지 상세로 가는 알림인지. */
-    fun opensSentLetter(type: String?): Boolean = type == TYPE_LETTER_LOCK_SOON || type == TYPE_LETTER_LOCKED
+    fun opensSentLetter(type: String?): Boolean = type in SENT_LETTER_TYPES
 
     /** 앱 시작 시 1회. 채널이 없으면 Android 8+ 에서 알림이 조용히 버려진다. */
     fun ensureChannel(context: Context) {
@@ -77,8 +82,8 @@ object PushNotifications {
             .build()
 
         // 같은 편지의 알림이 쌓이지 않도록 토큰을 태그로 쓴다(없으면 type).
-        // 닫힘 알림은 편지마다 따로 남아야 하므로 letter_id를 태그로 쓴다(type이면 서로 덮어쓴다).
-        val tag = if (opensSentLetter(data[KEY_TYPE]) || data[KEY_TYPE] == TYPE_RECEIVED_LOCK_SOON) {
+        // 닫힘·삭제 알림은 편지마다 따로 남아야 하므로 letter_id를 태그로 쓴다(type이면 서로 덮어쓴다).
+        val tag = if (opensSentLetter(data[KEY_TYPE]) || data[KEY_TYPE] in RECEIVED_LETTER_TYPES) {
             data[KEY_LETTER_ID] ?: data[KEY_TYPE] ?: "mutter"
         } else {
             data["token"] ?: data["type"] ?: "mutter"
@@ -89,7 +94,7 @@ object PushNotifications {
     /**
      * 탭했을 때 열 화면.
      *
-     * 편지 도착·받은 편지 닫힘 예고 알림은 `data.token`이 오므로 기존 딥링크 경로(`mutter://l/<token>`)를 그대로 재사용한다
+     * 편지 도착·받은 편지 닫힘 예고·닫힘·삭제 예고 알림은 `data.token`이 오므로 기존 딥링크 경로(`mutter://l/<token>`)를 그대로 재사용한다
      * — MainActivity가 Deeplink.parse로 해석해 뷰어를 띄운다. 별도 라우팅 코드가 필요 없다.
      * 그 외(열람 알림 letter_id, 연결 수락 user_id)는 대응 화면이 없어 앱만 연다.
      */
@@ -97,7 +102,7 @@ object PushNotifications {
         val token = data["token"]
         val letterId = data[KEY_LETTER_ID]
         val opensSent = opensSentLetter(data[KEY_TYPE]) && !letterId.isNullOrBlank()
-        val opensLetter = data["type"] == TYPE_LETTER_RECEIVED || data["type"] == TYPE_RECEIVED_LOCK_SOON
+        val opensLetter = data["type"] == TYPE_LETTER_RECEIVED || data["type"] in RECEIVED_LETTER_TYPES
         val intent = if (opensLetter && !token.isNullOrBlank()) {
             Intent(Intent.ACTION_VIEW, Uri.parse("mutter://l/$token"))
                 .setPackage(context.packageName)
@@ -113,7 +118,7 @@ object PushNotifications {
         }
 
         // extra만 다른 인텐트는 PendingIntent가 같다고 보아 FLAG_UPDATE_CURRENT가 앞 알림의 extra를 덮는다
-        // → 닫힘 알림은 편지마다 다른 requestCode를 쓴다.
+        // → 닫힘·삭제 알림은 편지마다 다른 requestCode를 쓴다.
         val requestCode = if (opensSent) letterId.hashCode() else 0
         return PendingIntent.getActivity(
             context,

@@ -195,7 +195,8 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * 받은 편지 닫힘 예고(received_lock_soon) 백그라운드 알림 탭 → `/l/<token>` 딥링크와 같은 뷰어.
+     * 받은 편지 닫힘 예고·닫힘·삭제 예고(received_lock_soon·received_locked·received_purge_soon) 백그라운드 알림 탭
+     * → `/l/<token>` 딥링크와 같은 뷰어(닫힌 편지는 잠김 화면).
      * 포그라운드 알림은 [PushNotifications]가 `mutter://l/<token>` URI로 싣으므로 [Deeplink.parse]가 처리한다.
      */
     private fun pushLetter(intent: Intent?): Deeplink? {
@@ -208,7 +209,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * 편지 닫힘 알림(letter_lock_soon·letter_locked) 탭 → 그 보낸 편지 상세(Delivery).
+     * 편지 닫힘·삭제 예고 알림(letter_lock_soon·letter_locked·letter_purge_soon) 탭 → 그 보낸 편지 상세(Delivery).
      * 백그라운드 알림은 시스템이 data를 인텐트 extra로, 포그라운드 알림은 [PushNotifications]가 같은 키로 싣는다.
      */
     private fun pushRoute(intent: Intent?): FeatureRoute? {

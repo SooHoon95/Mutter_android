@@ -30,7 +30,7 @@ data class InboxUiState(
     val selectedIds: Set<String> = emptySet(),
     val undo: InboxUndo? = null,
     val error: String? = null,
-    /** 받은 편지 상태 표시(영구·n일 남음·닫힘). 서버 반영 전·조회 실패면 비어 있다 — 기존 목록 그대로. */
+    /** 받은 편지 상태 표시(영구·n일 남음·자물쇠 + n일 뒤 삭제). 서버 반영 전·조회 실패면 비어 있다 — 기존 목록 그대로. */
     val accessLabels: Map<String, LetterAccessLabel> = emptyMap(),
 ) {
     val isAllSelected: Boolean get() = items.isNotEmpty() && items.all { it.letterId in selectedIds }

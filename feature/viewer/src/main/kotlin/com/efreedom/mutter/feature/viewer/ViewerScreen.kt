@@ -122,6 +122,7 @@ fun ViewerScreen(
         isKeeping = viewModel.isKeeping,
         error = viewModel.keepError,
         warnDays = viewModel.warnDays,
+        graceDays = viewModel.graceDays,
         onKeep = viewModel::requestKeep,
     )
 
@@ -311,7 +312,7 @@ private fun EnvelopeBadge() {
 // ─── Locked (LETTER_LOCKED) ──────────────────────────────────────────────────
 
 /**
- * 무료 기간이 끝난 편지 — 삭제 예정일까지 편지권으로 간직할 수 있다.
+ * 무료 기간이 끝난 편지 — 언제 삭제되는지 알리고, 그 전까지 편지권으로 간직할 수 있다.
  * 버튼 문구가 편지권을 말하므로 확인 없이 바로 진행한다. [hasTicket]이면 누르는 즉시 1장을 쓰므로 버튼 아래에 미리 알리고,
  * 없으면 결제 안내 시트가 뜬다.
  */
@@ -350,8 +351,10 @@ private fun LockedContent(
                 Text(stringResource(R.string.viewer_locked_title), style = MutterText.title, color = Ink)
                 state.deleteAt?.let { deleteAt ->
                     val date = remember(deleteAt) { deleteAt.atZone(ZoneId.systemDefault()).toLocalDate() }
+                    // "{M}월 {D}일에 삭제돼요." + (간직 버튼이 보일 때만) "그 전에 간직하면 계속 열 수 있어요."
+                    val deleteOn = stringResource(R.string.viewer_locked_delete_on, date.monthValue, date.dayOfMonth)
                     Text(
-                        stringResource(R.string.viewer_locked_body, date.monthValue, date.dayOfMonth),
+                        if (state.canKeep) deleteOn + "\n" + stringResource(R.string.viewer_locked_keep_hint) else deleteOn,
                         style = MutterText.bodyMedium,
                         color = InkSoft,
                         textAlign = TextAlign.Center,
@@ -530,6 +533,7 @@ private fun OpenGate(
  * 받은 사람의 간직하기 상태 — 편지 끝 안내(①)·닫힘 예고(②)가 같이 쓴다.
  * [isRecipient] 로그인·소유자 아님, [canKeep] 버튼 노출(`tickets > 0 || paid_enabled || is_admin`).
  * [hasTicket] 지금 쓸 편지권이 있는지 — 있으면 글자 버튼을 누른 자리에서 한 번 더 묻고, 없으면 바로 [onKeep](결제 안내 시트).
+ * [graceDays] 닫힌 뒤 삭제까지의 일수 — 안내 문장 뒤에 삭제 문장을 잇는다. 권한을 못 받았으면 null(그 문장만 뺀다).
  */
 private data class KeepOffer(
     val isRecipient: Boolean,
@@ -539,11 +543,20 @@ private data class KeepOffer(
     val isKeeping: Boolean,
     val error: String?,
     val warnDays: Int,
+    val graceDays: Int?,
     val onKeep: () -> Unit,
 )
 
 /**
- * ② 닫힘 예고 — 영구가 아니고 남은 기간이 warn_days 이하일 때 조용히 한 줄 + "간직하기"(간직할 수 있는 받은 사람).
+ * 안내 문장 뒤에 "닫힌 뒤 {n}일이 지나면 삭제돼요."를 잇는다(계약 "삭제 안내").
+ * 처음 받은 사람이 삭제 규칙을 아는 자리다. 일수를 모르면 문장을 그대로 둔다.
+ */
+@Composable
+private fun withPurgeNotice(text: String, graceDays: Int?): String =
+    if (graceDays == null) text else stringResource(R.string.viewer_with_purge_notice, text, graceDays)
+
+/**
+ * ② 닫힘 예고 — 영구가 아니고 남은 기간이 warn_days 이하일 때 조용히 안내 + 그 아래 "간직하기"(간직할 수 있는 받은 사람).
  * 방금 간직했으면 "간직한 편지예요". 보낸 사람 본인(`is_mine`)에게는 아무것도 없다.
  */
 @Composable
@@ -567,25 +580,27 @@ private fun ClosingSoonLine(payload: LetterPayload, keepOffer: KeepOffer) {
         if (confirming) {
             KeepInlineConfirm(keepOffer = keepOffer, muted = InkFaint, accent = GoldDeep, onCancel = { confirming = false })
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
+            // 삭제 문장이 붙으면 한 줄에 버튼까지 들어가지 않는다 — 안내 아래에 버튼을 둔다(편지 끝 안내와 같은 배치).
+            Text(
+                text = withPurgeNotice(
                     text = if (days <= 0) {
                         stringResource(R.string.viewer_closing_today)
                     } else {
                         stringResource(R.string.viewer_closing_in_days, days)
                     },
-                    style = MutterText.caption,
-                    color = InkFaint,
-                    textAlign = TextAlign.Center,
+                    graceDays = keepOffer.graceDays,
+                ),
+                style = MutterText.caption,
+                color = InkFaint,
+                textAlign = TextAlign.Center,
+            )
+            if (keepOffer.isRecipient && keepOffer.canKeep) {
+                KeepTextButton(
+                    text = stringResource(R.string.viewer_closing_keep),
+                    color = GoldDeep,
+                    keepOffer = keepOffer,
+                    onConfirmRequest = { confirming = true },
                 )
-                if (keepOffer.isRecipient && keepOffer.canKeep) {
-                    KeepTextButton(
-                        text = stringResource(R.string.viewer_closing_keep),
-                        color = GoldDeep,
-                        keepOffer = keepOffer,
-                        onConfirmRequest = { confirming = true },
-                    )
-                }
             }
         }
         keepOffer.error?.let {
@@ -661,7 +676,10 @@ private fun LetterEndKeepLine(payload: LetterPayload, keepOffer: KeepOffer, fore
             KeepInlineConfirm(keepOffer = keepOffer, muted = muted, accent = foreground, onCancel = { confirming = false })
         } else {
             Text(
-                text = stringResource(R.string.viewer_letter_end_until, date.monthValue, date.dayOfMonth),
+                text = withPurgeNotice(
+                    text = stringResource(R.string.viewer_letter_end_until, date.monthValue, date.dayOfMonth),
+                    graceDays = keepOffer.graceDays,
+                ),
                 style = MutterText.caption,
                 color = muted,
                 textAlign = TextAlign.Center,

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.uicomponent.R as DsR
+import com.efreedom.mutter.uicomponent.component.LockedStatusLabel
 import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.MutterImage
 import com.efreedom.mutter.uicomponent.component.MutterSnackbarHost
@@ -336,9 +337,7 @@ private fun LetterCard(item: InboxItem, accessLabel: LetterAccessLabel?, selecte
                     style = MutterText.caption,
                     color = InkSoft,
                 )
-                accessLabelText(accessLabel)?.let { label ->
-                    Text(text = "· $label", style = MutterText.caption, color = InkFaint)
-                }
+                AccessLabel(accessLabel)
             }
         }
 
@@ -398,11 +397,21 @@ private val dateFormatter: DateTimeFormatter = DateTimeFormatter
 
 private fun formatDate(item: InboxItem): String = dateFormatter.format(item.savedAt)
 
-/** 목록 상태 문구(계약: `영구` / `{n}일 남음` / `닫힘`). 표시하지 않으면 null. */
+/**
+ * 목록 상태 표시(계약: `영구` / `{n}일 남음` / 자물쇠 + `{n}일 뒤 삭제` — 당일 `오늘 삭제`, 삭제 시각을 모르면 `닫힘`).
+ * 앞 문구와 "·"로 잇고 한 줄로만 보인다. 표시할 게 없으면 아무것도 그리지 않는다.
+ */
 @Composable
-private fun accessLabelText(label: LetterAccessLabel?): String? = when (label) {
-    null, LetterAccessLabel.None -> null
-    LetterAccessLabel.Permanent -> stringResource(R.string.inbox_access_permanent)
-    is LetterAccessLabel.DaysLeft -> stringResource(R.string.inbox_access_days_left, label.days)
-    LetterAccessLabel.Closed -> stringResource(R.string.inbox_access_closed)
+private fun AccessLabel(label: LetterAccessLabel?) {
+    val text = when (label) {
+        null, LetterAccessLabel.None -> return
+        LetterAccessLabel.Permanent -> stringResource(R.string.inbox_access_permanent)
+        is LetterAccessLabel.DaysLeft -> stringResource(R.string.inbox_access_days_left, label.days)
+        is LetterAccessLabel.Closed -> {
+            Text(text = "·", style = MutterText.caption, color = InkFaint)
+            LockedStatusLabel(daysUntilDelete = label.daysUntilDelete, style = MutterText.caption, color = InkFaint)
+            return
+        }
+    }
+    Text(text = "· $text", style = MutterText.caption, color = InkFaint, maxLines = 1)
 }

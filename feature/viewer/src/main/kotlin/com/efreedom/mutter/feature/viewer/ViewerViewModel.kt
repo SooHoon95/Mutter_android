@@ -52,7 +52,7 @@ sealed interface ViewerState {
     data class Envelope(val cover: LetterCover?) : ViewerState
 
     /**
-     * 무료 기간이 끝난 편지(LETTER_LOCKED). [deleteAt]까지 편지권으로 다시 열 수 있다.
+     * 무료 기간이 끝난 편지(LETTER_LOCKED). [deleteAt]에 삭제된다 — 그 전에 편지권으로 간직하면 다시 열린다.
      * [canKeep] — 로그인 상태이고 `tickets > 0 || paid_enabled || is_admin`일 때 "편지권으로 간직하기"를 보인다.
      */
     data class Locked(val deleteAt: Instant?, val cover: LetterCover?, val canKeep: Boolean) : ViewerState
@@ -147,6 +147,13 @@ class ViewerViewModel @Inject constructor(
     var warnDays by mutableStateOf(Entitlements.DEFAULT_WARN_DAYS)
         private set
 
+    /**
+     * 닫힌 뒤 삭제까지의 일수(서버 값) — 편지 끝·닫힘 예고 뒤에 "닫힌 뒤 {n}일이 지나면 삭제돼요."를 잇는다.
+     * 권한을 못 받았으면(익명·조회 실패) null — 그 문장만 뺀다. 계약 "삭제 안내".
+     */
+    var graceDays by mutableStateOf<Int?>(null)
+        private set
+
     /** 방금 간직했다 — 편지 끝·닫힘 예고 자리를 "간직한 편지예요"로 바꾼다. */
     var isKept by mutableStateOf(false)
         private set
@@ -239,6 +246,7 @@ class ViewerViewModel @Inject constructor(
 
     private fun applyEntitlements(entitlements: Entitlements) {
         warnDays = entitlements.warnDays
+        graceDays = entitlements.graceDays
         canKeep = entitlements.canKeepReceived
         hasTicket = entitlements.hasTicket
         canPurchase = entitlements.canPurchase

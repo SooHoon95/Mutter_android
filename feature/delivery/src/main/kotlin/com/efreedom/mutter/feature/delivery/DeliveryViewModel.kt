@@ -78,11 +78,16 @@ data class DeliveryUiState(
         get() = entitlements?.showsTicketUi == true && access != null && links.isNotEmpty() &&
             access.kind != LetterAccessKind.PERMANENT && access.kind != LetterAccessKind.GONE
 
-    /** 링크 발급 안내(받는 분이 처음 연 날부터 N일) — 기간 제한이 있는 편지에만. 영구 편지를 골랐으면 없다. */
+    /**
+     * 링크 발급 안내(받는 분이 처음 연 날부터 N일) — 무료 기간이 적용되는 열린 편지에만. 영구 편지를 골랐으면 없다.
+     * 닫힌 편지는 "처음 연 날부터 N일"이 맞지 않는다 — 대신 [lockedDeleteAt] 안내가 나온다(iOS와 같은 규칙).
+     */
     val freeDaysNotice: Int?
-        get() = entitlements?.freeDays?.takeIf {
-            access != null && access.kind != LetterAccessKind.PERMANENT && !chosePermanent
-        }
+        get() = entitlements?.freeDays?.takeIf { access?.kind == LetterAccessKind.OPEN && !chosePermanent }
+
+    /** 닫힌 편지의 삭제 예정 시각 — 닫혀 있는 동안 "○월 ○일에 삭제돼요"를 보인다. 닫힌 편지가 아니면 null. 계약 "삭제 안내". */
+    val lockedDeleteAt: Instant?
+        get() = access?.takeIf { it.kind == LetterAccessKind.LOCKED }?.deleteAt
 }
 
 /** iOS DeliveryModelData 대응. 전달 링크 발급/관리 — 암호 기본 ON, 예약공개, revoke. */
