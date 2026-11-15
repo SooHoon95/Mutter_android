@@ -21,7 +21,7 @@ lottie = "6.6.6"
 coreSplashscreen = "1.0.1"
 googleServices = "4.4.2"
 firebaseBom = "33.7.0"
-billing = "7.1.1"
+billing = "9.1.0"
 junit = "4.13.2"
 
 [libraries]
@@ -63,8 +63,9 @@ androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscree
 # FCM — 버전은 BoM이 정하므로 messaging에는 version을 쓰지 않는다.
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
-# Play Billing — 편지권(소모성 인앱 상품). ktx는 suspend 확장(queryProductDetails·consumePurchase 등)을 준다.
-billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
+# Play Billing — 편지권(소모성 인앱 상품). billing-ktx 9.x는 Kotlin 2.3 메타데이터·stdlib 2.2로 빌드돼
+# 지금 Kotlin(2.0.21) 컴파일러가 못 읽는다 → Java API 본체만 쓰고 suspend 래핑은 PlayTicketStore가 직접 한다.
+billing = { group = "com.android.billingclient", name = "billing", version.ref = "billing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

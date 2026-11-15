@@ -28,6 +28,9 @@ sealed class MutterError(open val userMessage: String) : Exception() {
     data object LetterGone : MutterError("더 이상 열 수 없는 편지예요")
     /** 편지권 잔액 부족. */
     data object NoTicket : MutterError("편지권이 없어요")
+    /** 다른 계정으로 산 편지권 거래(verify-purchase 403 `account_mismatch`). 거래는 소비하지 않고 남겨 둔다(iOS와 동일 문구). */
+    data object PurchaseAccountMismatch :
+        MutterError("다른 계정으로 구매한 편지권이에요. 구매한 계정으로 로그인하면 들어와요.")
     // 로그인 비밀번호 — Supabase Auth `error_code` 기준, 세 플랫폼 동일 문구(docs/specs/2026-11-14-login-password.md).
     data object InvalidCredentials :
         MutterError("이메일 또는 비밀번호가 맞지 않아요. 비밀번호를 정한 적이 없다면 코드로 로그인해 주세요.")

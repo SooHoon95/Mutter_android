@@ -15,13 +15,11 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
-import com.android.billingclient.api.consumePurchase
-import com.android.billingclient.api.queryProductDetails
-import com.android.billingclient.api.queryPurchasesAsync
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.StorePurchase
 import com.efreedom.mutter.domain.model.StorePurchaseResult
 import com.efreedom.mutter.domain.model.TicketProduct
+import com.efreedom.mutter.domain.repository.SessionProvider
 import com.efreedom.mutter.domain.repository.TicketStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
@@ -42,10 +40,14 @@ import kotlin.coroutines.resume
  *
  * 결제 창은 Activity가 필요한데 도메인 인터페이스에 Activity를 넘길 수 없어, 앱 Activity 수명주기를 구독해
  * 지금 앞에 있는 Activity를 약한 참조로 쥔다(단일 Activity 앱).
+ *
+ * Play Billing Library 9 — billing-ktx 9.x는 지금 Kotlin 컴파일러(2.0)가 못 읽어 Java API(콜백)를 쓰고,
+ * 필요한 세 호출(상품·미소비 거래 조회, 소비)만 아래 await* 함수로 suspend로 감싼다.
  */
 @Singleton
 class PlayTicketStore @Inject constructor(
     @ApplicationContext context: Context,
+    private val session: SessionProvider,
 ) : TicketStore {
 
     private var resumedActivity: WeakReference<Activity>? = null
@@ -62,6 +64,8 @@ class PlayTicketStore @Inject constructor(
     private val client: BillingClient = BillingClient.newBuilder(context)
         .setListener(listener)
         .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+        // PBL 8+ — 호출 시점에 서비스가 끊겨 있으면 라이브러리가 다시 붙인다(SERVICE_DISCONNECTED 감소).
+        .enableAutoServiceReconnection()
         .build()
 
     /** 결제 창을 띄울 때 쓰려고 상품 상세를 기억한다(launchBillingFlow는 ProductDetails를 요구). */
@@ -98,9 +102,10 @@ class PlayTicketStore @Inject constructor(
                 },
             )
             .build()
-        val result = client.queryProductDetails(params)
-        if (result.billingResult.responseCode != BillingClient.BillingResponseCode.OK) return emptyList()
-        val details = result.productDetailsList.orEmpty()
+        // PBL 8+ — 결과가 QueryProductDetailsResult로 바뀌었다. 못 찾은 상품은 unfetchedProductList로 따로 오는데,
+        // 여기서는 찾은 것만 쓴다(못 찾은 상품 = 버튼을 끈 채로 둔다).
+        val (billingResult, details) = client.awaitProductDetails(params)
+        if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) return emptyList()
         details.forEach { detailsCache[it.productId] = it }
         return productIds.mapNotNull { id ->
             val d = details.firstOrNull { it.productId == id } ?: return@mapNotNull null
@@ -122,6 +127,10 @@ class PlayTicketStore @Inject constructor(
                 .setProductDetailsParamsList(
                     listOf(BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(details).build()),
                 )
+                // 구매를 로그인 계정에 묶는다 — 서버가 Google 조회 결과의 obfuscatedExternalAccountId와 로그인 사용자를
+                // 비교해 다르면 지급하지 않는다(403 account_mismatch). Supabase user id(UUID 36자)는 개인정보가 아니고
+                // 64자 제한 안이다. 세션이 없으면(결제 화면은 로그인 뒤에만 열린다) 넣지 않는다.
+                .apply { session.currentUserId?.let(::setObfuscatedAccountId) }
                 .build()
             val launch = client.launchBillingFlow(activity, flowParams)
             if (launch.responseCode != BillingClient.BillingResponseCode.OK) {
@@ -144,12 +153,12 @@ class PlayTicketStore @Inject constructor(
 
     override suspend fun unconsumedPurchases(): List<StorePurchase> {
         if (!connect()) return emptyList()
-        val result = client.queryPurchasesAsync(
+        val (billingResult, purchases) = client.awaitPurchases(
             QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build(),
         )
-        if (result.billingResult.responseCode != BillingClient.BillingResponseCode.OK) return emptyList()
+        if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) return emptyList()
         // 대기(PENDING) 거래는 아직 돈이 안 들어왔다 — 결제가 끝나 PURCHASED가 된 것만 보낸다.
-        return result.purchasesList
+        return purchases
             .filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
             .flatMap { p -> p.products.map { StorePurchase(productId = it, purchaseToken = p.purchaseToken) } }
             .distinctBy { it.purchaseToken }
@@ -157,8 +166,7 @@ class PlayTicketStore @Inject constructor(
 
     override suspend fun consume(purchaseToken: String) {
         if (!connect()) throw MutterError.Server(STORE_UNAVAILABLE)
-        val result = client.consumePurchase(ConsumeParams.newBuilder().setPurchaseToken(purchaseToken).build())
-        val code = result.billingResult.responseCode
+        val code = client.awaitConsume(ConsumeParams.newBuilder().setPurchaseToken(purchaseToken).build()).responseCode
         // ITEM_NOT_OWNED = 이미 소비됨 — 목표 상태라 성공으로 본다.
         if (code != BillingClient.BillingResponseCode.OK && code != BillingClient.BillingResponseCode.ITEM_NOT_OWNED) {
             throw MutterError.Server(STORE_UNAVAILABLE)
@@ -189,7 +197,7 @@ class PlayTicketStore @Inject constructor(
                 }
 
                 override fun onBillingServiceDisconnected() {
-                    // 다음 호출의 connect()가 다시 붙는다. 설정 도중 끊기면 실패로 끝낸다.
+                    // 자동 재연결이 켜져 있어 다시 붙이는 건 라이브러리 몫이다. 설정 도중 끊기면 이번 연결은 실패로 끝낸다.
                     if (cont.isActive) cont.resume(false)
                 }
             })
@@ -200,3 +208,28 @@ class PlayTicketStore @Inject constructor(
         const val STORE_UNAVAILABLE = "지금은 결제를 진행할 수 없어요. 잠시 후 다시 시도해 주세요."
     }
 }
+
+// 콜백 API → suspend. 결제 라이브러리는 콜백을 한 번만 부른다. 취소된 뒤 온 결과는 버린다.
+
+private suspend fun BillingClient.awaitProductDetails(
+    params: QueryProductDetailsParams,
+): Pair<BillingResult, List<ProductDetails>> = suspendCancellableCoroutine { cont ->
+    queryProductDetailsAsync(params) { result, details ->
+        if (cont.isActive) cont.resume(result to details.productDetailsList)
+    }
+}
+
+private suspend fun BillingClient.awaitPurchases(
+    params: QueryPurchasesParams,
+): Pair<BillingResult, List<Purchase>> = suspendCancellableCoroutine { cont ->
+    queryPurchasesAsync(params) { result, purchases ->
+        if (cont.isActive) cont.resume(result to purchases)
+    }
+}
+
+private suspend fun BillingClient.awaitConsume(params: ConsumeParams): BillingResult =
+    suspendCancellableCoroutine { cont ->
+        consumeAsync(params) { result, _ ->
+            if (cont.isActive) cont.resume(result)
+        }
+    }

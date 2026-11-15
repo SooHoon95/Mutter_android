@@ -40,6 +40,7 @@ import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
 import com.efreedom.mutter.uicomponent.theme.Ink
+import com.efreedom.mutter.uicomponent.theme.InkFaint
 import com.efreedom.mutter.uicomponent.theme.InkMid
 import com.efreedom.mutter.uicomponent.theme.InkSoft
 import com.efreedom.mutter.uicomponent.theme.MutterText
@@ -191,6 +192,15 @@ fun TicketCheckoutSheet(
                     enabled = busy || state.canConfirm,
                     isLoading = busy,
                 )
+                // 구매 버튼일 때만(이미 가진 편지권을 쓰는 버튼이면 결제가 없다) — 지급 시점과 환불·회수 안내.
+                // 상품을 못 받아 버튼이 꺼져 있어도 구매 버튼은 보이므로 함께 보인다.
+                if (!state.canUseNow) {
+                    Text(
+                        text = stringResource(R.string.checkout_purchase_notice),
+                        style = MutterText.caption,
+                        color = InkFaint,
+                    )
+                }
                 MutterButton(
                     text = stringResource(R.string.checkout_cancel),
                     onClick = hideThenFinish,

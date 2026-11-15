@@ -26,4 +26,5 @@
     <string name="checkout_unavailable">Letter passes can\'t be purchased right now.</string>
     <string name="checkout_pending">Your letter pass arrives once the payment completes.</string>
     <string name="checkout_cancel">Cancel</string>
+    <string name="checkout_purchase_notice">Letter passes are added right away. You can request a refund from Google Play; refunded letter passes are taken back.</string>
 </resources>
