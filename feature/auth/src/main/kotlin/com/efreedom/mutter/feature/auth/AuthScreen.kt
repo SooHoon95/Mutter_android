@@ -29,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -90,13 +91,14 @@ fun AuthScreen(
                 .systemBarsPadding()
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .padding(horizontal = 24.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            MutterWordmark(markSize = 88.dp, wordmarkSize = 40)
+            // 로고는 작게 — 입력 카드와 소셜 로그인 세 개가 스크롤 없이 한 화면에 들어오게(넘치면 스크롤된다).
+            MutterWordmark(markSize = 72.dp, wordmarkSize = 36)
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
             // 카드
             Column(
@@ -218,16 +220,26 @@ private fun PasswordStep(state: AuthUiState, vm: AuthViewModel) {
         isLoading = state.isLoading,
         enabled = vm.isEmailValid && state.password.isNotEmpty(),
     )
-    MutterButton(
-        text = stringResource(R.string.auth_code_login),
-        onClick = vm::backToEmail,
-        style = MutterButtonStyle.Ghost,
-    )
-    MutterButton(
-        text = stringResource(R.string.auth_go_sign_up),
-        onClick = vm::switchToSignUp,
-        style = MutterButtonStyle.Ghost,
-    )
+    // 보조 경로 두 개는 낮은 글자 버튼으로 붙여 둔다(큰 버튼 두 개면 사이가 벌어지고 소셜 로그인이 화면 밖으로 밀린다).
+    Column {
+        AuthLinkButton(text = stringResource(R.string.auth_code_login), onClick = vm::backToEmail)
+        AuthLinkButton(text = stringResource(R.string.auth_go_sign_up), onClick = vm::switchToSignUp)
+    }
+}
+
+/** 카드 안의 보조 글자 버튼 — 기본 버튼(54dp)보다 낮게(40dp) 잡아 여러 개를 가깝게 쌓는다(iOS AuthView.linkButton과 같다). */
+@Composable
+private fun AuthLinkButton(text: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = text, style = MutterText.bodyLargeBold, color = Ink)
+    }
 }
 
 /** 이메일로 회원가입 — 이메일·비밀번호·확인 → 코드 발송. 비밀번호는 코드 인증 직후 저장된다(웹 가입과 같은 순서). */
