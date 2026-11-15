@@ -1,5 +1,8 @@
 package com.efreedom.mutter
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
@@ -21,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -36,6 +40,7 @@ import com.efreedom.mutter.uicomponent.theme.InkSoft
 import com.efreedom.mutter.uicomponent.theme.Ivory
 import com.efreedom.mutter.core.navigation.FeatureRoute
 import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
+import com.efreedom.mutter.domain.AppLink
 import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.feature.compose.ComposeMode
 import com.efreedom.mutter.feature.compose.ComposeScreen
@@ -235,9 +240,6 @@ fun MutterNavHost(
         composable<FeatureRoute.Terms> {
             LegalDocScreen(title = "이용약관")
         }
-        composable<FeatureRoute.Privacy> {
-            LegalDocScreen(title = "개인정보처리방침")
-        }
     }
 }
 
@@ -256,6 +258,7 @@ private fun MainScaffold(
 ) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
     val tabs = AppTab.entries
+    val context = LocalContext.current
 
     Scaffold(
         bottomBar = {
@@ -313,7 +316,8 @@ private fun MainScaffold(
                     onSignedOut = onSignedOut,
                     onReport = { navController.navigate(FeatureRoute.Takedown) },
                     onTerms = { navController.navigate(FeatureRoute.Terms) },
-                    onPrivacy = { navController.navigate(FeatureRoute.Privacy) },
+                    // 처리방침은 웹 정식본을 연다(실제 수집 항목·데이터 보안 양식과 같은 문서 하나만 유지).
+                    onPrivacy = { openExternal(context, AppLink.privacyPolicy()) },
                     onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
                     onOpenWhatsNew = { freeDays, graceDays ->
                         navController.navigate(FeatureRoute.WhatsNew(freeDays, graceDays)) { launchSingleTop = true }
@@ -323,4 +327,9 @@ private fun MainScaffold(
             }
         }
     }
+}
+
+/** 웹 페이지를 브라우저로 연다. 열 앱이 없으면 아무 일도 하지 않는다. */
+private fun openExternal(context: Context, url: String) {
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
 }

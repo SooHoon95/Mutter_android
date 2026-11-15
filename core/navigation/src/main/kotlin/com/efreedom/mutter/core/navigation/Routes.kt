@@ -39,5 +39,4 @@ sealed interface FeatureRoute {
 
     @Serializable data object Takedown : FeatureRoute
     @Serializable data object Terms : FeatureRoute
-    @Serializable data object Privacy : FeatureRoute
 }

@@ -191,30 +191,12 @@ private const val TERMS_PLACEHOLDER = """이용약관
 
 (자세한 내용은 서비스 내 고지 사항을 참조하세요.)"""
 
-private const val PRIVACY_PLACEHOLDER = """개인정보처리방침
-
-Mutter(이하 "서비스")는 개인정보보호법에 따라 이용자의 개인정보를 보호합니다.
-
-1. 수집하는 개인정보
-   - 이메일 주소, 닉네임
-
-2. 수집 목적
-   - 서비스 제공 및 계정 관리
-
-3. 보유 기간
-   - 계정 삭제 시까지
-
-4. 제3자 제공
-   - 이용자의 동의 없이 제3자에게 제공하지 않습니다.
-
-문의: musicletter2026@gmail.com"""
-
-/** 약관/개인정보처리방침 정적 문서 화면. */
+/** 약관 정적 문서 화면. 개인정보 처리방침은 웹 정식본을 연다(AppLink.privacyPolicy). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LegalDocScreen(
     title: String,
-    text: String = if (title.contains("개인정보")) PRIVACY_PLACEHOLDER else TERMS_PLACEHOLDER,
+    text: String = TERMS_PLACEHOLDER,
     modifier: Modifier = Modifier,
 ) {
     Column(

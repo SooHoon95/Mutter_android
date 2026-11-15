@@ -10,7 +10,7 @@
     <string name="tickets_reason_purchase">구매</string>
     <string name="tickets_reason_use">사용</string>
     <string name="tickets_reason_grant">지급</string>
-    <string name="tickets_reason_refund">환급</string>
+    <string name="tickets_reason_refund">환불</string>
     <string name="tickets_reason_other">기타</string>
     <string name="tickets_granted">편지권이 들어왔어요.</string>
     <string name="tickets_pending">결제가 끝나면 편지권이 들어와요.</string>

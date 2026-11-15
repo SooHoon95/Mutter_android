@@ -16,4 +16,7 @@ object AppLink {
 
     /** 연결 초대 링크(앱 발신): `<base>/connect/<token>?from=app` */
     fun connectInvite(token: String): String = "$BASE_URL/connect/$token?from=app"
+
+    /** 개인정보 처리방침 정식본(웹): `<base>/legal/privacy` — 앱 안에는 따로 두지 않는다. */
+    fun privacyPolicy(): String = "$BASE_URL/legal/privacy"
 }
