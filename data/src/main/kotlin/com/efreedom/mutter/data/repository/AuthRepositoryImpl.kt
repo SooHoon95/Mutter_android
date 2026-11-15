@@ -4,6 +4,7 @@ import com.efreedom.mutter.core.network.OAUTH_REDIRECT_URL
 import com.efreedom.mutter.core.network.SupabaseProvider
 import com.efreedom.mutter.data.support.SupabaseErrorMapper
 import com.efreedom.mutter.domain.error.MutterError
+import com.efreedom.mutter.domain.model.LoginPasswordStatus
 import com.efreedom.mutter.domain.model.Session
 import com.efreedom.mutter.domain.model.SocialAuthResult
 import com.efreedom.mutter.domain.model.SocialProvider
@@ -21,6 +22,11 @@ import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
 import javax.inject.Inject
 
 /** iOS AuthRepository 이식. 이메일 OTP·비밀번호·Apple(IDToken)은 supabase-kt로,
@@ -167,6 +173,26 @@ class AuthRepositoryImpl @Inject constructor(
             auth.awaitInitialization()
             currentDomainSession()
         }.getOrNull()
+
+    // 방금 받은 세션(verifyEmailOtp·refresh·updateUser가 갱신)의 유저를 읽는다 — 추가 네트워크 호출 없음.
+    override suspend fun loginPasswordStatus(): LoginPasswordStatus? {
+        val user = auth.currentUserOrNull() ?: return null
+        return LoginPasswordStatus(
+            isAvailable = user.appMetadata.stringValue("provider") == "email",
+            isSet = (user.userMetadata?.get("password_set") as? JsonPrimitive)?.booleanOrNull == true,
+        )
+    }
+
+    // updateUser는 기본값(updateCurrentUser=true)으로 로컬 유저도 갱신 → 이후 loginPasswordStatus()가 isSet=true.
+    override suspend fun setPassword(password: String) = wrap {
+        auth.updateUser {
+            this.password = password
+            data { put("password_set", true) }
+        }
+        Unit
+    }
+
+    private fun JsonObject?.stringValue(key: String): String? = (this?.get(key) as? JsonPrimitive)?.contentOrNull
 
     private fun currentDomainSession(): Session? =
         auth.currentUserOrNull()?.let { Session(userId = it.id, email = it.email) }

@@ -1,7 +1,7 @@
 # 로그인 화면 검증 — iOS/Android 공용(로그아웃 상태에서 실행).
 # 주의 1: 두 앱의 한국어 문구가 일부 다르다(Android 하드코딩 vs iOS L10n).
 #   예) Android "인증코드 받기" ↔ iOS "코드 받기", Android "…로 계속하기" ↔ iOS "…로 계속".
-#   → 두 플랫폼에서 100% 동일한 "비밀번호로 로그인"만 단언한다.
+#   → 두 플랫폼에서 100% 동일한 "이메일로 회원가입하기"만 단언한다(기본 단계 = 비밀번호 로그인, 2026-11-14 스펙).
 # 주의 2: iOS 시뮬레이터는 Apple ID 암호 확인 시스템 팝업이 떠서 화면을 가릴 수 있다 → optional로 닫는다.
 appId: com.efreedom.mutter
 ---
@@ -12,5 +12,5 @@ appId: com.efreedom.mutter
 - tapOn:
     text: "지금 안 함"     # iOS Apple ID 확인 팝업 닫기(있을 때만). Android엔 없음.
     optional: true
-- assertVisible: "비밀번호로 로그인"   # 로그인 화면 확증 — 양 플랫폼 동일 문구
+- assertVisible: "이메일로 회원가입하기"   # 로그인 화면 확증 — 양 플랫폼 동일 문구(스펙 고정)
 - takeScreenshot: auth-screen

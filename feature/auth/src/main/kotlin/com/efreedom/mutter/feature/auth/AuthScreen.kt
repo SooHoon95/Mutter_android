@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -110,7 +111,9 @@ fun AuthScreen(
                     AuthStep.ENTER_EMAIL -> EmailStep(state, viewModel)
                     AuthStep.ENTER_CODE -> CodeStep(state, viewModel)
                     AuthStep.ENTER_PASSWORD -> PasswordStep(state, viewModel)
+                    AuthStep.SIGN_UP -> SignUpStep(state, viewModel)
                     AuthStep.ENTER_SOCIAL_NICKNAME -> SocialNicknameStep(state, viewModel)
+                    AuthStep.SET_PASSWORD -> SetPasswordStep(state, viewModel)
                 }
 
                 state.error?.let { message ->
@@ -124,8 +127,8 @@ fun AuthScreen(
                 }
             }
 
-            // 소셜 닉네임 입력 중엔 소셜 버튼을 숨긴다(이미 소셜 인증은 끝난 상태).
-            if (state.step != AuthStep.ENTER_SOCIAL_NICKNAME) {
+            // 소셜 닉네임 입력·비밀번호 설정 중(이미 인증 끝남)과 회원가입 중엔 소셜 버튼을 숨긴다.
+            if (state.step !in setOf(AuthStep.ENTER_SOCIAL_NICKNAME, AuthStep.SET_PASSWORD, AuthStep.SIGN_UP)) {
                 Spacer(Modifier.height(20.dp))
                 SocialSection(
                     enabled = !state.isLoading,
@@ -155,7 +158,7 @@ private fun EmailStep(state: AuthUiState, vm: AuthViewModel) {
         enabled = vm.isEmailValid,
     )
     MutterButton(
-        text = "비밀번호로 로그인",
+        text = stringResource(R.string.auth_password_login),
         onClick = vm::switchToPassword,
         style = MutterButtonStyle.Ghost,
     )
@@ -184,7 +187,12 @@ private fun CodeStep(state: AuthUiState, vm: AuthViewModel) {
     )
     MutterButton(
         text = "이메일 다시 입력",
-        onClick = vm::backToEmail,
+        onClick = vm::backFromCode,
+        style = MutterButtonStyle.Ghost,
+    )
+    MutterButton(
+        text = stringResource(R.string.auth_password_login),
+        onClick = vm::switchToPassword,
         style = MutterButtonStyle.Ghost,
     )
 }
@@ -211,8 +219,56 @@ private fun PasswordStep(state: AuthUiState, vm: AuthViewModel) {
         enabled = vm.isEmailValid && state.password.isNotEmpty(),
     )
     MutterButton(
-        text = "인증코드로 로그인",
+        text = stringResource(R.string.auth_code_login),
         onClick = vm::backToEmail,
+        style = MutterButtonStyle.Ghost,
+    )
+    MutterButton(
+        text = stringResource(R.string.auth_go_sign_up),
+        onClick = vm::switchToSignUp,
+        style = MutterButtonStyle.Ghost,
+    )
+}
+
+/** 이메일로 회원가입 — 이메일·비밀번호·확인 → 코드 발송. 비밀번호는 코드 인증 직후 저장된다(웹 가입과 같은 순서). */
+@Composable
+private fun SignUpStep(state: AuthUiState, vm: AuthViewModel) {
+    Text(
+        text = stringResource(R.string.auth_sign_up_title),
+        style = MutterText.title,
+        color = Ink,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    MutterField(
+        value = state.email,
+        onValueChange = vm::onEmailChange,
+        placeholder = "이메일",
+        keyboardType = KeyboardType.Email,
+    )
+    MutterField(
+        value = state.password,
+        onValueChange = vm::onPasswordChange,
+        placeholder = stringResource(R.string.auth_set_password_field),
+        keyboardType = KeyboardType.Password,
+        isPassword = true,
+    )
+    MutterField(
+        value = state.passwordConfirm,
+        onValueChange = vm::onPasswordConfirmChange,
+        placeholder = stringResource(R.string.auth_set_password_confirm_field),
+        keyboardType = KeyboardType.Password,
+        isPassword = true,
+    )
+    MutterButton(
+        text = stringResource(R.string.auth_sign_up_request_code),
+        onClick = vm::requestSignUpCode,
+        isLoading = state.isLoading,
+        enabled = vm.isEmailValid && state.password.isNotEmpty() && state.passwordConfirm.isNotEmpty(),
+    )
+    MutterButton(
+        text = stringResource(R.string.auth_back_to_login),
+        onClick = vm::backToLogin,
         style = MutterButtonStyle.Ghost,
     )
 }
@@ -248,8 +304,53 @@ private fun SocialNicknameStep(state: AuthUiState, vm: AuthViewModel) {
     )
     MutterButton(
         text = "다른 방법으로 로그인",
-        onClick = vm::backToEmail,
+        onClick = vm::backToLogin,
         style = MutterButtonStyle.Ghost,
+    )
+}
+
+/** 코드 로그인 직후 — 이메일 계정이 비밀번호를 정하는 선택 단계(이미 로그인된 상태라 뒤로 가기 없음). */
+@Composable
+private fun SetPasswordStep(state: AuthUiState, vm: AuthViewModel) {
+    Text(
+        text = stringResource(R.string.auth_set_password_title),
+        style = MutterText.title,
+        color = Ink,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Text(
+        text = stringResource(R.string.auth_set_password_guide),
+        style = MutterText.caption,
+        color = InkSoft,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    MutterField(
+        value = state.password,
+        onValueChange = vm::onPasswordChange,
+        placeholder = stringResource(R.string.auth_set_password_field),
+        keyboardType = KeyboardType.Password,
+        isPassword = true,
+    )
+    MutterField(
+        value = state.passwordConfirm,
+        onValueChange = vm::onPasswordConfirmChange,
+        placeholder = stringResource(R.string.auth_set_password_confirm_field),
+        keyboardType = KeyboardType.Password,
+        isPassword = true,
+    )
+    MutterButton(
+        text = stringResource(R.string.auth_set_password_save),
+        onClick = vm::savePasswordAndStart,
+        isLoading = state.isLoading,
+        enabled = state.password.isNotEmpty() && state.passwordConfirm.isNotEmpty(),
+    )
+    MutterButton(
+        text = stringResource(R.string.auth_set_password_later),
+        onClick = vm::skipPasswordSetup,
+        style = MutterButtonStyle.Ghost,
+        enabled = !state.isLoading,
     )
 }
 

@@ -16,6 +16,7 @@ import com.efreedom.mutter.domain.model.LetterOpenSummary
 import com.efreedom.mutter.domain.model.LetterPayload
 import com.efreedom.mutter.domain.model.LetterReader
 import com.efreedom.mutter.domain.model.LetterWithStatus
+import com.efreedom.mutter.domain.model.LoginPasswordStatus
 import com.efreedom.mutter.domain.model.Profile
 import com.efreedom.mutter.domain.model.ScValidation
 import com.efreedom.mutter.domain.model.SentLetterSummary
@@ -44,6 +45,10 @@ interface AuthRepository {
     suspend fun registerSocial(provider: SocialProvider, idToken: String, nickname: String): Session
     suspend fun signOut()
     suspend fun currentSession(): Session?
+    /** 현재 로그인 계정의 비밀번호 상태. 미로그인이면 null. */
+    suspend fun loginPasswordStatus(): LoginPasswordStatus?
+    /** 로그인 비밀번호 설정·변경(`updateUser { password; data.password_set = true }`). */
+    suspend fun setPassword(password: String)
 }
 
 interface ProfileRepository {

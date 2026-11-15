@@ -4,4 +4,15 @@
     <string name="tickets_balance">%1$d장</string>
     <string name="profile_delete_tickets_warning">남은 편지권 %1$d장이 사라져요.</string>
     <string name="profile_delete_sent_letters_remain">보낸 편지는 받은 분의 편지함에 남아요.</string>
+
+    <!-- 로그인 비밀번호(Mutter/docs/specs/2026-11-14-login-password.md, 세 플랫폼 동일) -->
+    <string name="profile_login_password">로그인 비밀번호</string>
+    <string name="profile_login_password_set">설정됨</string>
+    <string name="profile_login_password_unset">설정하기</string>
+    <string name="profile_login_password_saved">비밀번호를 저장했어요</string>
+    <string name="profile_login_password_new">새 비밀번호</string>
+    <string name="profile_login_password_confirm">비밀번호 확인</string>
+    <string name="profile_login_password_save">저장</string>
+    <string name="profile_login_password_cancel">취소</string>
+    <string name="profile_nickname_saved">닉네임이 저장됐어요.</string>
 </resources>

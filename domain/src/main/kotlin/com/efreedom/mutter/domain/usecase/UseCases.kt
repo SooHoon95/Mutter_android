@@ -25,6 +25,7 @@ import com.efreedom.mutter.domain.model.Profile
 import com.efreedom.mutter.domain.model.SavedLetter
 import com.efreedom.mutter.domain.model.ScValidation
 import com.efreedom.mutter.domain.model.SentLetterSummary
+import com.efreedom.mutter.domain.model.LoginPasswordStatus
 import com.efreedom.mutter.domain.model.Session
 import com.efreedom.mutter.domain.model.SocialAuthResult
 import com.efreedom.mutter.domain.model.SocialProvider
@@ -55,7 +56,7 @@ import java.time.Instant
 import javax.inject.Inject
 
 // UseCase — Repository를 주입받는 얇은 계층(iOS *Usecase 이식). 대부분 pass-through,
-// 로직 보유: AudioUseCase(cue→spec), ProfileUseCase(닉네임 trim/검증), PushTokenUseCase(platform="android").
+// 로직 보유: AudioUseCase(cue→spec), AuthUseCase(비밀번호 길이·확인 검증), ProfileUseCase(닉네임 trim/검증), PushTokenUseCase(platform="android").
 
 class AuthUseCase @Inject constructor(private val repository: AuthRepository) {
     suspend fun requestCode(email: String) = repository.requestCode(email)
@@ -69,6 +70,23 @@ class AuthUseCase @Inject constructor(private val repository: AuthRepository) {
         repository.registerSocial(provider, idToken, nickname)
     suspend fun signOut() = repository.signOut()
     suspend fun currentSession(): Session? = repository.currentSession()
+    suspend fun loginPasswordStatus(): LoginPasswordStatus? = repository.loginPasswordStatus()
+
+    /** 비밀번호 규칙 — 6자 이상(Supabase 최소값) 먼저, 그다음 확인 일치(세 플랫폼 공통). 위반 시 MutterError를 던진다. */
+    fun validatePassword(password: String, confirm: String) {
+        if (password.length < MIN_PASSWORD_LENGTH) throw MutterError.WeakPassword
+        if (password != confirm) throw MutterError.PasswordMismatch
+    }
+
+    /** 로그인 비밀번호 저장 — [validatePassword]를 통과해야 서버에 보낸다. */
+    suspend fun setPassword(password: String, confirm: String) {
+        validatePassword(password, confirm)
+        repository.setPassword(password)
+    }
+
+    private companion object {
+        const val MIN_PASSWORD_LENGTH = 6
+    }
 }
 
 class ProfileUseCase @Inject constructor(private val repository: ProfileRepository) {

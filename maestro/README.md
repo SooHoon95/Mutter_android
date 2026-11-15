@@ -30,7 +30,7 @@ maestro --device <SIM_UDID> test maestro/smoke.yaml
 
 ## Flow
 - `smoke.yaml` — 앱 실행 → 스플래시 종료 대기 → 스크린샷. 인증 상태 무관, 항상 통과(설정 검증용).
-- `auth.yaml` — 로그아웃 상태의 로그인 화면 검증(`"비밀번호로 로그인"` 노출) + 스크린샷.
+- `auth.yaml` — 로그아웃 상태의 로그인 화면 검증(`"이메일로 회원가입하기"` 노출) + 스크린샷.
 
 ## 크로스플랫폼 주의점(실측으로 확인된 것)
 1. **Maestro는 JDK17 필요** — Java 없으면 "Unable to locate a Java Runtime".

@@ -2,6 +2,7 @@ package com.efreedom.mutter.data.support
 
 import com.efreedom.mutter.domain.SessionInvalidation
 import com.efreedom.mutter.domain.error.MutterError
+import io.github.jan.supabase.auth.exception.AuthRestException
 import java.io.IOException
 import java.time.Instant
 
@@ -23,6 +24,7 @@ object SupabaseErrorMapper {
             SessionInvalidation.notifyUnauthorized()
             return MutterError.Unauthorized
         }
+        mapAuthError(error)?.let { return it }
         parseNotYetRevealed(message)?.let { return MutterError.LinkNotYetRevealed(it) }
         // 영구 편지권 계약 — `LETTER_LOCKED:<ISO8601>`은 삭제 예정 시각을 싣는다. NOT_FOUND 계열보다 먼저 본다.
         if (message.contains(LETTER_LOCKED)) return MutterError.LetterLocked(parseLetterLocked(message))
@@ -43,6 +45,24 @@ object SupabaseErrorMapper {
                 message.contains("not_authorized") ||
                 message.contains("AUTH_REQUIRED") -> MutterError.Unauthorized
             else -> MutterError.Unknown
+        }
+    }
+
+    /**
+     * Supabase Auth 오류 — 메시지 문자열 대신 구조화된 `error_code`로 판정한다(세 플랫폼 공통 문구).
+     * errorCode가 enum에 없으면 원문 `error` 필드로 폴백.
+     */
+    private fun mapAuthError(error: Throwable): MutterError? {
+        val auth = error as? AuthRestException ?: return null
+        return when (auth.errorCode?.value ?: auth.error) {
+            "invalid_credentials" -> MutterError.InvalidCredentials
+            "email_not_confirmed" -> MutterError.EmailNotConfirmed
+            "weak_password" -> MutterError.WeakPassword
+            "same_password" -> MutterError.SamePassword
+            "reauthentication_needed", "reauthentication_not_valid" -> MutterError.ReauthenticationNeeded
+            "over_email_send_rate_limit" -> MutterError.EmailSendRateLimited
+            "over_request_rate_limit" -> MutterError.RateLimited
+            else -> null
         }
     }
 

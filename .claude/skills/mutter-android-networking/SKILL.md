@@ -54,6 +54,7 @@ supabase-kt 직렬화기는 `encodeDefaults=false`라 값이 기본값(null)과 
 |---|---|
 | cause 체인에 `IOException` | `Network` |
 | 세션 만료 마커 | `Unauthorized` + `SessionInvalidation.notifyUnauthorized()` → `AppViewModel`이 로그아웃·SIGNED_OUT |
+| `AuthRestException.errorCode`(없으면 `error`) = `invalid_credentials`·`email_not_confirmed`·`weak_password`·`same_password`·`reauthentication_needed`(·`_not_valid`)·`over_email_send_rate_limit`·`over_request_rate_limit` | `InvalidCredentials`·`EmailNotConfirmed`·`WeakPassword`·`SamePassword`·`ReauthenticationNeeded`·`EmailSendRateLimited`·`RateLimited`(문구는 `Mutter/docs/specs/2026-11-14-login-password.md`) |
 | `NOT_YET_REVEALED:<iso>` | `LinkNotYetRevealed(revealAt)` |
 | `WRONG_PASSWORD`·`LINK_REVOKED`·`LINK_EXPIRED`·`NOT_CONNECTED`·`INVITE_ALREADY_USED` | 같은 이름 케이스 |
 | `*NOT_FOUND` / `FORBIDDEN` | `NotFound` / `Unauthorized` |

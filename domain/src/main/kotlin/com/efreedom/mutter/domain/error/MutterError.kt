@@ -28,6 +28,16 @@ sealed class MutterError(open val userMessage: String) : Exception() {
     data object LetterGone : MutterError("더 이상 열 수 없는 편지예요")
     /** 편지권 잔액 부족. */
     data object NoTicket : MutterError("편지권이 없어요")
+    // 로그인 비밀번호 — Supabase Auth `error_code` 기준, 세 플랫폼 동일 문구(docs/specs/2026-11-14-login-password.md).
+    data object InvalidCredentials :
+        MutterError("이메일 또는 비밀번호가 맞지 않아요. 비밀번호를 정한 적이 없다면 코드로 로그인해 주세요.")
+    data object EmailNotConfirmed : MutterError("이메일 인증이 아직 끝나지 않았어요. 코드로 로그인해 주세요.")
+    data object WeakPassword : MutterError("비밀번호는 6자 이상이어야 해요.")
+    data object SamePassword : MutterError("지금 쓰는 비밀번호와 다른 비밀번호를 입력해 주세요.")
+    data object ReauthenticationNeeded : MutterError("보안을 위해 코드로 다시 로그인한 뒤 설정해 주세요.")
+    data object EmailSendRateLimited : MutterError("코드 메일을 너무 자주 요청했어요. 잠시 후 다시 시도해 주세요.")
+    /** 클라이언트 검사 — 비밀번호·확인 입력 불일치. */
+    data object PasswordMismatch : MutterError("비밀번호가 서로 달라요.")
     data class Server(override val userMessage: String) : MutterError(userMessage)
     data object Unknown : MutterError("문제가 생겼어요. 다시 시도해 주세요.")
 }

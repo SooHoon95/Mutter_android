@@ -43,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -96,8 +99,8 @@ fun ProfileScreen(
     }
 
     // 저장 완료 토스트 자동 해제
-    if (state.savedToast) {
-        LaunchedEffect(Unit) {
+    if (state.savedToast != null) {
+        LaunchedEffect(state.savedToast) {
             delay(1_500)
             viewModel.onSavedToastShown()
         }
@@ -169,12 +172,26 @@ fun ProfileScreen(
 
                 HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
 
+                // 편지 링크 암호 기본값(표시 전용) — iOS "암호 기본값 / 켜짐"과 같은 항목.
                 SettingsRow(
                     icon = { MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = InkSoft, size = 20.dp) },
-                    label = "비밀번호",
-                    value = "사용 중",
+                    label = "암호 기본값",
+                    value = "켜짐",
                     onClick = null,
                 )
+
+                // 로그인 비밀번호 — 이메일 가입 계정에만(소셜 계정은 이메일이 내부용이라 숨김).
+                state.passwordStatus?.takeIf { state.showsLoginPassword }?.let { status ->
+                    HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
+                    SettingsRow(
+                        icon = { MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = InkSoft, size = 20.dp) },
+                        label = stringResource(R.string.profile_login_password),
+                        value = stringResource(
+                            if (status.isSet) R.string.profile_login_password_set else R.string.profile_login_password_unset,
+                        ),
+                        onClick = viewModel::showPasswordDialog,
+                    )
+                }
 
                 state.entitlements?.takeIf { state.showsTickets }?.let { ent ->
                     HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
@@ -266,7 +283,7 @@ fun ProfileScreen(
         }
 
         // 저장 완료 토스트
-        if (state.savedToast) {
+        state.savedToast?.let { toast ->
             Snackbar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -274,9 +291,22 @@ fun ProfileScreen(
                 containerColor = Ink,
                 contentColor = Ivory,
             ) {
-                Text(text = "닉네임이 저장됐어요.", style = MutterText.bodyMediumBold)
+                val text = when (toast) {
+                    ProfileSavedToast.NICKNAME -> stringResource(R.string.profile_nickname_saved)
+                    ProfileSavedToast.PASSWORD -> stringResource(R.string.profile_login_password_saved)
+                }
+                Text(text = text, style = MutterText.bodyMediumBold)
             }
         }
+    }
+
+    if (state.isPasswordDialogVisible) {
+        LoginPasswordDialog(
+            isLoading = state.isLoading,
+            error = state.error,
+            onSave = viewModel::savePassword,
+            onDismiss = viewModel::dismissPasswordDialog,
+        )
     }
 
     // 계정 삭제 확인 다이얼로그
@@ -386,6 +416,64 @@ private fun NicknameEditRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
+// ─── 로그인 비밀번호 다이얼로그 ────────────────────────────────────────────────
+
+/** 새 비밀번호 + 확인 입력. 길이·일치 검사와 서버 오류 문구는 ViewModel(AuthUseCase)이 [error]로 돌려준다. */
+@Composable
+private fun LoginPasswordDialog(
+    isLoading: Boolean,
+    error: String?,
+    onSave: (password: String, confirm: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var password by rememberSaveable { mutableStateOf("") }
+    var confirm by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.profile_login_password)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(stringResource(R.string.profile_login_password_new)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = confirm,
+                    onValueChange = { confirm = it },
+                    label = { Text(stringResource(R.string.profile_login_password_confirm)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                error?.let { Text(text = it, style = MutterText.caption, color = Danger) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(password, confirm) },
+                enabled = !isLoading && password.isNotEmpty() && confirm.isNotEmpty(),
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Gold, strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(R.string.profile_login_password_save))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.profile_login_password_cancel))
+            }
+        },
     )
 }
 

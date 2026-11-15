@@ -1,0 +1,17 @@
+<resources>
+    <!-- 로그인·회원가입 화면 2차(같은 스펙, 웹 구조와 맞춤) -->
+    <string name="auth_code_login">코드로 로그인</string>
+    <string name="auth_password_login">비밀번호로 로그인</string>
+    <string name="auth_go_sign_up">이메일로 회원가입하기</string>
+    <string name="auth_sign_up_title">이메일로 회원가입</string>
+    <string name="auth_sign_up_request_code">인증 코드 받기</string>
+    <string name="auth_back_to_login">로그인으로 돌아가기</string>
+
+    <!-- 로그인 비밀번호 설정 단계(Mutter/docs/specs/2026-11-14-login-password.md, 세 플랫폼 동일) -->
+    <string name="auth_set_password_title">비밀번호 설정</string>
+    <string name="auth_set_password_guide">비밀번호를 정해 두면 다음부터 코드 없이 로그인할 수 있어요.</string>
+    <string name="auth_set_password_field">비밀번호</string>
+    <string name="auth_set_password_confirm_field">비밀번호 확인</string>
+    <string name="auth_set_password_save">저장하고 시작</string>
+    <string name="auth_set_password_later">나중에 하기</string>
+</resources>

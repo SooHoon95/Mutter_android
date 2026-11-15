@@ -8,6 +8,16 @@ enum class SocialProvider(val raw: String) {
 
 data class Session(val userId: String, val email: String?)
 
+/**
+ * 로그인 비밀번호 상태(docs: Mutter/docs/specs/2026-11-14-login-password.md).
+ * - [isAvailable]: 이메일 가입 계정(`app_metadata.provider == "email"`)만 true — 소셜 계정은 비밀번호 기능을 숨긴다.
+ * - [isSet]: `user_metadata.password_set == true` — 사용자가 직접 정했다는 표시 힌트(보안 판단에 쓰지 않음).
+ */
+data class LoginPasswordStatus(val isAvailable: Boolean, val isSet: Boolean) {
+    /** 코드 로그인 직후 "비밀번호 설정" 단계를 띄울지. */
+    val needsSetup: Boolean get() = isAvailable && !isSet
+}
+
 data class Profile(val id: String, val nickname: String? = null)
 
 /**
