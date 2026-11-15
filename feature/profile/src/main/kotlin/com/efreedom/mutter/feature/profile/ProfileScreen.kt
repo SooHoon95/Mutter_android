@@ -88,6 +88,8 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
     /** 편지권 화면. 편지권 UI가 보이는 계정(paid_enabled || is_admin)에만 항목이 생긴다. */
     onOpenTickets: () -> Unit = {},
+    /** 새 소식 안내 다시 보기. 편지권 항목과 같은 계정에만 줄이 생기고, 안내에 넣을 서버 일수(free_days·grace_days)를 넘긴다. */
+    onOpenWhatsNew: (freeDays: Int, graceDays: Int) -> Unit = { _, _ -> },
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -200,6 +202,16 @@ fun ProfileScreen(
                         label = stringResource(R.string.tickets_title),
                         value = stringResource(R.string.tickets_balance, ent.tickets),
                         onClick = onOpenTickets,
+                    )
+                    // 새 소식 — 편지권이 생기며 달라진 점을 다시 본다(봤는지 저장한 값은 건드리지 않는다).
+                    HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
+                    SettingsRow(
+                        icon = {
+                            MutterIcon(id = DsR.drawable.envelope_open, contentDescription = null, tint = InkSoft, size = 20.dp)
+                        },
+                        label = stringResource(DsR.string.whatsnew_title),
+                        value = "",
+                        onClick = { onOpenWhatsNew(ent.freeDays, ent.graceDays) },
                     )
                 }
             }

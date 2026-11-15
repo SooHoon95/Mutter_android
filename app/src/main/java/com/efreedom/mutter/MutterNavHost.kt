@@ -1,5 +1,6 @@
 package com.efreedom.mutter
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
@@ -29,11 +30,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.efreedom.mutter.uicomponent.component.WhatsNewScreen
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.InkSoft
 import com.efreedom.mutter.uicomponent.theme.Ivory
 import com.efreedom.mutter.core.navigation.FeatureRoute
 import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
+import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.feature.compose.ComposeMode
 import com.efreedom.mutter.feature.compose.ComposeScreen
 import com.efreedom.mutter.feature.connections.ConnectInviteScreen
@@ -86,6 +89,8 @@ private enum class AppTab(
  * - startDestination: MainTabs (탭 호스트)
  * - Detail 목적지: Compose/Viewer/Trash/InboxTrash/Delivery/ConnectInvite/Legal
  * - 세션 만료(로그아웃) 시 [onSignedOut] 콜백을 통해 상위 AppViewModel 갱신.
+ * - [whatsNew]가 있으면 메인 탭 위에 새 소식 안내를 전체 화면으로 덮는다(탭이 보이는 동안에만).
+ *   뜨는 순간 [onWhatsNewShown], 닫으면 [onWhatsNewClosed].
  */
 @Composable
 fun MutterNavHost(
@@ -95,6 +100,9 @@ fun MutterNavHost(
     onConnectConsumed: () -> Unit = {},
     pendingRoute: FeatureRoute? = null,
     onRouteConsumed: () -> Unit = {},
+    whatsNew: Entitlements? = null,
+    onWhatsNewShown: () -> Unit = {},
+    onWhatsNewClosed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
 
@@ -119,7 +127,32 @@ fun MutterNavHost(
     ) {
         // ─── 탭 호스트 ─────────────────────────────────────────────────────
         composable<MainTabs> {
-            MainScaffold(navController = navController, onSignedOut = onSignedOut)
+            Box(modifier = Modifier.fillMaxSize()) {
+                MainScaffold(navController = navController, onSignedOut = onSignedOut)
+
+                // 새 소식 안내(업데이트한 사람에게 한 번) — 탭 화면 위를 하단 탭까지 덮는다.
+                // 이 목적지가 보일 때만 그려지므로 상세 화면이나 편지 위에는 뜨지 않는다.
+                whatsNew?.let { entitlements ->
+                    LaunchedEffect(Unit) { onWhatsNewShown() }
+                    // 시스템 뒤로도 "건너뛰기"와 같다 — 덮인 채로 아래 화면이 움직이지 않게.
+                    BackHandler(onBack = onWhatsNewClosed)
+                    WhatsNewScreen(
+                        freeDays = entitlements.freeDays,
+                        graceDays = entitlements.graceDays,
+                        onClose = onWhatsNewClosed,
+                    )
+                }
+            }
+        }
+
+        // ─── 새 소식 안내 다시 보기(프로필) ─────────────────────────────────────
+        composable<FeatureRoute.WhatsNew> { entry ->
+            val route = entry.toRoute<FeatureRoute.WhatsNew>()
+            WhatsNewScreen(
+                freeDays = route.freeDays,
+                graceDays = route.graceDays,
+                onClose = { navController.popBackStack() },
+            )
         }
 
         // ─── 편지 작성 ─────────────────────────────────────────────────────
@@ -282,6 +315,9 @@ private fun MainScaffold(
                     onTerms = { navController.navigate(FeatureRoute.Terms) },
                     onPrivacy = { navController.navigate(FeatureRoute.Privacy) },
                     onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
+                    onOpenWhatsNew = { freeDays, graceDays ->
+                        navController.navigate(FeatureRoute.WhatsNew(freeDays, graceDays)) { launchSingleTop = true }
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

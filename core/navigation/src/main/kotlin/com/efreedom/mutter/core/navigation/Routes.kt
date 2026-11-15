@@ -29,6 +29,11 @@ sealed interface FeatureRoute {
     @Serializable data class Delivery(val letterId: String) : FeatureRoute
     /** 편지권(잔액·구매·내역) — 프로필 항목에서 진입. 편지권이 필요한데 없을 때는 이 화면이 아니라 결제 안내 시트([TicketCheckoutRoute])가 뜬다. */
     @Serializable data object Tickets : FeatureRoute
+    /**
+     * 새 소식 안내 다시 보기 — 프로필의 "새 소식"에서 진입. 일수는 프로필이 이미 받은 서버 값(free_days·grace_days)을 넘긴다.
+     * 업데이트 뒤 처음 한 번 뜨는 것은 이 라우트가 아니라 메인 탭 위에 덮는다.
+     */
+    @Serializable data class WhatsNew(val freeDays: Int, val graceDays: Int) : FeatureRoute
     @Serializable data class ConnectInvite(val token: String) : FeatureRoute
     @Serializable data class Thread(val counterpartId: String) : FeatureRoute
 

@@ -1,0 +1,17 @@
+<resources>
+    <!-- What's new (Mutter/docs/specs/2026-11-15-whats-new.md). "편지권" is "letter pass", as in the viewer and checkout sheet. -->
+    <string name="whatsnew_title">What\'s new</string>
+    <string name="whatsnew_skip">Skip</string>
+    <string name="whatsnew_next">Next</string>
+    <string name="whatsnew_start">Get started</string>
+    <string name="whatsnew_1_title">Letters you\'ve sent stay as they are</string>
+    <string name="whatsnew_1_body">Letters you\'ve already sent stay open with no time limit.\nWhat changes is the new letters you send from now on.</string>
+    <string name="whatsnew_2_title">Choose how to send each new letter</string>
+    <string name="whatsnew_2_body">A permanent letter uses 1 letter pass and has no time limit.\nA %1$d-day letter is free to send.</string>
+    <string name="whatsnew_3_title">A %1$d-day letter stays open for %1$d days</string>
+    <string name="whatsnew_3_body">That\'s %1$d days from the day the recipient first opens it.\n%2$d days after it closes, the letter and its photos are deleted.</string>
+    <string name="whatsnew_4_title">You can keep a closed letter too</string>
+    <string name="whatsnew_4_body">Until it\'s deleted, 1 letter pass opens it again.\nBoth the sender and the recipient can do this.</string>
+    <string name="whatsnew_5_title">Letter passes, right when you need one</string>
+    <string name="whatsnew_5_body">If you don\'t have a letter pass, you can buy one on the spot.\nYou can see your letter passes in your profile.</string>
+</resources>

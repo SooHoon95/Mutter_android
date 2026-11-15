@@ -92,6 +92,7 @@ class MainActivity : ComponentActivity() {
                 val deeplink by incomingDeeplink.collectAsStateWithLifecycle()
                 val oauthBump by oauthSessionBump.collectAsStateWithLifecycle()
                 val route by pendingRoute.collectAsStateWithLifecycle()
+                val whatsNew by appViewModel.whatsNew.collectAsStateWithLifecycle()
 
                 // OAuth(Apple 등) 리다이렉트로 세션이 확립되면 루트 상태를 갱신해 메인/닉네임으로 진입.
                 LaunchedEffect(oauthBump) {
@@ -154,6 +155,13 @@ class MainActivity : ComponentActivity() {
                                 onConnectConsumed = { pendingConnectToken = null },
                                 pendingRoute = route,
                                 onRouteConsumed = { pendingRoute.value = null },
+                                // 새 소식 안내 — 편지를 읽는 화면(딥링크 뷰어)이 떠 있거나 다른 화면으로 가는 중에는 미룬다.
+                                whatsNew = whatsNew.takeIf {
+                                    letterToken == null && pendingLetterToken == null &&
+                                        pendingConnectToken == null && route == null
+                                },
+                                onWhatsNewShown = appViewModel::markWhatsNewSeen,
+                                onWhatsNewClosed = appViewModel::dismissWhatsNew,
                             )
                         }
                     }

@@ -26,6 +26,23 @@
     <!-- 읽어 주기 문구 — 자물쇠가 대신한 "닫힘"을 말로 넣는다(%1$s = 위 삭제 문구) -->
     <string name="access_closed_spoken">닫힘, %1$s</string>
 
+    <!-- 새 소식 안내(Mutter/docs/specs/2026-11-15-whats-new.md, 세 플랫폼 동일). 일수는 서버 값(free_days·grace_days).
+         설명은 문장마다 줄을 바꾼다. 영어는 values-en -->
+    <string name="whatsnew_title">새 소식</string>
+    <string name="whatsnew_skip">건너뛰기</string>
+    <string name="whatsnew_next">다음</string>
+    <string name="whatsnew_start">시작하기</string>
+    <string name="whatsnew_1_title">지금까지 보낸 편지는 그대로예요</string>
+    <string name="whatsnew_1_body">이미 보낸 편지는 기간 제한 없이 계속 열려요.\n달라지는 건 앞으로 보내는 새 편지예요.</string>
+    <string name="whatsnew_2_title">새 편지는 보낼 때 골라요</string>
+    <string name="whatsnew_2_body">영구 편지는 편지권 1장으로 기간 제한 없이 보내요.\n%1$d일 편지는 무료로 보낼 수 있어요.</string>
+    <string name="whatsnew_3_title">%1$d일 편지는 %1$d일 동안 열려요</string>
+    <string name="whatsnew_3_body">받는 분이 처음 연 날부터 %1$d일이에요.\n닫힌 뒤 %2$d일이 지나면 편지와 사진이 삭제돼요.</string>
+    <string name="whatsnew_4_title">닫힌 편지도 간직할 수 있어요</string>
+    <string name="whatsnew_4_body">삭제되기 전까지 편지권 1장으로 다시 열 수 있어요.\n보낸 사람도, 받은 사람도 할 수 있어요.</string>
+    <string name="whatsnew_5_title">편지권은 필요할 때 바로</string>
+    <string name="whatsnew_5_body">편지권이 없으면 그 자리에서 살 수 있어요.\n가진 편지권은 프로필에서 볼 수 있어요.</string>
+
     <!-- 스토어 상품을 못 받았을 때 — 편지권 화면·결제 안내 시트 공통 -->
     <string name="ticket_purchase_unavailable">지금은 편지권을 살 수 없어요.</string>
 </resources>
