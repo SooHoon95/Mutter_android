@@ -207,7 +207,7 @@ Mutter(이하 "서비스")는 개인정보보호법에 따라 이용자의 개�
 4. 제3자 제공
    - 이용자의 동의 없이 제3자에게 제공하지 않습니다.
 
-문의: dkehskeh@gmail.com"""
+문의: musicletter2026@gmail.com"""
 
 /** 약관/개인정보처리방침 정적 문서 화면. */
 @OptIn(ExperimentalMaterial3Api::class)

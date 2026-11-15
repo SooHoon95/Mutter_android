@@ -343,7 +343,7 @@ fun ProfileScreen(
     }
 }
 
-private const val CONTACT_EMAIL = "dkehskeh@gmail.com"
+private const val CONTACT_EMAIL = "musicletter2026@gmail.com"
 
 /** 문의 메일 열기. 메일 앱이 없으면 이메일을 클립보드에 복사하고 토스트로 안내 — iOS 폴백 대응. */
 private fun openContactMail(context: Context) {
