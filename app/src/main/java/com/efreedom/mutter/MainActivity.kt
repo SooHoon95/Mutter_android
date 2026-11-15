@@ -164,16 +164,19 @@ class MainActivity : ComponentActivity() {
                         // 오버레이는 NavHost 백스택 밖이므로 시스템 뒤로가기를 직접 가로채 해제한다.
                         // ViewerScreen에는 화면 내 뒤로 버튼이 없으므로 이 BackHandler가 유일한 이탈 경로다.
                         BackHandler { letterToken = null }
-                        ViewerScreen(
-                            token = token,
-                            // 로그아웃 상태의 봉투 → 오버레이를 걷어 로그인 화면을 보이고, 로그인 뒤 다시 연다.
-                            onLoginRequest = {
-                                pendingLetterToken = token
-                                letterToken = null
-                            },
-                            // 간직하려는데 편지권이 없으면 편지 위로 결제 안내 시트가 올라온다(편지·음악은 뒤에 그대로).
-                            ticketCheckout = ticketCheckoutSheet,
-                        )
+                        // 편지마다 ViewModel 보관소를 따로 둔다 — 앱이 떠 있는 동안 다른 편지 링크를 열면 그 편지가 새로 열린다.
+                        LetterOverlayScope(token = token, isChangingConfigurations = { isChangingConfigurations }) {
+                            ViewerScreen(
+                                token = token,
+                                // 로그아웃 상태의 봉투 → 오버레이를 걷어 로그인 화면을 보이고, 로그인 뒤 다시 연다.
+                                onLoginRequest = {
+                                    pendingLetterToken = token
+                                    letterToken = null
+                                },
+                                // 간직하려는데 편지권이 없으면 편지 위로 결제 안내 시트가 올라온다(편지·음악은 뒤에 그대로).
+                                ticketCheckout = ticketCheckoutSheet,
+                            )
+                        }
                     }
 
                     // 강제 업데이트 — 최상위 차단 오버레이(편지 오버레이보다도 위).
