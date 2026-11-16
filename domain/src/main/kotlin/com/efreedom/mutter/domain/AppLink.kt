@@ -19,4 +19,7 @@ object AppLink {
 
     /** 개인정보 처리방침 정식본(웹): `<base>/legal/privacy` — 앱 안에는 따로 두지 않는다. */
     fun privacyPolicy(): String = "$BASE_URL/legal/privacy"
+
+    /** 이용약관 정식본(웹): `<base>/legal/terms` — 앱 안에는 따로 두지 않는다. */
+    fun terms(): String = "$BASE_URL/legal/terms"
 }

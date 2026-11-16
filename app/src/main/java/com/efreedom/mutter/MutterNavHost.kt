@@ -315,7 +315,8 @@ private fun MainScaffold(
                 AppTab.PROFILE -> ProfileScreen(
                     onSignedOut = onSignedOut,
                     onReport = { navController.navigate(FeatureRoute.Takedown) },
-                    onTerms = { navController.navigate(FeatureRoute.Terms) },
+                    // 이용약관 정식본은 웹에 하나만 둔다(처리방침과 같은 방식).
+                    onTerms = { openExternal(context, AppLink.terms()) },
                     // 처리방침은 웹 정식본을 연다(실제 수집 항목·데이터 보안 양식과 같은 문서 하나만 유지).
                     onPrivacy = { openExternal(context, AppLink.privacyPolicy()) },
                     onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
