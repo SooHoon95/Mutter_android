@@ -67,7 +67,6 @@ import com.efreedom.mutter.domain.AppLink
 import com.efreedom.mutter.domain.LetterShareMessage
 import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.LetterAccessLabel
-import com.efreedom.mutter.domain.model.LetterReader
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -173,9 +172,6 @@ fun DeliveryScreen(
                     )
                 }
 
-                if (state.readers.isNotEmpty()) {
-                    ReadersSection(readers = state.readers)
-                }
 
                 // 사본 — 서버 반영 뒤(상태 조회 성공)에만 보인다. 닫힌 뒤 처음 온 사람에게 새로 보내는 길.
                 if (state.access != null) {
@@ -479,28 +475,6 @@ private fun LockedNotice(deleteAt: Instant, showsTicketHint: Boolean) {
                 text = stringResource(R.string.delivery_locked_ticket_hint),
                 style = MutterText.caption,
                 color = InkSoft,
-            )
-        }
-    }
-}
-
-/** 열람자 — "{닉네임} · {M}월 {D}일에 열어봄"(처음 연 날). */
-@Composable
-private fun ReadersSection(readers: List<LetterReader>) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(text = stringResource(R.string.delivery_readers_title), style = MutterText.bodyMediumBold, color = InkSoft)
-        val unnamed = stringResource(R.string.delivery_reader_unnamed)
-        readers.forEach { reader ->
-            val date = reader.firstOpenedAt.atZone(ZoneId.systemDefault()).toLocalDate()
-            Text(
-                text = stringResource(
-                    R.string.delivery_reader_row,
-                    reader.nickname?.takeIf { it.isNotBlank() } ?: unnamed,
-                    date.monthValue,
-                    date.dayOfMonth,
-                ),
-                style = MutterText.bodySmall,
-                color = InkMid,
             )
         }
     }

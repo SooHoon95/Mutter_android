@@ -8,7 +8,6 @@ import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.domain.model.LetterAccessKind
 import com.efreedom.mutter.domain.model.LetterAccessState
-import com.efreedom.mutter.domain.model.LetterReader
 import com.efreedom.mutter.domain.model.SendChoice
 import com.efreedom.mutter.domain.usecase.DeliveryUseCase
 import com.efreedom.mutter.domain.usecase.LetterAccessUseCase
@@ -43,7 +42,6 @@ data class DeliveryUiState(
     val access: LetterAccessState? = null,
     val entitlements: Entitlements? = null,
     /** 열람자(처음 연 순). 조회 실패면 비어 있다. */
-    val readers: List<LetterReader> = emptyList(),
     val isMakingPermanent: Boolean = false,
     val isDuplicating: Boolean = false,
     /** 결제 안내 시트 — 영구 편지로 보내거나 만들려는데 편지권이 없을 때 띄운다(null이면 닫힘). */
@@ -172,24 +170,15 @@ class DeliveryViewModel @Inject constructor(
     }
 
     /**
-     * 상태·잔액·열람자. 셋 다 서버 반영 전에는 실패한다 → 조용히 빈 값(오류 표시 없음).
+     * 상태·잔액. 둘 다 서버 반영 전에는 실패한다 → 조용히 빈 값(오류 표시 없음).
      */
     private suspend fun loadAccess() {
-        val (access, entitlements, readers) = coroutineScope {
+        val (access, entitlements) = coroutineScope {
             val accessDeferred = async { letterAccessUseCase.accessStates(listOf(letterId))[letterId] }
             val entitlementsDeferred = async { ticketUseCase.entitlementsOrNull() }
-            val readersDeferred = async {
-                try {
-                    letterAccessUseCase.readers(letterId)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Throwable) {
-                    emptyList()
-                }
-            }
-            Triple(accessDeferred.await(), entitlementsDeferred.await(), readersDeferred.await())
+            Pair(accessDeferred.await(), entitlementsDeferred.await())
         }
-        _state.value = _state.value.copy(access = access, entitlements = entitlements, readers = readers)
+        _state.value = _state.value.copy(access = access, entitlements = entitlements)
     }
 
     /**

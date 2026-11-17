@@ -9,7 +9,4 @@
     <string name="delivery_locked_ticket_hint">편지권을 쓰면 다시 열리고 삭제되지 않아요.</string>
     <string name="delivery_make_permanent">영구 편지로 만들기 · 편지권 1장</string>
     <string name="delivery_duplicate">같은 내용으로 한 통 더 보내기</string>
-    <string name="delivery_readers_title">열어본 사람</string>
-    <string name="delivery_reader_row">%1$s · %2$d월 %3$d일에 열어봄</string>
-    <string name="delivery_reader_unnamed">이름 없는 사용자</string>
 </resources>
