@@ -27,8 +27,8 @@ android {
         applicationId = "com.efreedom.mutter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.4.0"
+        versionCode = 7
+        versionName = "2.0.0"
         val kakaoKey = socialProps.getProperty("KAKAO_NATIVE_APP_KEY", "")
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"$kakaoKey\"")
         // Kakao 리다이렉트 스킴(kakao{nativeKey}://oauth) — AuthCodeHandlerActivity용.

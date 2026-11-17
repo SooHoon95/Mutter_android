@@ -102,7 +102,7 @@ fun TicketsScreen(
                         isLoading = state.purchasingId == TicketProduct.FIVE,
                         onClick = { viewModel.purchase(TicketProduct.FIVE) },
                     )
-                    // 지급 시점과 환불(Google Play)·회수 안내 — 구매 버튼이 보이는 동안 함께 보인다.
+                    // 지급 시점과 환불 불가 안내 — 구매 버튼이 보이는 동안 함께 보인다.
                     Text(
                         text = stringResource(R.string.tickets_purchase_notice),
                         style = MutterText.caption,

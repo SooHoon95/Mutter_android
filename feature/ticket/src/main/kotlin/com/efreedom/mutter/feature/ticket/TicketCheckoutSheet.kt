@@ -192,7 +192,7 @@ fun TicketCheckoutSheet(
                     enabled = busy || state.canConfirm,
                     isLoading = busy,
                 )
-                // 구매 버튼일 때만(이미 가진 편지권을 쓰는 버튼이면 결제가 없다) — 지급 시점과 환불·회수 안내.
+                // 구매 버튼일 때만(이미 가진 편지권을 쓰는 버튼이면 결제가 없다) — 지급 시점과 환불 불가 안내.
                 // 상품을 못 받아 버튼이 꺼져 있어도 구매 버튼은 보이므로 함께 보인다.
                 if (!state.canUseNow) {
                     Text(
