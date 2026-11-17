@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,11 +17,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,14 +29,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.uicomponent.component.shareText
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.MutterIcon
+import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
 import com.efreedom.mutter.uicomponent.theme.Ink
@@ -48,7 +50,6 @@ import com.efreedom.mutter.uicomponent.theme.Ivory
 import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.Surface as MutterSurface
 import androidx.compose.material3.Surface
-import androidx.compose.ui.graphics.Color
 import com.efreedom.mutter.domain.AppLink
 import com.efreedom.mutter.domain.model.Connection
 
@@ -62,11 +63,15 @@ fun ConnectionsScreen(
     var disconnectTarget by remember { mutableStateOf<Connection?>(null) }
     val context = LocalContext.current
 
-    LaunchedEffect(Unit) { viewModel.load() }
+    // 진입(첫 RESUMED)과 앱 복귀 때마다 조용히 다시 받는다 — 상대가 연결을 끊었을 때 최신 상태 반영(iOS scenePhase .active).
+    LifecycleResumeEffect(Unit) {
+        viewModel.load()
+        onPauseOrDispose { }
+    }
 
     PullToRefreshBox(
         isRefreshing = state.isRefreshing,
-        onRefresh = viewModel::load,
+        onRefresh = viewModel::refresh,
         modifier = modifier
             .fillMaxSize()
             .background(Ivory),
@@ -79,7 +84,7 @@ fun ConnectionsScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             Text(
-                text = "연결",
+                text = stringResource(R.string.connections_title),
                 style = MutterText.titleLarge,
                 color = Ink,
             )
@@ -111,18 +116,20 @@ fun ConnectionsScreen(
     disconnectTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { disconnectTarget = null },
-            title = { Text("연결을 해제할까요?") },
-            text = { Text("${target.nickname ?: "상대방"}과의 연결이 해제됩니다.") },
+            title = { Text(stringResource(R.string.connections_disconnect_confirm)) },
+            text = { Text(stringResource(R.string.connections_disconnect_detail)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         viewModel.disconnect(target.userId)
                         disconnectTarget = null
                     },
-                ) { Text("해제", color = GoldDeep) }
+                ) { Text(stringResource(R.string.connections_disconnect), color = Danger) }
             },
             dismissButton = {
-                TextButton(onClick = { disconnectTarget = null }) { Text("취소") }
+                TextButton(onClick = { disconnectTarget = null }) {
+                    Text(stringResource(R.string.connections_cancel))
+                }
             },
         )
     }
@@ -143,7 +150,11 @@ private fun ConnectionsCard(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(text = "연결된 사람", style = MutterText.bodyLargeBold, color = Ink)
+            Text(
+                text = stringResource(R.string.connections_connected),
+                style = MutterText.bodyLargeBold,
+                color = Ink,
+            )
             connections.forEach { connection ->
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -157,13 +168,17 @@ private fun ConnectionsCard(
                         size = 20.dp,
                     )
                     Text(
-                        text = connection.nickname ?: "이름 없음",
+                        text = connection.nickname ?: stringResource(R.string.connections_person_fallback),
                         style = MutterText.bodyMedium,
                         color = Ink,
                         modifier = Modifier.weight(1f),
                     )
                     TextButton(onClick = { onDisconnectRequest(connection) }) {
-                        Text(text = "해제", style = MutterText.caption, color = GoldDeep)
+                        Text(
+                            text = stringResource(R.string.connections_disconnect),
+                            style = MutterText.caption,
+                            color = GoldDeep,
+                        )
                     }
                 }
             }
@@ -192,12 +207,14 @@ private fun InviteCard(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                text = if (hasConnections) "더 연결하기" else "연결이 없어요",
+                text = stringResource(
+                    if (hasConnections) R.string.connections_more else R.string.connections_empty,
+                ),
                 style = MutterText.bodyLargeBold,
                 color = Ink,
             )
             Text(
-                text = "초대 링크를 만들어 친구에게 공유해 보세요.",
+                text = stringResource(R.string.connections_invite_hint),
                 style = MutterText.bodyMedium,
                 color = InkSoft,
             )
@@ -221,23 +238,34 @@ private fun InviteCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = { onCopyLink(link) }) {
-                        Text("복사", style = MutterText.captionBold, color = GoldDeep)
+                    // iOS처럼 복사·공유는 아이콘 버튼(20, gold).
+                    IconButton(onClick = { onCopyLink(link) }) {
+                        MutterIcon(
+                            id = DsR.drawable.copy,
+                            contentDescription = stringResource(R.string.connections_copy),
+                            tint = Gold,
+                            size = 20.dp,
+                        )
                     }
-                    TextButton(onClick = { onShareLink(link) }) {
-                        Text("공유", style = MutterText.captionBold, color = GoldDeep)
+                    IconButton(onClick = { onShareLink(link) }) {
+                        MutterIcon(
+                            id = DsR.drawable.share,
+                            contentDescription = stringResource(R.string.connections_share),
+                            tint = Gold,
+                            size = 20.dp,
+                        )
                     }
                 }
 
                 MutterButton(
-                    text = "초대 취소",
+                    text = stringResource(R.string.connections_invite_cancel),
                     onClick = onRevokeInvite,
                     style = MutterButtonStyle.Ghost,
                     isLoading = isLoading,
                 )
             } else {
                 MutterButton(
-                    text = "초대 링크 만들기",
+                    text = stringResource(R.string.connections_invite_create),
                     onClick = onCreateInvite,
                     isLoading = isLoading,
                 )

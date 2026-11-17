@@ -3,4 +3,25 @@
     <string name="inbox_access_permanent">영구</string>
     <string name="inbox_access_days_left">%1$d일 남음</string>
     <!-- 닫힌 편지 표시(자물쇠 + n일 뒤 삭제)는 uicomponent의 LockedStatusLabel이 맡는다 -->
+    <!-- 받은 편지함 화면 문구(iOS 한/영 원문) -->
+    <string name="inbox_title">받은 편지함</string>
+    <string name="inbox_trash_title">받은 편지 삭제함</string>
+    <string name="inbox_edit">편집</string>
+    <string name="inbox_done">완료</string>
+    <string name="inbox_select_all">전체 선택</string>
+    <string name="inbox_deselect_all">선택 해제</string>
+    <string name="inbox_delete_selected">삭제 (%1$d)</string>
+    <string name="inbox_delete">삭제</string>
+    <string name="inbox_untitled">제목 없는 편지</string>
+    <string name="inbox_selected">선택됨</string>
+    <string name="inbox_empty">받은 편지가 없어요</string>
+    <string name="inbox_moved_to_trash">편지를 삭제함으로 옮겼어요</string>
+    <string name="inbox_moved_to_trash_many">%1$d통을 삭제함으로 옮겼어요</string>
+    <string name="inbox_trash_restored">편지를 되살렸어요</string>
+    <string name="inbox_trash_notice">삭제한 편지는 30일 동안 보관된 뒤 받은 편지함에서 완전히 지워져요.</string>
+    <string name="inbox_trash_sender">보낸이: %1$s</string>
+    <string name="inbox_trash_unknown_sender">알 수 없음</string>
+    <string name="inbox_trash_purge_confirm">완전히 삭제할까요?</string>
+    <string name="inbox_trash_purge_detail">받은 편지함에서만 지워지고, 링크를 다시 열면 다시 담겨요.</string>
+    <string name="inbox_cancel">취소</string>
 </resources>

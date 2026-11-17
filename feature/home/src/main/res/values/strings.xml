@@ -1,8 +1,38 @@
 <resources>
+    <!-- 홈 화면 — iOS HomeView 문구(home.*, common.*) -->
+    <string name="home_compose">새 편지 쓰기</string>
+    <string name="home_tab_sent">보낸 편지</string>
+    <string name="home_tab_draft">임시저장</string>
+    <string name="home_sent_count">보낸 편지</string>
+    <string name="home_sent_unit">통 · %1$d통 읽음</string>
+    <plurals name="home_opened">
+        <item quantity="other">%1$d번 열림</item>
+    </plurals>
+    <string name="home_not_opened">아직 열리지 않음</string>
+    <string name="home_draft_in_progress">작성 중 · 탭하면 이어쓰기</string>
+    <string name="home_writing">작성 중</string>
+    <string name="home_read">읽음</string>
+    <string name="home_unread">안읽음</string>
+    <string name="home_empty_sent">아직 보낸 편지가 없어요</string>
+    <string name="home_empty_draft">임시저장한 편지가 없어요</string>
+    <string name="home_trash">보낸 편지 삭제함</string>
+    <string name="home_moved_to_trash">편지를 삭제함으로 옮겼어요</string>
+    <string name="home_untitled">제목 없는 편지</string>
+    <string name="home_delete">삭제</string>
+    <string name="home_cancel">취소</string>
     <!-- 영구 편지권 계약 목록 상태 문구(세 플랫폼 동일) -->
     <string name="home_access_permanent">영구</string>
-    <string name="home_access_days_left">%1$d일 남음</string>
+    <plurals name="home_access_days_left">
+        <item quantity="other">%1$d일 남음</item>
+    </plurals>
     <!-- 닫힌 편지 표시(자물쇠 + n일 뒤 삭제)는 uicomponent의 LockedStatusLabel이 맡는다 -->
-    <!-- 보낸 편지 삭제(계정 단위 삭제, 0041) — 계약 문구 -->
+    <!-- 보낸 편지 삭제(계정 단위 삭제, 0041) — 계약 문구. Android 전용(iOS는 완전 삭제 확인 본문에만 있음) -->
     <string name="home_sent_delete_kept_notice">이미 받은 분의 편지함에는 남아요.</string>
+
+    <!-- 보낸 편지 삭제함 — iOS TrashView 문구(trash.*) -->
+    <string name="trash_title">보낸 편지 삭제함</string>
+    <string name="trash_notice">삭제한 편지는 30일 동안 보관된 뒤 완전히 지워져요.</string>
+    <string name="trash_purge_confirm">완전히 삭제할까요?</string>
+    <string name="trash_purge_confirm_detail">되돌릴 수 없어요. 이미 받은 분의 편지함에는 남아요.</string>
+    <string name="trash_restored">편지를 되살렸어요</string>
 </resources>

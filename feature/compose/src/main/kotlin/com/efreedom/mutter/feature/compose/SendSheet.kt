@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -57,6 +58,16 @@ import com.efreedom.mutter.uicomponent.theme.InkSoft
 import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.Surface
 import kotlinx.coroutines.delay
+import android.icu.text.MeasureFormat
+import android.icu.util.Measure
+import android.icu.util.MeasureUnit
+import android.icu.util.ULocale
+import java.time.Duration
+import java.time.Instant
+import java.time.Period
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.util.Locale
 
 /** 세그먼트 탭 — 링크 발급 / 연결 상대 직접 발송. */
 private enum class SendMethod { LINK, CONNECTION }
@@ -108,6 +119,12 @@ internal fun SendSheet(
                     onFreeDays = viewModel::chooseFreeDays,
                 )
             } else {
+                // 커스텀 세그먼트 컨트롤 — iOS Capsule 스타일 이식. iOS처럼 시트 맨 위(안내들 위).
+                SendMethodSelector(
+                    selected = method,
+                    onSelect = { method = it },
+                )
+
                 if (state.showsPermanentLabel) {
                     Text(
                         text = stringResource(R.string.compose_send_permanent),
@@ -131,12 +148,6 @@ internal fun SendSheet(
                         color = InkSoft,
                     )
                 }
-
-                // 커스텀 세그먼트 컨트롤 — iOS Capsule 스타일 이식.
-                SendMethodSelector(
-                    selected = method,
-                    onSelect = { method = it },
-                )
 
                 when (method) {
                     SendMethod.LINK -> LinkTab(
@@ -185,7 +196,10 @@ private fun SendMethodSelector(
             .background(GoldSoft)
             .padding(4.dp),
     ) {
-        listOf(SendMethod.LINK to "링크", SendMethod.CONNECTION to "연결").forEach { (m, label) ->
+        listOf(
+            SendMethod.LINK to stringResource(R.string.compose_send_method_link),
+            SendMethod.CONNECTION to stringResource(R.string.compose_send_method_connection),
+        ).forEach { (m, label) ->
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -241,8 +255,8 @@ private fun LinkTab(
         ) {
             MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = Gold)
             Column(modifier = Modifier.weight(1f)) {
-                Text("암호 보호", style = MutterText.bodyMediumBold, color = Ink)
-                Text("수신자에게 암호를 전달해 주세요", style = MutterText.caption, color = InkSoft)
+                Text(stringResource(R.string.compose_send_password_title), style = MutterText.bodyMediumBold, color = Ink)
+                Text(stringResource(R.string.compose_send_password_subtitle), style = MutterText.caption, color = InkSoft)
             }
             Switch(
                 checked = state.usePassword,
@@ -259,7 +273,7 @@ private fun LinkTab(
             OutlinedTextField(
                 value = state.password,
                 onValueChange = onPasswordChange,
-                label = { Text("암호") },
+                label = { Text(stringResource(R.string.compose_send_password)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -302,7 +316,7 @@ private fun LinkTab(
         // CTA 3단 — 공유(동봉 문구+링크) > 복사(문구가 부담스러운 사용자용, 시트 유지) > 완료. iOS SendSheet 대응.
         if (issued != null && issuedUrl != null) {
             MutterButton(
-                text = "공유하기",
+                text = stringResource(R.string.compose_send_share),
                 onClick = {
                     onShare(
                         LetterShareMessage.text(
@@ -315,19 +329,19 @@ private fun LinkTab(
                 leadingIconRes = DsR.drawable.share,
             )
             MutterButton(
-                text = if (linkCopied) "복사됐어요" else "링크 복사",
+                text = stringResource(if (linkCopied) R.string.compose_send_copied else R.string.compose_send_copy_link),
                 onClick = { onCopyLink(issuedUrl) },
                 style = MutterButtonStyle.Secondary,
                 leadingIconRes = if (linkCopied) DsR.drawable.ic_check else DsR.drawable.copy,
             )
             MutterButton(
-                text = "완료",
+                text = stringResource(R.string.compose_send_done),
                 onClick = onDone,
                 style = MutterButtonStyle.Ghost,
             )
         } else {
             MutterButton(
-                text = "링크 발급",
+                text = stringResource(R.string.compose_send_issue_link),
                 onClick = onIssueLink,
                 isLoading = state.isIssuing,
                 enabled = state.canIssueLink,
@@ -351,24 +365,25 @@ private fun ConnectionTab(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (state.connections.isEmpty()) {
             Text(
-                text = "아직 연결된 사람이 없어요",
+                text = stringResource(R.string.compose_send_no_connections),
                 style = MutterText.captionBold,
                 color = InkFaint,
             )
             Text(
-                text = "연결 탭에서 친구를 초대해 보세요.",
+                text = stringResource(R.string.compose_send_no_connections_detail),
                 style = MutterText.caption,
                 color = InkSoft,
             )
         } else {
             Text(
-                text = "연결된 사람에게 보내기",
+                text = stringResource(R.string.compose_send_to_connections),
                 style = MutterText.captionBold,
                 color = InkFaint,
             )
             state.connections.forEach { connection ->
                 ConnectionRow(
                     nickname = connection.nickname,
+                    connectedAt = connection.connectedAt,
                     isSending = state.isSending,
                     onSend = { onSend(connection.userId) },
                 )
@@ -380,6 +395,7 @@ private fun ConnectionTab(
 @Composable
 private fun ConnectionRow(
     nickname: String?,
+    connectedAt: Instant,
     isSending: Boolean,
     onSend: () -> Unit,
 ) {
@@ -408,12 +424,25 @@ private fun ConnectionRow(
             )
         }
 
-        Text(
-            text = nickname ?: "이름 없는 친구",
-            style = MutterText.bodyMediumBold,
-            color = Ink,
+        // 이름 + 연결된 뒤 지난 시간 — iOS connectionRow `Text(connectedAt, style: .relative)` 대응.
+        Column(
             modifier = Modifier.weight(1f),
-        )
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = nickname ?: stringResource(R.string.compose_send_unnamed_friend),
+                style = MutterText.bodyMediumBold,
+                color = Ink,
+            )
+            val locale = LocalConfiguration.current.locales[0]
+            // 행이 그려질 때(시트를 열 때) 한 번 계산한다 — 실시간 갱신은 하지 않는다(범위 밖).
+            val elapsed = remember(connectedAt, locale) { connectedAt.toElapsedDisplayTime(locale) }
+            Text(
+                text = elapsed,
+                style = MutterText.caption,
+                color = InkSoft,
+            )
+        }
 
         IconButton(
             onClick = onSend,
@@ -423,3 +452,39 @@ private fun ConnectionRow(
         }
     }
 }
+
+/**
+ * 연결된 뒤 지난 시간을 가장 큰 단위와 바로 아래 단위(0이면 생략) 두 개로 보여 준다("3일 5시간", en "3 days, 5 hours").
+ * iOS `Text(date, style: .relative)` 대응 — T4 스레드 말풍선(`ThreadsScreen.kt` `toElapsedDisplayTime`)과 같은 규칙의 사본
+ * (feature 간 의존 금지라 복제, `uicomponent` 공용화는 후속). 년·월·일은 달력(시스템 시간대)으로, 남은 시·분·초는 [Duration]으로 잰다.
+ */
+private fun Instant.toElapsedDisplayTime(locale: Locale): String {
+    val zone = ZoneId.systemDefault()
+    val since = ZonedDateTime.ofInstant(this, zone)
+    val now = ZonedDateTime.now(zone)
+    if (!now.isAfter(since)) return formatMeasures(locale, Measure(0, MeasureUnit.SECOND))
+
+    // 날짜 차. 지금의 시각이 연결된 시각보다 이르면 마지막 하루는 아직 꽉 차지 않았으므로 하루를 뺀다.
+    var period = Period.between(since.toLocalDate(), now.toLocalDate())
+    if (since.plus(period).isAfter(now)) {
+        period = Period.between(since.toLocalDate(), now.toLocalDate().minusDays(1))
+    }
+    val seconds = Duration.between(since.plus(period), now).seconds
+    val days = period.days
+    val units = listOf(
+        Measure(period.years, MeasureUnit.YEAR),
+        Measure(period.months, MeasureUnit.MONTH),
+        Measure(days / 7, MeasureUnit.WEEK),
+        Measure(days % 7, MeasureUnit.DAY),
+        Measure(seconds / 3600, MeasureUnit.HOUR),
+        Measure(seconds % 3600 / 60, MeasureUnit.MINUTE),
+        Measure(seconds % 60, MeasureUnit.SECOND),
+    )
+    val first = units.indexOfFirst { it.number.toLong() != 0L }
+    if (first < 0) return formatMeasures(locale, Measure(0, MeasureUnit.SECOND))
+    val next = units.getOrNull(first + 1)?.takeIf { it.number.toLong() != 0L }
+    return formatMeasures(locale, *listOfNotNull(units[first], next).toTypedArray())
+}
+
+private fun formatMeasures(locale: Locale, vararg measures: Measure): String =
+    MeasureFormat.getInstance(ULocale.forLocale(locale), MeasureFormat.FormatWidth.WIDE).formatMeasures(*measures)

@@ -94,18 +94,24 @@ object PushNotifications {
     /**
      * 탭했을 때 열 화면.
      *
-     * 편지 도착·받은 편지 닫힘 예고·닫힘·삭제 예고 알림은 `data.token`이 오므로 기존 딥링크 경로(`mutter://l/<token>`)를 그대로 재사용한다
-     * — MainActivity가 Deeplink.parse로 해석해 뷰어를 띄운다. 별도 라우팅 코드가 필요 없다.
+     * - 편지 도착(letter_received): 링크와 같은 `mutter://l/<token>` URI — MainActivity가 Deeplink.parse로 해석해 곧바로 뷰어를 띄운다.
+     * - 받은 편지 닫힘 예고·닫힘·삭제 예고(received_*): 백그라운드 알림과 같은 extra(type·token)를 단 MainActivity 인텐트
+     *   — MainActivity가 로그인 뒤에 여는 길(pendingLetterToken)로 보낸다(로그아웃 뒤 남은 알림을 탭해도 로그인 뒤 열린다).
+     * - 보낸 편지 닫힘·삭제 예고(letter_*): extra(type·letter_id) — 보낸 편지 상세.
      * 그 외(열람 알림 letter_id, 연결 수락 user_id)는 대응 화면이 없어 앱만 연다.
      */
     private fun contentIntent(context: Context, data: Map<String, String>): PendingIntent {
         val token = data["token"]
         val letterId = data[KEY_LETTER_ID]
         val opensSent = opensSentLetter(data[KEY_TYPE]) && !letterId.isNullOrBlank()
-        val opensLetter = data["type"] == TYPE_LETTER_RECEIVED || data["type"] in RECEIVED_LETTER_TYPES
-        val intent = if (opensLetter && !token.isNullOrBlank()) {
+        val receivedToken = receivedLetterToken(data[KEY_TYPE], token)
+        val intent = if (data["type"] == TYPE_LETTER_RECEIVED && !token.isNullOrBlank()) {
             Intent(Intent.ACTION_VIEW, Uri.parse("mutter://l/$token"))
                 .setPackage(context.packageName)
+        } else if (receivedToken != null) {
+            Intent(context, MainActivity::class.java)
+                .putExtra(KEY_TYPE, data[KEY_TYPE])
+                .putExtra(KEY_TOKEN, receivedToken)
         } else if (opensSent) {
             // MainActivity가 extra(type·letter_id)를 읽어 보낸 편지 상세로 보낸다 — 백그라운드 알림과 같은 키.
             Intent(context, MainActivity::class.java)
@@ -118,8 +124,12 @@ object PushNotifications {
         }
 
         // extra만 다른 인텐트는 PendingIntent가 같다고 보아 FLAG_UPDATE_CURRENT가 앞 알림의 extra를 덮는다
-        // → 닫힘·삭제 알림은 편지마다 다른 requestCode를 쓴다.
-        val requestCode = if (opensSent) letterId.hashCode() else 0
+        // → 닫힘·삭제 알림은 편지마다 다른 requestCode를 쓴다(보낸 편지는 letter_id, 받은 편지는 토큰).
+        val requestCode = when {
+            receivedToken != null -> receivedToken.hashCode()
+            opensSent -> letterId.hashCode()
+            else -> 0
+        }
         return PendingIntent.getActivity(
             context,
             requestCode,

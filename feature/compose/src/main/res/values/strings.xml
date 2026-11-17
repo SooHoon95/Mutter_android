@@ -6,13 +6,54 @@
     <string name="compose_soundcloud_picker_ready">이 곡을 편지에 넣을까요?</string>
     <string name="compose_soundcloud_pick">이 곡 넣기</string>
     <!-- 편지 사진(본문 사이사이, 최대 5장). iOS compose.photo.* 대응. -->
-    <string name="compose_photo_add">사진 넣기 (%1$d/%2$d)</string>
-    <string name="compose_photo_adding">사진 준비 중…</string>
+    <string name="compose_photo_add">사진 넣기</string>
+    <string name="compose_photo_limit">사진은 한 통에 5장까지 넣을 수 있어요.</string>
     <string name="compose_photo_remove">사진 빼기</string>
-    <string name="compose_photo_failed">사진을 불러올 수 없었어요. 다른 사진을 골라 주세요.</string>
+    <string name="compose_photo_failed">사진을 불러오지 못했어요. 다른 사진을 골라 주세요.</string>
     <string name="compose_photo_description">편지 사진</string>
     <!-- 보내기 시트에서 영구 편지로 만든 뒤 표시(영구 편지권 계약 목록 상태 문구). -->
     <string name="compose_send_permanent">영구</string>
     <!-- 보내기 시트 안내 — 무료 기간과 삭제(계약 "삭제 안내", 링크 발급 화면과 같은 문구). 일수는 서버 값 -->
     <string name="compose_send_free_days_notice">받는 분이 처음 연 날부터 %1$d일 동안 열려요. 닫힌 뒤 %2$d일이 지나면 삭제돼요.</string>
+    <!-- 보내기 시트. iOS send.* / common.* 대응. no_connections_detail은 실제 탭 이름 "연결"에 맞춤(iOS ko는 "사람들 탭"). -->
+    <string name="compose_send_method_link">전달 링크</string>
+    <string name="compose_send_method_connection">연결된 사람</string>
+    <string name="compose_send_password_title">암호 보호</string>
+    <string name="compose_send_password_subtitle">기본값이 프라이버시예요</string>
+    <string name="compose_send_password">암호</string>
+    <string name="compose_send_issue_link">링크 발급</string>
+    <string name="compose_send_share">공유하기</string>
+    <string name="compose_send_copy_link">링크 복사하기</string>
+    <string name="compose_send_copied">복사됐어요</string>
+    <string name="compose_send_done">완료</string>
+    <string name="compose_send_no_connections">아직 연결된 사람이 없어요</string>
+    <string name="compose_send_no_connections_detail">‘전달 링크’로 보내거나, 연결 탭에서 연결을 맺어보세요.</string>
+    <string name="compose_send_to_connections">연결된 사람에게 바로 보내기</string>
+    <string name="compose_send_unnamed_friend">이름 없는 친구</string>
+    <!-- 작성 화면 상단 제목(라우트로 고정). iOS compose.nav.* 대응. -->
+    <string name="compose_nav_new">편지 쓰기</string>
+    <string name="compose_nav_edit">이어쓰기</string>
+    <string name="compose_nav_reply">답장</string>
+    <!-- 테마 칩 이름. iOS theme.<id>.name 대응(LetterTheme.name은 그대로 둔다). -->
+    <string name="compose_theme_classic_serif">클래식 세리프</string>
+    <string name="compose_theme_modern_minimal">모던 미니멀</string>
+    <string name="compose_theme_warm_craft">따뜻한 크래프트</string>
+    <string name="compose_theme_night_sky">밤하늘</string>
+    <string name="compose_theme_spring_day">봄날</string>
+    <string name="compose_theme_vintage_typewriter">빈티지 타자기</string>
+    <string name="compose_theme_pure_space">순수 여백</string>
+    <!-- 편지지·음악·버튼. iOS compose.* 대응. compose_music_title_quoted는 iOS 코드 리터럴, compose_music_unavailable은 Android 전용. -->
+    <string name="compose_title_placeholder">제목</string>
+    <string name="compose_body_placeholder">마음을 담아 적어보세요…</string>
+    <string name="compose_music_section">함께 흐를 음악 · 한 곡</string>
+    <string name="compose_music_soundcloud_track">SoundCloud 트랙</string>
+    <string name="compose_music_default">기본 제공 음악</string>
+    <string name="compose_music_title_quoted">‘%1$s’</string>
+    <string name="compose_music_unavailable">음악을 재생할 수 없어요.</string>
+    <string name="compose_soundcloud_placeholder">SoundCloud 링크 붙여넣기</string>
+    <string name="compose_apply">적용</string>
+    <string name="compose_applying">확인 중…</string>
+    <string name="compose_reply_send">답장 보내기</string>
+    <string name="compose_save_and_send">저장하고 보내기</string>
+    <string name="compose_draft">임시 저장</string>
 </resources>

@@ -61,5 +61,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.billing)
 
+    // GA4(Firebase Analytics) — Analytics 인터페이스의 구현(FirebaseAnalyticsTracker). 설정 리소스는 :app의 google-services가 만든다.
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+
     testImplementation(libs.junit)
 }

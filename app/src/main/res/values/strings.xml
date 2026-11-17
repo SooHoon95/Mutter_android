@@ -8,8 +8,13 @@
 
     <!-- 하단 탭 -->
     <string name="tab_home">홈</string>
-    <string name="tab_threads">편지함</string>
+    <string name="tab_threads">주고받음</string>
     <string name="tab_inbox">받은함</string>
     <string name="tab_connections">연결</string>
     <string name="tab_profile">프로필</string>
+
+    <!-- 강제 업데이트(iOS ForceUpdateView). 버튼은 iOS "App Store에서 업데이트"의 스토어 이름만 바꾼 것(의도한 차이). -->
+    <string name="force_update_title">업데이트가 필요해요</string>
+    <string name="force_update_detail">최신 버전으로 업데이트해야\n계속 사용할 수 있어요.</string>
+    <string name="force_update_button">Google Play에서 업데이트</string>
 </resources>

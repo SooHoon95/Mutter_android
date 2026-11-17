@@ -2,6 +2,8 @@ package com.efreedom.mutter.feature.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.efreedom.mutter.domain.analytics.Analytics
+import com.efreedom.mutter.domain.analytics.AnalyticsEvent
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.usecase.ProfileUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,6 +29,7 @@ data class NicknameUiState(
 @HiltViewModel
 class NicknameViewModel @Inject constructor(
     private val profileUseCase: ProfileUseCase,
+    private val analytics: Analytics,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(NicknameUiState())
@@ -38,11 +41,17 @@ class NicknameViewModel @Inject constructor(
         _state.value = _state.value.copy(nickname = value, error = null)
     }
 
+    /** 로그아웃 뒤 다음 닉네임 화면은 새로 시작한다(앞 계정의 입력·완료 표시를 버린다). */
+    fun reset() {
+        _state.value = NicknameUiState()
+    }
+
     fun save() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             try {
                 profileUseCase.updateNickname(_state.value.nickname)
+                analytics.log(AnalyticsEvent.OnboardComplete)
                 _state.value = _state.value.copy(done = true)
             } catch (e: Throwable) {
                 val message = (e as? MutterError)?.userMessage ?: "닉네임을 저장하지 못했어요."

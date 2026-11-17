@@ -3,6 +3,7 @@ package com.efreedom.mutter.feature.compose
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,16 +29,20 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,6 +82,7 @@ import com.efreedom.mutter.uicomponent.theme.MutterText
  * 편지 제작 화면 — 편지지(테마) + 본문 + 음악 1곡 + 저장/발송.
  * iOS ComposeView 이식. 탐색은 onDone 콜백 단일 진입점.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComposeScreen(
     mode: ComposeMode,
@@ -107,9 +114,16 @@ fun ComposeScreen(
     // 보내기 시트보다 뒤에 그려야 그 위로 올라온다.
     state.checkoutRoute?.let { route -> ticketCheckout(route, viewModel::checkoutFinished) }
 
-    // 시스템 Photo Picker(이미지만) — 권한 요청 없이 고른 한 장만 앱에 넘어온다.
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let(viewModel::addPhoto)
+    // 시스템 Photo Picker(이미지만) — 권한 요청 없이 고른 사진만 앱에 넘어온다. iOS PhotosPicker(maxSelectionCount: 남은 칸).
+    // 다중 선택 계약은 maxItems > 1이어야 하므로 남은 칸이 1이면 단일 선택기를 쓴다. 두 런처는 조건 없이 항상 등록한다
+    // (조건부로 등록하면 남은 칸이 바뀔 때·프로세스 복원 때 결과를 받을 런처가 사라질 수 있다).
+    val singlePhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { viewModel.addPhotos(listOf(it)) }
+    }
+    val multiMaxItems = state.remainingPhotoSlots.coerceAtLeast(2)
+    val multiPhotoContract = remember(multiMaxItems) { ActivityResultContracts.PickMultipleVisualMedia(multiMaxItems) }
+    val multiPhotoPicker = rememberLauncherForActivityResult(multiPhotoContract) { uris ->
+        viewModel.addPhotos(uris)
     }
 
     if (state.showSoundCloudPicker) {
@@ -130,14 +144,31 @@ fun ComposeScreen(
             key(source) { source.Attachment() }
         }
 
-        // 상단 뒤로 헤더는 두지 않는다 — 안드로이드는 시스템 뒤로(제스처/버튼)로 이 화면을 벗어난다.
-        // NavHost 목적지라 시스템 뒤로가 popBackStack을 그대로 수행하므로 별도 처리가 필요 없다.
         // 시스템 바 영역은 여기서 피한다. 배경(Ivory)은 위 Box가 화면 전체를 칠하고 콘텐츠만 들인다.
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding(),
         ) {
+            // 제목은 들어온 라우트(mode)로 고정한다 — 첫 저장 뒤 VM이 Edit로 승격해도 "편지 쓰기"는 그대로(iOS와 같음).
+            // navigationIcon 없음 — 화면 이탈은 시스템 뒤로로만 한다. 인셋은 위 systemBarsPadding이 이미 맡는다.
+            TopAppBar(
+                title = {
+                    Text(
+                        text = stringResource(
+                            when (mode) {
+                                ComposeMode.New -> R.string.compose_nav_new
+                                is ComposeMode.Edit -> R.string.compose_nav_edit
+                                is ComposeMode.Reply -> R.string.compose_nav_reply
+                            },
+                        ),
+                        style = MutterText.headline,
+                        color = Ink,
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Ivory),
+                windowInsets = WindowInsets(0),
+            )
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -160,18 +191,33 @@ fun ComposeScreen(
                     onTextFocused = viewModel::onTextBlockFocused,
                     onRemovePhoto = viewModel::removePhoto,
                 )
-                MutterButton(
-                    text = if (state.isAddingPhoto) {
-                        stringResource(R.string.compose_photo_adding)
-                    } else {
-                        stringResource(R.string.compose_photo_add, state.photoCount, LetterPhoto.MAX_PER_LETTER)
-                    },
-                    onClick = {
-                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    },
-                    style = MutterButtonStyle.Secondary,
-                    enabled = state.canAddPhoto,
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    MutterButton(
+                        text = stringResource(R.string.compose_photo_add),
+                        onClick = {
+                            val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            if (state.remainingPhotoSlots == 1) {
+                                singlePhotoPicker.launch(request)
+                            } else {
+                                multiPhotoPicker.launch(request)
+                            }
+                        },
+                        style = MutterButtonStyle.Secondary,
+                        enabled = state.canAddPhoto,
+                        isLoading = state.isAddingPhoto,
+                    )
+                    // 다 찼을 때만 한도 안내(iOS photoSection).
+                    if (state.remainingPhotoSlots == 0) {
+                        Text(
+                            text = stringResource(R.string.compose_photo_limit),
+                            style = MutterText.caption,
+                            color = InkFaint,
+                        )
+                    }
+                }
                 MusicSection(
                     state = state,
                     isPlaying = viewModel.player.isPlaying,
@@ -234,13 +280,26 @@ private fun ThemePicker(
                         )
                 )
                 Text(
-                    text = theme.name,
+                    text = themeNameRes(theme.id)?.let { stringResource(it) } ?: theme.name,
                     style = MutterText.caption,
                     color = if (isSelected) Ink else InkSoft,
                 )
             }
         }
     }
+}
+
+/** 테마 칩 이름 — iOS `theme.<id>.name`(ko/en). 모르는 id면 null(호출부가 `LetterTheme.name`으로 폴백). */
+@StringRes
+private fun themeNameRes(id: String): Int? = when (id) {
+    "classic-serif" -> R.string.compose_theme_classic_serif
+    "modern-minimal" -> R.string.compose_theme_modern_minimal
+    "warm-craft" -> R.string.compose_theme_warm_craft
+    "night-sky" -> R.string.compose_theme_night_sky
+    "spring-day" -> R.string.compose_theme_spring_day
+    "vintage-typewriter" -> R.string.compose_theme_vintage_typewriter
+    "pure-space" -> R.string.compose_theme_pure_space
+    else -> null
 }
 
 // ─── 편지지(paper) ─────────────────────────────────────────────────────────────
@@ -297,7 +356,7 @@ private fun PaperSection(
             decorationBox = { innerTextField ->
                 Box(modifier = Modifier.fillMaxWidth()) {
                     if (title.isEmpty()) {
-                        Text("제목", style = titleStyle.copy(color = theme.muted))
+                        Text(stringResource(R.string.compose_title_placeholder), style = titleStyle.copy(color = theme.muted))
                     }
                     innerTextField()
                 }
@@ -308,6 +367,7 @@ private fun PaperSection(
 
         // 본문 블록 — 사진이 없으면 예전처럼 큰 텍스트 칸 하나, 있으면 사진 사이 칸은 한 줄 높이부터.
         val singleBlock = blocks.size == 1
+        val firstId = blocks.firstOrNull()?.id
         val lastTextId = blocks.lastOrNull { it is ComposeBlock.Text }?.id
         blocks.forEach { block ->
             key(block.id) {
@@ -329,8 +389,12 @@ private fun PaperSection(
                             .onFocusChanged { if (it.isFocused) onTextFocused(block.id) },
                         decorationBox = { innerTextField ->
                             Box(modifier = Modifier.fillMaxWidth()) {
-                                if (singleBlock && block.text.isEmpty()) {
-                                    Text("편지를 써보세요.", style = bodyStyle.copy(color = theme.muted))
+                                // 첫 칸이 비었을 때만 안내 — 사진 뒤 빈 칸에는 없다(iOS textBlock isFirst).
+                                if (block.id == firstId && block.text.isEmpty()) {
+                                    Text(
+                                        stringResource(R.string.compose_body_placeholder),
+                                        style = bodyStyle.copy(color = theme.muted),
+                                    )
                                 }
                                 innerTextField()
                             }
@@ -406,18 +470,25 @@ private fun MusicSection(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            text = "음악",
+            text = stringResource(R.string.compose_music_section),
             style = MutterText.captionBold,
             color = InkFaint,
         )
 
         // 선택된 큐 플레이어 바(골드 배경 + 미리듣기 버튼)
-        if (state.cue != null) {
+        val cue = state.cue
+        if (cue != null) {
+            // 선택된 음악 이름(명사구) — iOS appliedCueLabel. 제목 있는 SC 곡은 굽은 따옴표로 감싼다.
+            val cueLabel = when (cue.source) {
+                MusicSource.SOUNDCLOUD -> cue.title?.let { stringResource(R.string.compose_music_title_quoted, it) }
+                    ?: stringResource(R.string.compose_music_soundcloud_track)
+                MusicSource.HOSTED -> stringResource(R.string.compose_music_default)
+            }
             CuePlayerBar(
-                label = state.appliedCueLabel ?: "선택된 음악",
+                label = cueLabel,
                 isPlaying = isPlaying,
                 isUnavailable = isUnavailable,
-                soundCloudUrl = state.cue?.takeIf { it.source == MusicSource.SOUNDCLOUD }
+                soundCloudUrl = cue.takeIf { it.source == MusicSource.SOUNDCLOUD }
                     ?.let { it.sourceUrl ?: it.ref },
                 onToggle = onPreview,
             )
@@ -440,7 +511,7 @@ private fun MusicSection(
                 onValueChange = onUrlChange,
                 placeholder = {
                     Text(
-                        text = "SoundCloud 링크를 붙여넣어 주세요",
+                        text = stringResource(R.string.compose_soundcloud_placeholder),
                         style = MutterText.bodySmall,
                     )
                 },
@@ -453,7 +524,9 @@ private fun MusicSection(
                 enabled = !state.isApplyingSoundCloud && state.soundcloudUrl.isNotBlank(),
             ) {
                 Text(
-                    text = if (state.isApplyingSoundCloud) "적용 중..." else "적용",
+                    text = stringResource(
+                        if (state.isApplyingSoundCloud) R.string.compose_applying else R.string.compose_apply,
+                    ),
                     style = MutterText.captionBold,
                     color = GoldDeep,
                 )
@@ -462,7 +535,7 @@ private fun MusicSection(
 
         if (isUnavailable) {
             Text(
-                text = "음악을 재생할 수 없어요.",
+                text = stringResource(R.string.compose_music_unavailable),
                 style = MutterText.caption,
                 color = InkFaint,
             )
@@ -520,7 +593,7 @@ private fun CuePlayerBar(
 // ─── 액션 버튼 ────────────────────────────────────────────────────────────────
 
 /**
- * 답장이면 "답장 보내기" + "임시저장", 신규·이어쓰기면 "저장하고 보내기" + "임시저장".
+ * 답장이면 "답장 보내기" + "임시 저장", 신규·이어쓰기면 "저장하고 보내기" + "임시 저장".
  * iOS actions 섹션 이식.
  */
 @Composable
@@ -535,12 +608,12 @@ private fun ActionsSection(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         MutterButton(
-            text = if (isReply) "답장 보내기" else "저장하고 보내기",
+            text = stringResource(if (isReply) R.string.compose_reply_send else R.string.compose_save_and_send),
             onClick = onSend,
             isLoading = isSaving,
         )
         MutterButton(
-            text = "임시저장",
+            text = stringResource(R.string.compose_draft),
             onClick = onSave,
             style = MutterButtonStyle.Secondary,
             isLoading = isSaving,

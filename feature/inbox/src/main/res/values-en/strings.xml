@@ -1,0 +1,24 @@
+<resources>
+    <string name="inbox_access_permanent">Permanent</string>
+    <string name="inbox_access_days_left">%1$d days left</string>
+    <string name="inbox_title">Inbox</string>
+    <string name="inbox_trash_title">Received Letters Trash</string>
+    <string name="inbox_edit">Edit</string>
+    <string name="inbox_done">Done</string>
+    <string name="inbox_select_all">Select All</string>
+    <string name="inbox_deselect_all">Deselect All</string>
+    <string name="inbox_delete_selected">Delete (%1$d)</string>
+    <string name="inbox_delete">Delete</string>
+    <string name="inbox_untitled">Untitled Letter</string>
+    <string name="inbox_selected">Selected</string>
+    <string name="inbox_empty">No letters received</string>
+    <string name="inbox_moved_to_trash">Moved to Trash</string>
+    <string name="inbox_moved_to_trash_many">Moved %1$d letters to Trash</string>
+    <string name="inbox_trash_restored">Letter restored</string>
+    <string name="inbox_trash_notice">Deleted letters are kept for 30 days, then permanently removed from your Inbox.</string>
+    <string name="inbox_trash_sender">From: %1$s</string>
+    <string name="inbox_trash_unknown_sender">Unknown</string>
+    <string name="inbox_trash_purge_confirm">Delete permanently?</string>
+    <string name="inbox_trash_purge_detail">It\'s removed only from your Inbox. Opening the link again will add it back.</string>
+    <string name="inbox_cancel">Cancel</string>
+</resources>

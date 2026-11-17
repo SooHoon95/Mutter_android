@@ -1,0 +1,38 @@
+<resources>
+    <!-- Home screen — iOS HomeView copy (home.*, common.*) -->
+    <string name="home_compose">Write New Letter</string>
+    <string name="home_tab_sent">Sent</string>
+    <string name="home_tab_draft">Drafts</string>
+    <string name="home_sent_count">Sent Letters</string>
+    <string name="home_sent_unit">sent · %1$d read</string>
+    <plurals name="home_opened">
+        <item quantity="one">Opened %1$d time</item>
+        <item quantity="other">Opened %1$d times</item>
+    </plurals>
+    <string name="home_not_opened">Not opened yet</string>
+    <string name="home_draft_in_progress">Draft · tap to continue</string>
+    <string name="home_writing">Writing</string>
+    <string name="home_read">Read</string>
+    <string name="home_unread">Unread</string>
+    <string name="home_empty_sent">No sent letters yet</string>
+    <string name="home_empty_draft">No saved drafts</string>
+    <string name="home_trash">Sent Letters Trash</string>
+    <string name="home_moved_to_trash">Moved to Trash</string>
+    <string name="home_untitled">Untitled Letter</string>
+    <string name="home_delete">Delete</string>
+    <string name="home_cancel">Cancel</string>
+    <string name="home_access_permanent">Permanent</string>
+    <plurals name="home_access_days_left">
+        <item quantity="one">%1$d day left</item>
+        <item quantity="other">%1$d days left</item>
+    </plurals>
+    <!-- Android-only (no iOS source): second sentence of iOS trash.purgeConfirmDetail -->
+    <string name="home_sent_delete_kept_notice">It stays in the Inbox of anyone who already received it.</string>
+
+    <!-- Sent letters trash — iOS TrashView copy (trash.*) -->
+    <string name="trash_title">Sent Letters Trash</string>
+    <string name="trash_notice">Deleted letters are kept for 30 days, then permanently deleted.</string>
+    <string name="trash_purge_confirm">Delete permanently?</string>
+    <string name="trash_purge_confirm_detail">This can\'t be undone. It stays in the Inbox of anyone who already received it.</string>
+    <string name="trash_restored">Letter restored</string>
+</resources>

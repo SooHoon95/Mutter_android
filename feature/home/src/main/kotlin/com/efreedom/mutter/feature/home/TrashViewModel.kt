@@ -39,18 +39,18 @@ class TrashViewModel @Inject constructor(
             try {
                 _state.value = _state.value.copy(letters = letterUseCase.deletedLetters())
             } catch (e: Throwable) {
-                _state.value = _state.value.copy(error = message(e, "삭제함을 불러올 수 없었어요."))
+                _state.value = _state.value.copy(error = message(e, "삭제함을 불러오지 못했어요."))
             } finally {
                 _state.value = _state.value.copy(isLoading = false, hasLoaded = true)
             }
         }
     }
 
-    fun restore(id: String) = act(id, failure = "되살릴 수 없었어요.", onSuccess = {
+    fun restore(id: String) = act(id, failure = "되살리지 못했어요.", onSuccess = {
         it.copy(restoredCount = it.restoredCount + 1)
     }) { letterUseCase.restore(id) }
 
-    fun purge(id: String) = act(id, failure = "완전히 삭제할 수 없었어요.") { letterUseCase.purge(id) }
+    fun purge(id: String) = act(id, failure = "삭제하지 못했어요.") { letterUseCase.purge(id) }
 
     /**
      * 행 동작 공통 흐름: 서버 성공 뒤에만 행을 뺀다(되돌릴 수 없는 영구 삭제라 낙관적 제거를 하지 않는다).

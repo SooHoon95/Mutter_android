@@ -1,0 +1,29 @@
+<resources>
+    <!-- Permanent letter contract copy (iOS access.* en) -->
+    <string name="delivery_access_permanent">Permanent</string>
+    <string name="delivery_access_days_left">%1$d days left</string>
+    <string name="delivery_free_days_notice">Opens for %1$d days from the day the recipient first opens it. It is deleted %2$d days after it closes.</string>
+    <string name="delivery_locked_notice">This letter is closed. It will be deleted on %1$d/%2$d.</string>
+    <string name="delivery_locked_ticket_hint">Use a ticket to reopen it and keep it from being deleted.</string>
+    <string name="delivery_make_permanent">Make permanent · 1 ticket</string>
+    <string name="delivery_duplicate">Send another with the same content</string>
+    <!-- Share link screen (iOS delivery.* · send.* · common.* en) -->
+    <string name="delivery_nav">Share Link</string>
+    <string name="delivery_link_send">Send via Link</string>
+    <string name="delivery_preview">Preview Letter</string>
+    <string name="delivery_password_title">Password Protection</string>
+    <string name="delivery_password">Password</string>
+    <string name="delivery_reveal">Scheduled Reveal</string>
+    <string name="delivery_reveal_at">Reveal Time</string>
+    <string name="delivery_issue">Create Link</string>
+    <string name="delivery_issued">Created Links</string>
+    <string name="delivery_revoke">Revoke</string>
+    <string name="delivery_revoked">Revoked</string>
+    <string name="delivery_share">Share</string>
+    <string name="delivery_copy_link">Copy Link</string>
+    <string name="delivery_confirm">Confirm</string>
+    <string name="delivery_cancel">Cancel</string>
+    <!-- Issued link row tags (Android-only, proposed English) -->
+    <string name="delivery_tag_password">Password</string>
+    <string name="delivery_tag_reveal">Scheduled</string>
+</resources>

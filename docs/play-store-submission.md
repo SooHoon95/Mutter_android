@@ -32,18 +32,18 @@ export ANDROID_HOME="$HOME/Library/Android/sdk"
 | 개인 정보 | 이메일 주소 | O | X | 필수 | 계정 관리 |
 | 개인 정보 | 사용자 ID | O | X | 필수 | 앱 기능, 계정 관리 |
 | 메시지 | 기타 인앱 메시지 (편지 제목·본문) | O | X | 필수 | 앱 기능 |
-| 앱 활동 | 앱 상호작용 (편지 열람 기록) | O | X | 필수 | 앱 기능 |
+| 앱 활동 | 앱 상호작용 (편지 열람 기록, GA4 화면·이벤트) | O | X | 필수 | 앱 기능, 분석 |
+| 기기 또는 기타 ID | 기기 ID (Firebase 앱 인스턴스 ID — GA4) | O | X | 필수 | 분석 |
 
 **공유(Sharing)는 전부 "아니요".** Supabase·Vercel은 회사를 대신해 처리하는 서비스 제공업체이므로 Play 기준의 '공유'에 해당하지 않는다.
 
 ### 1.2 수집하지 **않는** 것 (설문에서 체크 해제)
 - 위치, 주소록, 사진·동영상, 파일, 캘린더, 통화 기록, 마이크
 - 결제 정보 (인앱 결제 없음)
-- 광고 ID, 기기 ID (광고 SDK 없음)
+- 광고 ID (광고 SDK 없음. GA4 광고 ID 수집 끔 + `AD_ID`·AdServices 권한 매니페스트에서 제거)
 - 크래시 로그·진단 정보 (Crashlytics 등 미탑재)
-- 분석 데이터 (Analytics SDK 미탑재)
 
-> 확인 근거: `libs.versions.toml`·모듈 `build.gradle.kts`에 Firebase/Analytics/Crashlytics/Ads 의존성 없음. 매니페스트 권한은 `INTERNET`, `ACCESS_NETWORK_STATE` 둘뿐.
+> 확인 근거: Crashlytics/Ads 의존성 없음. Firebase Analytics(GA4)는 탑재 — 이메일·닉네임·편지 내용·사용자 ID는 보내지 않고 광고 개인화 신호·광고 ID 수집을 끈다(계약: iOS 저장소 `docs/specs/2026-11-16-analytics.md`).
 
 > **푸시 알림:** `PushTokenRepository` 코드는 있으나 FCM 의존성과 `google-services.json`이 없어 **런타임에 토큰을 수집하지 않는다.** 나중에 푸시를 붙이면 데이터 보안에 "기기 ID 또는 기타 ID"를 추가해야 한다.
 

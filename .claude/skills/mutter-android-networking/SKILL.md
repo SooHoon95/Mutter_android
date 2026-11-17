@@ -60,6 +60,8 @@ supabase-kt 직렬화기는 `encodeDefaults=false`라 값이 기본값(null)과 
 | `*NOT_FOUND` / `FORBIDDEN` | `NotFound` / `Unauthorized` |
 | 그 외 | `Unknown` |
 
+`verify-purchase` 403 `not_tester` → `PurchaseUnavailable`(·`account_mismatch` → `PurchaseAccountMismatch`)은 매퍼가 아니라 `TicketRepositoryImpl.verifyPurchase`에서 상태 코드+본문으로 판정한다(iOS `StoreKitTicketPurchaser`와 같은 위치). 매퍼로 옮기지 않는다.
+
 `MutterError`(`:domain`)는 `sealed class MutterError(open val userMessage: String) : Exception()`. 새 서버 코드는 케이스·한국어 문구·매퍼를 같이 추가하고 iOS `SupabaseErrorMapper.swift`도 맞춘다.
 
 ## 자가 점검

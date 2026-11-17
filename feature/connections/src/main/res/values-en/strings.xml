@@ -1,0 +1,29 @@
+<resources>
+    <!-- 연결 탭 — 영어. 문구는 iOS Localizable(en) 원문 -->
+    <string name="connections_title">Connections</string>
+    <string name="connections_connected">Connected People</string>
+    <string name="connections_person_fallback">Connection</string>
+    <string name="connections_empty">No connections yet</string>
+    <string name="connections_more">Connect with more people</string>
+    <string name="connections_invite_hint">Send an invite link to connect.</string>
+    <string name="connections_invite_cancel">Cancel Invite</string>
+    <string name="connections_invite_create">Create Invite Link</string>
+    <string name="connections_disconnect">Disconnect</string>
+    <string name="connections_disconnect_confirm">Disconnect?</string>
+    <string name="connections_disconnect_detail">Your letters and inbox remain, but you can no longer send to each other.</string>
+    <string name="connections_cancel">Cancel</string>
+    <string name="connections_copy">Copy</string>
+    <string name="connections_share">Share</string>
+
+    <string name="invite_title">Invitation</string>
+    <string name="invite_someone">Someone</string>
+    <string name="invite_request">%1$s\nwants to connect</string>
+    <string name="invite_connect">Connect</string>
+    <string name="invite_connected_title">Connected</string>
+    <string name="invite_connected_detail">Now you can send letters to each other.</string>
+    <string name="invite_self">This is your own invitation.</string>
+    <string name="invite_already_connected">You\'re already connected.</string>
+    <string name="invite_unavailable">Can\'t connect right now.</string>
+    <string name="invite_failed_title">Can\'t Connect</string>
+    <string name="invite_retry">Try Again</string>
+</resources>

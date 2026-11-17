@@ -32,6 +32,7 @@ import androidx.navigation.NavController
 import com.efreedom.mutter.uicomponent.R as DsR
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.efreedom.mutter.uicomponent.component.WhatsNewScreen
@@ -41,6 +42,7 @@ import com.efreedom.mutter.uicomponent.theme.Ivory
 import com.efreedom.mutter.core.navigation.FeatureRoute
 import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
 import com.efreedom.mutter.domain.AppLink
+import com.efreedom.mutter.domain.analytics.AnalyticsScreen
 import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.feature.compose.ComposeMode
 import com.efreedom.mutter.feature.compose.ComposeScreen
@@ -51,7 +53,6 @@ import com.efreedom.mutter.feature.home.HomeScreen
 import com.efreedom.mutter.feature.home.TrashScreen
 import com.efreedom.mutter.feature.inbox.InboxScreen
 import com.efreedom.mutter.feature.inbox.InboxTrashScreen
-import com.efreedom.mutter.feature.legal.LegalDocScreen
 import com.efreedom.mutter.feature.legal.TakedownScreen
 import com.efreedom.mutter.feature.profile.ProfileScreen
 import com.efreedom.mutter.feature.threads.ThreadsScreen
@@ -68,24 +69,26 @@ import kotlinx.serialization.Serializable
  * 화면은 "무엇을 위해"([TicketCheckoutRoute])만 정하고, 닫히면 완료 여부를 돌려받는다.
  */
 internal val ticketCheckoutSheet: @Composable (TicketCheckoutRoute, (Boolean) -> Unit) -> Unit = { route, onFinish ->
+    TrackScreen(AnalyticsScreen.TICKET_CHECKOUT)
     TicketCheckoutSheet(route = route, onFinish = onFinish)
 }
 
-/** 탭 호스트 루트 목적지 — 직렬화 가능하도록 @Serializable 선언. */
+/** 탭 호스트 루트 목적지 — 직렬화 가능하도록 @Serializable 선언. 화면 기록([analyticsScreen])이 같은 모듈에서 판별한다. */
 @Serializable
-private data object MainTabs
+internal data object MainTabs
 
 /** 하단 탭 정의 — iOS 커스텀 탭 아이콘(라인/채움 페어) 사용. */
 private enum class AppTab(
     @StringRes val label: Int,
     @DrawableRes val icon: Int,
     @DrawableRes val iconFill: Int,
+    val screen: AnalyticsScreen,
 ) {
-    HOME(R.string.tab_home, DsR.drawable.tab_home, DsR.drawable.tab_home_fill),
-    THREADS(R.string.tab_threads, DsR.drawable.tab_thread, DsR.drawable.tab_thread_fill),
-    INBOX(R.string.tab_inbox, DsR.drawable.tab_inbox, DsR.drawable.tab_inbox_fill),
-    CONNECTIONS(R.string.tab_connections, DsR.drawable.tab_people, DsR.drawable.tab_people_fill),
-    PROFILE(R.string.tab_profile, DsR.drawable.tab_profile, DsR.drawable.tab_profile_fill),
+    HOME(R.string.tab_home, DsR.drawable.tab_home, DsR.drawable.tab_home_fill, AnalyticsScreen.HOME),
+    THREADS(R.string.tab_threads, DsR.drawable.tab_thread, DsR.drawable.tab_thread_fill, AnalyticsScreen.THREADS),
+    INBOX(R.string.tab_inbox, DsR.drawable.tab_inbox, DsR.drawable.tab_inbox_fill, AnalyticsScreen.INBOX),
+    CONNECTIONS(R.string.tab_connections, DsR.drawable.tab_people, DsR.drawable.tab_people_fill, AnalyticsScreen.CONNECTIONS),
+    PROFILE(R.string.tab_profile, DsR.drawable.tab_profile, DsR.drawable.tab_profile_fill, AnalyticsScreen.PROFILE),
 }
 
 /**
@@ -110,6 +113,12 @@ fun MutterNavHost(
     onWhatsNewClosed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+    // 선택된 탭 — 탭 호스트 Scaffold와 화면 기록이 함께 본다. rememberSaveable로 재구성 후에도 유지.
+    var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
+
+    // 화면 기록 — 현재 목적지(탭 호스트면 선택된 탭)가 바뀔 때마다 screen_view 한 번.
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    TrackScreen(backStackEntry?.destination?.analyticsScreen(AppTab.entries[selectedTabIndex].screen))
 
     // 바깥(알림 탭·편지 오버레이)에서 들어온 목적지 — 메인이 뜬 뒤 한 번 이동하고 비운다.
     LaunchedEffect(pendingRoute) {
@@ -133,7 +142,12 @@ fun MutterNavHost(
         // ─── 탭 호스트 ─────────────────────────────────────────────────────
         composable<MainTabs> {
             Box(modifier = Modifier.fillMaxSize()) {
-                MainScaffold(navController = navController, onSignedOut = onSignedOut)
+                MainScaffold(
+                    navController = navController,
+                    onSignedOut = onSignedOut,
+                    selectedIndex = selectedTabIndex,
+                    onSelect = { selectedTabIndex = it },
+                )
 
                 // 새 소식 안내(업데이트한 사람에게 한 번) — 탭 화면 위를 하단 탭까지 덮는다.
                 // 이 목적지가 보일 때만 그려지므로 상세 화면이나 편지 위에는 뜨지 않는다.
@@ -237,9 +251,6 @@ fun MutterNavHost(
         composable<FeatureRoute.Takedown> {
             TakedownScreen()
         }
-        composable<FeatureRoute.Terms> {
-            LegalDocScreen(title = "이용약관")
-        }
     }
 }
 
@@ -248,15 +259,16 @@ fun MutterNavHost(
 /**
  * 5탭 NavigationBar + 탭별 화면 전환 Scaffold.
  *
- * 탭 선택 상태는 [rememberSaveable]로 재구성 후에도 유지.
+ * 탭 선택 상태는 [MutterNavHost]가 들고 있다(화면 기록이 같은 값을 본다).
  * 탭 콜백 → NavController로 Detail 화면 push.
  */
 @Composable
 private fun MainScaffold(
     navController: NavController,
     onSignedOut: () -> Unit,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
 ) {
-    var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
     val tabs = AppTab.entries
     val context = LocalContext.current
 
@@ -267,7 +279,7 @@ private fun MainScaffold(
                     val selected = selectedIndex == index
                     NavigationBarItem(
                         selected = selected,
-                        onClick = { selectedIndex = index },
+                        onClick = { onSelect(index) },
                         icon = {
                             Icon(
                                 painter = painterResource(if (selected) tab.iconFill else tab.icon),
@@ -315,9 +327,8 @@ private fun MainScaffold(
                 AppTab.PROFILE -> ProfileScreen(
                     onSignedOut = onSignedOut,
                     onReport = { navController.navigate(FeatureRoute.Takedown) },
-                    // 이용약관 정식본은 웹에 하나만 둔다(처리방침과 같은 방식).
+                    // 약관·처리방침은 웹 정식본을 연다(실제 수집 항목·데이터 보안 양식과 같은 문서 하나만 유지).
                     onTerms = { openExternal(context, AppLink.terms()) },
-                    // 처리방침은 웹 정식본을 연다(실제 수집 항목·데이터 보안 양식과 같은 문서 하나만 유지).
                     onPrivacy = { openExternal(context, AppLink.privacyPolicy()) },
                     onOpenTickets = { navController.navigate(FeatureRoute.Tickets) { launchSingleTop = true } },
                     onOpenWhatsNew = { freeDays, graceDays ->

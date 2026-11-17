@@ -8,6 +8,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
+import com.efreedom.mutter.domain.analytics.Analytics
+import com.efreedom.mutter.domain.analytics.AnalyticsEvent
+import com.efreedom.mutter.domain.analytics.LetterOpenSource
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.domain.model.LetterCover
@@ -42,7 +45,7 @@ sealed interface ViewerState {
     /** 예약공개 전 — [revealAt] 시각에 열림 */
     data class RevealPending(val revealAt: Instant) : ViewerState
 
-    /** 편지 로드 완료 — 게이트(▶) 통과 전/후 구분은 [ViewerViewModel.isOpened]로 한다 */
+    /** 편지 로드 완료 — 게이트("편지 열기") 통과 전/후 구분은 [ViewerViewModel.isOpened]로 한다 */
     data class Ready(val payload: LetterPayload) : ViewerState
 
     /** 복구 불가 오류 */
@@ -79,6 +82,7 @@ class ViewerViewModel @Inject constructor(
     private val letterPhotoUseCase: LetterPhotoUseCase,
     private val letterAccessUseCase: LetterAccessUseCase,
     private val ticketUseCase: TicketUseCase,
+    private val analytics: Analytics,
     audioUseCase: AudioUseCase,
 ) : ViewModel() {
 
@@ -94,7 +98,7 @@ class ViewerViewModel @Inject constructor(
     private val _state = MutableStateFlow<ViewerState>(ViewerState.Loading)
     val state: StateFlow<ViewerState> = _state.asStateFlow()
 
-    /** "열기 ▶" 게이트 통과 여부 — mutableStateOf로 Compose 리컴포즈 트리거. */
+    /** "편지 열기" 게이트 통과 여부 — mutableStateOf로 Compose 리컴포즈 트리거. */
     var isOpened by mutableStateOf(false)
         private set
 
@@ -113,7 +117,7 @@ class ViewerViewModel @Inject constructor(
     var photoUrls by mutableStateOf<Map<String, String>>(emptyMap())
         private set
 
-    /** 잠긴 편지 "편지권으로 간직하기" 진행 중. */
+    /** 간직하기 진행 중(잠김 화면·편지 끝 공통). */
     var isKeeping by mutableStateOf(false)
         private set
 
@@ -133,8 +137,8 @@ class ViewerViewModel @Inject constructor(
         private set
 
     /**
-     * 받은 사람(로그인·`is_mine == false`)이 연 기간 제한 편지 — 편지 끝 안내("이 편지는 {M}월 {D}일까지 열려요")를 보인다.
-     * 영구 편지·익명·내 편지(`is_mine`)면 false.
+     * 받은 사람(로그인·`is_mine == false`)이 연 기간 제한 편지 — 편지 끝 안내의 간직 버튼을 [canKeep]과 함께 정한다
+     * (안내 문장 노출은 [isTokenViewer]·[isSignedIn]과 편지 값이 정한다). 영구 편지·익명·내 편지(`is_mine`)면 false.
      */
     var isRecipient by mutableStateOf(false)
         private set
@@ -158,8 +162,16 @@ class ViewerViewModel @Inject constructor(
     var isKept by mutableStateOf(false)
         private set
 
-    /** 로그인 상태 — 봉투의 "편지 열기"가 로그인으로 갈지, 그냥 다시 불러올지 정한다. */
+    /** 로그인 상태 — 봉투의 "편지 열기"(로그인으로 가는 버튼)는 로그아웃 상태에서만 보인다(iOS는 로그인 상태에서 콜백을 nil로 넘긴다). */
     var isSignedIn by mutableStateOf(false)
+        private set
+
+    /** 링크(토큰)로 연 편지인지 — 편지 끝 안내는 토큰 수신에서만 보인다(iOS `case .token = source`). [start]에서 정한다. */
+    var isTokenViewer by mutableStateOf(false)
+        private set
+
+    /** 암호 화면 입력값 — 화면이 아니라 여기 두어 `Loading`을 거쳐 암호 화면이 다시 떠도 남는다. */
+    var passwordInput by mutableStateOf("")
         private set
 
     private var source: Source? = null
@@ -178,11 +190,9 @@ class ViewerViewModel @Inject constructor(
             return
         }
         source = src
+        isTokenViewer = src is Source.Token
         load()
     }
-
-    /** 봉투가 로그인 상태에서 떴을 때(세션 꼬임 등)의 "편지 열기" — 다시 불러온다. */
-    fun reload() = load()
 
     /**
      * 간직하기를 눌렀다(편지 끝·닫힘 예고·잠김 화면 공통) — 편지권이 있으면 바로 쓰고, 없으면 결제 안내 시트를 띄운다.
@@ -217,6 +227,7 @@ class ViewerViewModel @Inject constructor(
             keepError = null
             try {
                 letterAccessUseCase.keepReceived(src.token, password)
+                analytics.log(AnalyticsEvent.LetterKeep)
                 onKept()
             } catch (e: MutterError.NoTicket) {
                 if (canPurchase) {
@@ -252,19 +263,26 @@ class ViewerViewModel @Inject constructor(
         canPurchase = entitlements.canPurchase
     }
 
-    /** 암호 입력 후 재시도. */
-    fun submitPassword(pw: String) {
-        password = pw
+    fun updatePassword(value: String) {
+        passwordInput = value
+    }
+
+    /** 입력한 암호로 다시 연다. 입력값은 지우지 않는다 — 틀려도 암호 화면에 그대로 남는다(iOS `model.password`). */
+    fun submitPassword() {
+        password = passwordInput
         load()
     }
 
     /**
-     * "열기 ▶" 버튼 탭 — 사용자 제스처 컨텍스트에서 호출해야 한다(SoundCloud 오디오 언락).
+     * "편지 열기" 버튼 탭 — 사용자 제스처 컨텍스트에서 호출해야 한다(SoundCloud 오디오 언락).
      * [player.start]를 동기 호출한 뒤, 토큰 수신이면 읽음 기록을 fire-and-forget으로 전송한다.
      */
     fun open() {
         isOpened = true
         player.start()
+        // 본문은 이 게이트를 지나야 보인다(두 출처 모두) → letter_open은 로드 성공이 아니라 여기서.
+        val openSource = if (source is Source.MyLetter) LetterOpenSource.MY_LETTER else LetterOpenSource.LINK
+        analytics.log(AnalyticsEvent.LetterOpen(openSource))
         (source as? Source.Token)?.let { s ->
             viewModelScope.launch {
                 runCatching { receiptUseCase.recordOpen(s.token) }
@@ -290,11 +308,11 @@ class ViewerViewModel @Inject constructor(
             .onSuccess {
                 // 간직 안내는 오디오 준비(present)를 기다리지 않게 따로 받는다.
                 if (isSignedIn && !it.isPermanent && !it.isMine) viewModelScope.launch { loadKeepOffer() }
-                present(it)
-                // 로그인 상태면 서버가 받은함에 자동 저장했으므로 표시(익명 수신자는 표시 안 함).
+                // 로그인 상태면 서버가 받은함에 자동 저장했으므로 표시(익명 수신자는 표시 안 함). iOS처럼 present 전에 세운다.
                 if (isSignedIn) {
                     savedToInbox = true
                 }
+                present(it)
             }
             .onFailure { e ->
                 _state.value = when (e) {
@@ -313,7 +331,7 @@ class ViewerViewModel @Inject constructor(
                     }
                     is MutterError.LetterGone -> ViewerState.Gone
                     is MutterError -> ViewerState.Failed(e.userMessage)
-                    else -> ViewerState.Failed("편지를 불러오지 못했어요.")
+                    else -> ViewerState.Failed("편지를 불러올 수 없어요.")
                 }
             }
     }
@@ -352,7 +370,7 @@ class ViewerViewModel @Inject constructor(
             .onFailure { e ->
                 _state.value = when (e) {
                     is MutterError -> ViewerState.Failed(e.userMessage)
-                    else -> ViewerState.Failed("편지를 불러오지 못했어요.")
+                    else -> ViewerState.Failed("편지를 불러올 수 없어요.")
                 }
             }
     }

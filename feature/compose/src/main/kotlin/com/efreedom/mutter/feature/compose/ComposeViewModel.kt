@@ -6,7 +6,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.core.audiosync.LetterAudioPlayer
 import com.efreedom.mutter.domain.AppLink
+import com.efreedom.mutter.domain.analytics.Analytics
+import com.efreedom.mutter.domain.analytics.AnalyticsEvent
 import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
+import com.efreedom.mutter.domain.error.LetterPhotoSaveException
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Connection
 import com.efreedom.mutter.domain.model.DeliveryLink
@@ -42,6 +45,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.math.max
 
 // ─── Mode ────────────────────────────────────────────────────────────────────
 
@@ -185,19 +189,13 @@ data class ComposeUiState(
 
     val photoCount: Int get() = blocks.count { it is ComposeBlock.Photo }
 
+    /** 더 넣을 수 있는 사진 수(iOS remainingPhotoSlots). 선택기 한도와 한도 안내에 쓴다. */
+    val remainingPhotoSlots: Int get() = max(0, LetterPhoto.MAX_PER_LETTER - photoCount)
+
     val canAddPhoto: Boolean get() = !isAddingPhoto && photoCount < LetterPhoto.MAX_PER_LETTER
 
     /** 전달 링크 발급 가능 여부(암호 ON이면 암호 입력 필수). */
     val canIssueLink: Boolean get() = if (usePassword) password.isNotEmpty() else true
-
-    /** 현재 선택된 음악 이름(명사구). null이면 미선택. */
-    val appliedCueLabel: String?
-        get() = cue?.let { c ->
-            when (c.source) {
-                MusicSource.SOUNDCLOUD -> c.title?.let { "'$it'" } ?: "사운드클라우드 트랙"
-                MusicSource.HOSTED -> "기본 음악"
-            }
-        }
 }
 
 // ─── ViewModel ───────────────────────────────────────────────────────────────
@@ -216,6 +214,7 @@ class ComposeViewModel @Inject constructor(
     private val audioUseCase: AudioUseCase,
     private val letterAccessUseCase: LetterAccessUseCase,
     private val ticketUseCase: TicketUseCase,
+    private val analytics: Analytics,
 ) : ViewModel() {
 
     /** Compose mutableStateOf 관찰 — 화면이 isPlaying/isReady/isUnavailable/currentSource를 읽는다. */
@@ -310,32 +309,49 @@ class ComposeViewModel @Inject constructor(
     // ─── 사진 ─────────────────────────────────────────────────────────────────
 
     /**
-     * Photo Picker로 고른 사진을 줄여(긴 변 2048·JPEG 80·EXIF 회전) 대기 사진으로 넣는다. 업로드는 저장 때.
-     * 위치는 마지막으로 포커스된 텍스트 블록 바로 뒤 — 사진 다음에 빈 텍스트 블록을 붙여 이어 쓸 수 있게 한다.
+     * Photo Picker로 고른 사진들을 고른 순서대로 줄여(긴 변 2048·JPEG 80·EXIF 회전) 대기 사진으로 넣는다. 업로드는 저장 때.
+     * 위치는 마지막으로 포커스된 텍스트 블록 바로 뒤 — 사진들 다음에 빈 텍스트 블록을 붙여 이어 쓸 수 있게 한다.
+     * 남은 칸보다 많이 오면(구형 기기 폴백 선택기) 앞에서부터 남은 칸만큼만 넣고 한도 안내를 보인다(B군 — iOS는 말없이 자름).
+     * 한 장이 깨져도 나머지는 넣고 "사진을 불러오지 못했어요…"를 보인다(iOS addPhotos와 같음).
      */
-    fun addPhoto(uri: Uri) {
-        if (!_state.value.canAddPhoto) return
-        _state.value = _state.value.copy(isAddingPhoto = true, error = null)
+    fun addPhotos(uris: List<Uri>) {
+        val remaining = _state.value.remainingPhotoSlots
+        if (uris.isEmpty() || _state.value.isAddingPhoto || remaining == 0) return
+        val overflow = uris.size > remaining
+        _state.value = _state.value.copy(
+            isAddingPhoto = true,
+            error = if (overflow) context.getString(R.string.compose_photo_limit) else null,
+        )
         viewModelScope.launch {
             try {
-                val processed = withContext(Dispatchers.Default) { PhotoProcessor.process(context, uri) }
-                val photo = LetterPhoto(
-                    id = newId(),
-                    path = null,
-                    width = processed.width,
-                    height = processed.height,
-                    pendingJpeg = processed.jpeg,
-                )
+                val photos = mutableListOf<ComposeBlock>()
+                for (uri in uris.take(remaining)) {
+                    try {
+                        val processed = withContext(Dispatchers.Default) { PhotoProcessor.process(context, uri) }
+                        photos += ComposeBlock.Photo(
+                            LetterPhoto(
+                                id = newId(),
+                                path = null,
+                                width = processed.width,
+                                height = processed.height,
+                                pendingJpeg = processed.jpeg,
+                            ),
+                        )
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        _state.value = _state.value.copy(error = context.getString(R.string.compose_photo_failed))
+                    }
+                }
+                if (photos.isEmpty()) return@launch
                 val blocks = _state.value.blocks
                 val anchor = blocks.indexOfFirst { it is ComposeBlock.Text && it.id == lastFocusedTextId }
                     .takeIf { it >= 0 }
                     ?: blocks.indexOfLast { it is ComposeBlock.Text }
                 val inserted = blocks.toMutableList().apply {
-                    addAll(anchor + 1, listOf(ComposeBlock.Photo(photo), ComposeBlock.Text(newId(), "")))
+                    addAll(anchor + 1, photos + ComposeBlock.Text(newId(), ""))
                 }
                 _state.value = _state.value.copy(blocks = normalizeBlocks(inserted))
-            } catch (e: Throwable) {
-                _state.value = _state.value.copy(error = context.getString(R.string.compose_photo_failed))
             } finally {
                 _state.value = _state.value.copy(isAddingPhoto = false)
             }
@@ -445,12 +461,22 @@ class ComposeViewModel @Inject constructor(
                 draft = draft,
                 previousPhotoPaths = savedPhotoPaths,
                 // 생성 직후 승격 — 사진 업로드가 실패해도 다음 저장이 새 편지를 또 만들지 않게.
-                onCreated = { currentMode = ComposeMode.Edit(it) },
+                // 새 편지 생성은 이때 한 번뿐이다(이후 저장은 갱신) → letter_create도 여기서만.
+                onCreated = {
+                    currentMode = ComposeMode.Edit(it)
+                    analytics.log(AnalyticsEvent.LetterCreate(reply = replyRecipientId != null))
+                },
             )
             applySavedPhotos(saved.blocks)
             saved.id
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: LetterPhotoSaveException) {
+            // 행은 이미 있다(onCreated로 승격됨) — 다시 저장하면 같은 편지를 갱신한다. iOS compose.error.photoUpload.
+            _state.value = _state.value.copy(error = "사진을 올리지 못했어요. 연결을 확인하고 다시 저장해 주세요.")
+            null
         } catch (e: Throwable) {
-            val message = (e as? MutterError)?.userMessage ?: "저장할 수 없었어요. 다시 시도해 주세요."
+            val message = (e as? MutterError)?.userMessage ?: "저장하지 못했어요."
             _state.value = _state.value.copy(error = message)
             null
         } finally {
@@ -497,9 +523,10 @@ class ComposeViewModel @Inject constructor(
             if (connected.any { it.userId == recipientId }) {
                 try {
                     connectionUseCase.send(letterId, recipientId)
+                    analytics.log(AnalyticsEvent.LetterSend(permanent = false, reply = true))
                     _state.value = _state.value.copy(navigateUp = true)
                 } catch (e: Throwable) {
-                    val message = (e as? MutterError)?.userMessage ?: "보낼 수 없었어요. 다시 시도해 주세요."
+                    val message = (e as? MutterError)?.userMessage ?: "보내지 못했어요."
                     _state.value = _state.value.copy(error = message)
                 }
             } else {
@@ -560,8 +587,9 @@ class ComposeViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Throwable) {
-                // 모르면 이미 보낸 편지로 본다 — 카드를 띄우지 않는다.
-                true
+                // 조회 실패는 "링크 없음"으로 본다 — 카드를 띄운다(iOS `(try? links) ?? []`).
+                // 편지권은 실제 발급·발송 RPC에서만 쓰이므로 이미 보낸 편지에 카드가 떠도 이중 차감은 없다.
+                false
             }
         }
         val access = accessDeferred.await()
@@ -640,6 +668,7 @@ class ComposeViewModel @Inject constructor(
                 val permanent = _state.value.showsPermanentPending
                 val password = if (_state.value.usePassword) _state.value.password else null
                 val link = deliveryUseCase.issue(letterId = id, password = password, revealAt = null, permanent = permanent)
+                analytics.log(AnalyticsEvent.LinkIssue(permanent = permanent, hasPassword = password != null))
                 _state.value = _state.value.copy(
                     issuedLink = link,
                     password = "",
@@ -648,7 +677,7 @@ class ComposeViewModel @Inject constructor(
             } catch (e: MutterError.NoTicket) {
                 handleNoTicket(e)
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "링크를 만들 수 없었어요. 다시 시도해 주세요."
+                val message = (e as? MutterError)?.userMessage ?: "링크를 만들지 못했어요."
                 _state.value = _state.value.copy(error = message)
             } finally {
                 _state.value = _state.value.copy(isIssuing = false)
@@ -662,27 +691,34 @@ class ComposeViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(isSending = true, error = null)
             try {
-                connectionUseCase.send(id, recipientId, permanent = _state.value.showsPermanentPending)
+                val permanent = _state.value.showsPermanentPending
+                connectionUseCase.send(id, recipientId, permanent = permanent)
+                analytics.log(AnalyticsEvent.LetterSend(permanent = permanent, reply = replyRecipientId != null))
                 finishSend()
             } catch (e: MutterError.NoTicket) {
                 _state.value = _state.value.copy(isSending = false)
                 handleNoTicket(e)
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "보낼 수 없었어요. 다시 시도해 주세요."
+                val message = (e as? MutterError)?.userMessage ?: "보내지 못했어요."
                 _state.value = _state.value.copy(error = message, isSending = false)
             }
         }
     }
 
-    /** 보내기 완료 — 시트 닫고 제작 화면도 닫는다. */
+    /** 보내기 완료 — 시트 닫고 제작 화면도 닫는다. 시트 오류는 시트와 함께 지운다. */
     fun finishSend() {
-        _state.value = _state.value.copy(showSendSheet = false, navigateUp = true, isSending = false)
+        _state.value = _state.value.copy(showSendSheet = false, navigateUp = true, isSending = false, error = null)
     }
 
     // ─── 시트 바인딩 헬퍼 ────────────────────────────────────────────────────
 
+    /** 시트를 닫으면 시트 오류도 지운다 — 작성 화면에 남지 않게(iOS SendSheet `.onDisappear { errorMessage = nil }`). */
     fun setShowSendSheet(visible: Boolean) {
-        _state.value = _state.value.copy(showSendSheet = visible)
+        _state.value = if (visible) {
+            _state.value.copy(showSendSheet = true)
+        } else {
+            _state.value.copy(showSendSheet = false, error = null)
+        }
     }
 
     fun setUsePassword(value: Boolean) {
@@ -695,12 +731,13 @@ class ComposeViewModel @Inject constructor(
 
     // ─── 헬퍼 ────────────────────────────────────────────────────────────────
 
+    /** iOS compose.error.* 한국어 원문(ViewModel 오류 문구는 한국어 상수 — 저장소 관례). */
     private fun scErrorMessage(reason: ScValidationFailReason): String = when (reason) {
-        ScValidationFailReason.INVALID_URL -> "유효하지 않은 URL이에요."
-        ScValidationFailReason.NETWORK -> "네트워크를 확인해 주세요."
-        ScValidationFailReason.PRIVATE_TRACK -> "비공개 트랙은 사용할 수 없어요."
-        ScValidationFailReason.NOT_FOUND -> "트랙을 찾을 수 없어요."
-        ScValidationFailReason.EMBED_DISABLED -> "임베드가 허용되지 않은 트랙이에요."
+        ScValidationFailReason.INVALID_URL -> "SoundCloud 링크가 맞는지 확인해 주세요 (soundcloud.com 주소)."
+        ScValidationFailReason.NETWORK -> "네트워크 연결을 확인하고 다시 시도해 주세요."
+        ScValidationFailReason.PRIVATE_TRACK -> "비공개이거나 지역 제한이 있는 트랙이에요. 다른 곡을 골라 주세요."
+        ScValidationFailReason.NOT_FOUND -> "트랙을 찾을 수 없어요. 링크를 다시 확인해 주세요."
+        ScValidationFailReason.EMBED_DISABLED -> "이 트랙은 외부 재생이 허용되지 않아요. 다른 곡을 골라 주세요."
     }
 
 }

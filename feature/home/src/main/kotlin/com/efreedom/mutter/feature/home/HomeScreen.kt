@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.efreedom.mutter.domain.model.LetterAccessLabel
 import androidx.compose.ui.graphics.Brush
@@ -91,11 +92,13 @@ fun HomeScreen(
     // 방금 삭제한 편지마다 5초 "되돌리기" 스낵바. 연속 삭제면 키가 바뀌어 이전 스낵바는 취소(닫힘)되고 새로 뜬다.
     state.undoLetterId?.let { letterId ->
         // 보낸 편지를 지워도 이미 받은 분의 편지함에는 남는다(계정 단위 삭제) — 그 사실을 같이 알린다.
+        val movedToTrash = stringResource(R.string.home_moved_to_trash)
         val keptNotice = stringResource(R.string.home_sent_delete_kept_notice)
-        val message = if (state.undoWasSent) "편지를 삭제함으로 옮겼어요. $keptNotice" else "편지를 삭제함으로 옮겼어요"
+        val undoLabel = stringResource(DsR.string.common_undo)
+        val message = if (state.undoWasSent) "$movedToTrash. $keptNotice" else movedToTrash
         LaunchedEffect(letterId) {
             try {
-                if (snackbarHostState.showUndo(message)) viewModel.undoDelete(letterId)
+                if (snackbarHostState.showUndo(message, actionLabel = undoLabel)) viewModel.undoDelete(letterId)
             } finally {
                 viewModel.undoDismissed(letterId)
             }
@@ -113,25 +116,25 @@ fun HomeScreen(
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 IconButton(onClick = onOpenTrash) {
-                    MutterIcon(id = DsR.drawable.trash, contentDescription = "삭제함", tint = InkSoft)
+                    MutterIcon(id = DsR.drawable.trash, contentDescription = stringResource(R.string.home_trash), tint = InkSoft)
                 }
             }
 
             StatCard(sentCount = state.sentCount, openedCount = state.openedCount)
 
-            MutterButton(text = "편지 쓰기", onClick = onCompose, leadingIconRes = DsR.drawable.compose)
+            MutterButton(text = stringResource(R.string.home_compose), onClick = onCompose, leadingIconRes = DsR.drawable.compose)
 
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 SegmentedButton(
                     selected = selectedTab == HomeTab.SENT,
                     onClick = { selectedTab = HomeTab.SENT },
                     shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                ) { Text("보낸 편지") }
+                ) { Text(stringResource(R.string.home_tab_sent)) }
                 SegmentedButton(
                     selected = selectedTab == HomeTab.DRAFT,
                     onClick = { selectedTab = HomeTab.DRAFT },
                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                ) { Text("임시저장") }
+                ) { Text(stringResource(R.string.home_tab_draft)) }
             }
 
             PullToRefreshBox(
@@ -158,8 +161,10 @@ fun HomeScreen(
                                 modifier = Modifier.size(120.dp),
                             )
                             Text(
-                                text = if (selectedTab == HomeTab.SENT) "보낸 편지가 없어요" else "임시저장 편지가 없어요",
-                                style = MutterText.bodyMedium,
+                                text = stringResource(
+                                    if (selectedTab == HomeTab.SENT) R.string.home_empty_sent else R.string.home_empty_draft,
+                                ),
+                                style = MutterText.bodyLarge,
                                 color = InkSoft,
                             )
                         }
@@ -196,7 +201,7 @@ fun HomeScreen(
                                             .padding(end = 20.dp),
                                         contentAlignment = Alignment.CenterEnd,
                                     ) {
-                                        MutterIcon(id = DsR.drawable.trash, contentDescription = "삭제", tint = Danger)
+                                        MutterIcon(id = DsR.drawable.trash, contentDescription = stringResource(R.string.home_delete), tint = Danger)
                                     }
                                 },
                             ) {
@@ -238,7 +243,7 @@ private fun StatCard(sentCount: Int, openedCount: Int) {
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = "보낸 편지",
+                text = stringResource(R.string.home_sent_count),
                 style = MutterText.caption,
                 color = OnGold.copy(alpha = 0.8f),
             )
@@ -248,7 +253,7 @@ private fun StatCard(sentCount: Int, openedCount: Int) {
             ) {
                 Text(text = "$sentCount", style = MutterText.display, color = OnGold)
                 Text(
-                    text = "통 · 읽음 $openedCount",
+                    text = stringResource(R.string.home_sent_unit, openedCount),
                     style = MutterText.bodyMediumBold,
                     color = OnGold,
                 )
@@ -284,16 +289,17 @@ private fun LetterCard(row: LetterRow, accessLabel: LetterAccessLabel?, onClick:
             )
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = row.letter.title.ifEmpty { "(제목 없음)" },
+                    text = row.letter.title.ifEmpty { stringResource(R.string.home_untitled) },
                     style = MutterText.bodyMediumBold,
                     color = Ink,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 val subtitle = when {
-                    !row.isSent -> "이어쓰기 중"
-                    row.openSummary != null -> "${row.openSummary.openCount}회 열람"
-                    else -> "아직 열지 않았어요"
+                    !row.isSent -> stringResource(R.string.home_draft_in_progress)
+                    row.openSummary != null ->
+                        pluralStringResource(R.plurals.home_opened, row.openSummary.openCount, row.openSummary.openCount)
+                    else -> stringResource(R.string.home_not_opened)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
@@ -324,7 +330,7 @@ private fun LetterCard(row: LetterRow, accessLabel: LetterAccessLabel?, onClick:
                             )
                         }
                         Text(
-                            text = if (row.isOpened) "읽음" else "안읽음",
+                            text = stringResource(if (row.isOpened) R.string.home_read else R.string.home_unread),
                             style = MutterText.caption,
                             color = if (row.isOpened) Gold else InkFaint,
                         )
@@ -336,7 +342,7 @@ private fun LetterCard(row: LetterRow, accessLabel: LetterAccessLabel?, onClick:
                     shape = RoundedCornerShape(50),
                 ) {
                     Text(
-                        text = "작성 중",
+                        text = stringResource(R.string.home_writing),
                         style = MutterText.caption,
                         color = InkSoft,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -356,7 +362,7 @@ private fun AccessLabel(label: LetterAccessLabel?) {
     val text = when (label) {
         null, LetterAccessLabel.None -> return
         LetterAccessLabel.Permanent -> stringResource(R.string.home_access_permanent)
-        is LetterAccessLabel.DaysLeft -> stringResource(R.string.home_access_days_left, label.days)
+        is LetterAccessLabel.DaysLeft -> pluralStringResource(R.plurals.home_access_days_left, label.days, label.days)
         is LetterAccessLabel.Closed -> {
             Text(text = "·", style = MutterText.caption, color = InkFaint)
             LockedStatusLabel(daysUntilDelete = label.daysUntilDelete, style = MutterText.caption, color = InkFaint)

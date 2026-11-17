@@ -54,6 +54,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.uicomponent.R as DsR
@@ -157,32 +158,13 @@ fun ProfileScreen(
                 } else {
                     SettingsRow(
                         icon = { MutterIcon(id = DsR.drawable.person, contentDescription = null, tint = InkSoft, size = 20.dp) },
-                        label = "닉네임",
+                        label = stringResource(R.string.profile_nickname),
                         value = state.nickname.ifEmpty { "—" },
                         onClick = { isEditingNickname = true },
                     )
                 }
 
-                HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
-
-                SettingsRow(
-                    icon = { MutterIcon(id = DsR.drawable.mood_tag, contentDescription = null, tint = InkSoft, size = 20.dp) },
-                    label = "기본 편지지",
-                    value = "봄날",
-                    onClick = null,
-                )
-
-                HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
-
-                // 편지 링크 암호 기본값(표시 전용) — iOS "암호 기본값 / 켜짐"과 같은 항목.
-                SettingsRow(
-                    icon = { MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = InkSoft, size = 20.dp) },
-                    label = "암호 기본값",
-                    value = "켜짐",
-                    onClick = null,
-                )
-
-                // 로그인 비밀번호 — 이메일 가입 계정에만(소셜 계정은 이메일이 내부용이라 숨김).
+                // 로그인 비밀번호 — 이메일 가입 계정에만(소셜 계정은 이메일이 내부용이라 숨김). iOS처럼 닉네임 바로 아래.
                 state.passwordStatus?.takeIf { state.showsLoginPassword }?.let { status ->
                     HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
                     SettingsRow(
@@ -194,6 +176,25 @@ fun ProfileScreen(
                         onClick = viewModel::showPasswordDialog,
                     )
                 }
+
+                HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
+
+                SettingsRow(
+                    icon = { MutterIcon(id = DsR.drawable.mood_tag, contentDescription = null, tint = InkSoft, size = 20.dp) },
+                    label = stringResource(R.string.profile_default_paper),
+                    value = stringResource(R.string.profile_default_paper_value),
+                    onClick = null,
+                )
+
+                HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
+
+                // 편지 링크 암호 기본값(표시 전용) — iOS "암호 기본값 / 켜짐"과 같은 항목.
+                SettingsRow(
+                    icon = { MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = InkSoft, size = 20.dp) },
+                    label = stringResource(R.string.profile_password_default),
+                    value = stringResource(R.string.profile_on),
+                    onClick = null,
+                )
 
                 state.entitlements?.takeIf { state.showsTickets }?.let { ent ->
                     HorizontalDivider(color = Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
@@ -234,7 +235,7 @@ fun ProfileScreen(
             ) {
                 SettingsRow(
                     icon = { MutterIcon(id = DsR.drawable.note, contentDescription = null, tint = InkSoft, size = 20.dp) },
-                    label = "권리침해 신고",
+                    label = stringResource(R.string.profile_report),
                     value = "",
                     onClick = onReport,
                 )
@@ -243,7 +244,7 @@ fun ProfileScreen(
 
                 SettingsRow(
                     icon = { MutterIcon(id = DsR.drawable.paper, contentDescription = null, tint = InkSoft, size = 20.dp) },
-                    label = "이용약관",
+                    label = stringResource(R.string.profile_terms),
                     value = "",
                     onClick = onTerms,
                 )
@@ -252,7 +253,7 @@ fun ProfileScreen(
 
                 SettingsRow(
                     icon = { MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = InkSoft, size = 20.dp) },
-                    label = "개인정보처리방침",
+                    label = stringResource(R.string.profile_privacy),
                     value = "",
                     onClick = onPrivacy,
                 )
@@ -262,7 +263,7 @@ fun ProfileScreen(
 
             // 문의하기 — iOS ProfileView 대응. 메일 앱을 열고, 없으면 이메일 복사 + 안내 토스트.
             MutterButton(
-                text = "문의하기",
+                text = stringResource(R.string.profile_contact),
                 onClick = { openContactMail(context) },
                 style = MutterButtonStyle.Ghost,
             )
@@ -271,7 +272,7 @@ fun ProfileScreen(
 
             // 로그아웃 버튼
             MutterButton(
-                text = "로그아웃",
+                text = stringResource(R.string.profile_logout),
                 onClick = { viewModel.signOut() },
                 style = MutterButtonStyle.Ghost,
                 isLoading = state.isLoading,
@@ -287,7 +288,7 @@ fun ProfileScreen(
                     .height(54.dp),
             ) {
                 Text(
-                    text = "계정 삭제",
+                    text = stringResource(R.string.profile_delete_account),
                     style = MutterText.bodyLargeBold,
                     color = Danger,
                 )
@@ -314,8 +315,8 @@ fun ProfileScreen(
 
     if (state.isPasswordDialogVisible) {
         LoginPasswordDialog(
-            isLoading = state.isLoading,
-            error = state.error,
+            isLoading = state.isSavingPassword,
+            error = state.passwordError,
             onSave = viewModel::savePassword,
             onDismiss = viewModel::dismissPasswordDialog,
         )
@@ -325,30 +326,26 @@ fun ProfileScreen(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("계정을 삭제할까요?") },
+            title = { Text(stringResource(R.string.profile_delete_confirm)) },
             text = {
+                // iOS ProfileModelData.deleteAccountDetail과 같은 조립 — 편지권이 남았으면 경고 줄을 앞에 붙인다.
                 val tickets = state.entitlements?.tickets ?: 0
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("삭제하면 내 계정과 데이터가 영구히 사라져요.")
-                    // 계정 단위 삭제(0041) — 받은 분이 가진 편지는 남는다(계약 문구).
-                    Text(stringResource(R.string.profile_delete_sent_letters_remain))
-                    // 편지권이 남은 계정 — 환불 없이 사라진다는 경고(계약 문구).
-                    if (tickets > 0) {
-                        Text(stringResource(R.string.profile_delete_tickets_warning, tickets), color = Danger)
-                    }
-                }
+                val detail = stringResource(R.string.profile_delete_detail)
+                Text(
+                    if (tickets > 0) "${stringResource(R.string.profile_delete_tickets_warning, tickets)}\n$detail" else detail,
+                )
             },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteConfirm = false
                     viewModel.deleteAccount()
                 }) {
-                    Text("삭제", color = Danger)
+                    Text(stringResource(R.string.profile_delete), color = Danger)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("취소")
+                    Text(stringResource(R.string.profile_login_password_cancel))
                 }
             },
         )
@@ -357,17 +354,23 @@ fun ProfileScreen(
 
 private const val CONTACT_EMAIL = "musicletter2026@gmail.com"
 
-/** 문의 메일 열기. 메일 앱이 없으면 이메일을 클립보드에 복사하고 토스트로 안내 — iOS 폴백 대응. */
+/**
+ * 문의 메일 열기. 제목·본문은 iOS처럼 `mailto:` 쿼리에 넣고 extra에도 함께 단다(쿼리만 읽는 앱·extra만 읽는 앱 모두 대응).
+ * 메일 앱이 없으면 이메일을 클립보드에 복사하고 토스트로 안내 — iOS 폴백 대응.
+ */
 private fun openContactMail(context: Context) {
+    val subject = context.getString(R.string.profile_contact_subject)
+    val body = context.getString(R.string.profile_contact_body)
     val intent = Intent(Intent.ACTION_SENDTO).apply {
-        data = Uri.parse("mailto:$CONTACT_EMAIL")
-        putExtra(Intent.EXTRA_SUBJECT, "Mutter 문의")
+        data = Uri.parse("mailto:$CONTACT_EMAIL?subject=${Uri.encode(subject)}&body=${Uri.encode(body)}")
+        putExtra(Intent.EXTRA_SUBJECT, subject)
+        putExtra(Intent.EXTRA_TEXT, body)
     }
     val opened = runCatching { context.startActivity(intent); true }.getOrDefault(false)
     if (!opened) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("contact_email", CONTACT_EMAIL))
-        Toast.makeText(context, "메일 앱이 없어 이메일 주소를 복사했어요: $CONTACT_EMAIL", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, context.getString(R.string.profile_mail_fallback), Toast.LENGTH_LONG).show()
     }
 }
 
@@ -393,7 +396,7 @@ private fun AvatarHeader(nickname: String) {
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = nickname.ifEmpty { "닉네임" },
+            text = nickname.ifEmpty { stringResource(R.string.profile_nickname) },
             style = MutterText.display,
             color = Ink,
         )
@@ -412,14 +415,14 @@ private fun NicknameEditRow(
     OutlinedTextField(
         value = nickname,
         onValueChange = onNicknameChange,
-        label = { Text("닉네임") },
+        label = { Text(stringResource(R.string.profile_nickname)) },
         singleLine = true,
         trailingIcon = {
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Gold, strokeWidth = 2.dp)
             } else {
                 IconButton(onClick = onSave, enabled = nickname.isNotBlank()) {
-                    MutterIcon(id = DsR.drawable.ic_check, contentDescription = "저장", tint = Gold)
+                    MutterIcon(id = DsR.drawable.ic_check, contentDescription = stringResource(R.string.profile_save), tint = Gold)
                 }
             }
         },
@@ -444,7 +447,9 @@ private fun LoginPasswordDialog(
     var password by rememberSaveable { mutableStateOf("") }
     var confirm by rememberSaveable { mutableStateOf("") }
     AlertDialog(
-        onDismissRequest = onDismiss,
+        // 저장 중에는 바깥 탭·뒤로가기로 닫히지 않는다(iOS LoginPasswordSheet 대응).
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        properties = DialogProperties(dismissOnBackPress = !isLoading, dismissOnClickOutside = !isLoading),
         title = { Text(stringResource(R.string.profile_login_password)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -482,7 +487,7 @@ private fun LoginPasswordDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, enabled = !isLoading) {
                 Text(stringResource(R.string.profile_login_password_cancel))
             }
         },

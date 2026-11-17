@@ -63,7 +63,7 @@ private val AppleBlack = Color(0xFF000000)
 
 /**
  * 로그인/온보딩 화면 (iOS `AuthView` 1:1). 아이보리 배경 + 로고 + 카드 + 소셜 버튼.
- * 이메일 매직코드(가입 겸용) / 비밀번호 / 소셜(준비 중).
+ * 이메일 매직코드(가입 겸용) / 비밀번호 / 소셜(Google/Kakao/Apple).
  */
 @Composable
 fun AuthScreen(
@@ -75,8 +75,12 @@ fun AuthScreen(
     val context = LocalContext.current
 
     // 인증 완료 콜백은 컴포지션 본문이 아닌 LaunchedEffect에서 — 리컴포지션마다 재호출되는 것을 막는다.
+    // 신호는 받는 즉시 내린다 — 남겨 두면 같은 화면에서 다시 로그인할 때 키가 그대로 true라 콜백이 다시 불리지 않는다.
     LaunchedEffect(state.authenticated) {
-        if (state.authenticated) onAuthenticated()
+        if (state.authenticated) {
+            viewModel.consumeAuthenticated()
+            onAuthenticated()
+        }
     }
 
     Box(
@@ -150,11 +154,11 @@ private fun EmailStep(state: AuthUiState, vm: AuthViewModel) {
     MutterField(
         value = state.email,
         onValueChange = vm::onEmailChange,
-        placeholder = "이메일",
+        placeholder = stringResource(R.string.auth_email),
         keyboardType = KeyboardType.Email,
     )
     MutterButton(
-        text = "인증코드 받기",
+        text = stringResource(R.string.auth_get_code),
         onClick = vm::requestCode,
         isLoading = state.isLoading,
         enabled = vm.isEmailValid,
@@ -169,7 +173,7 @@ private fun EmailStep(state: AuthUiState, vm: AuthViewModel) {
 @Composable
 private fun CodeStep(state: AuthUiState, vm: AuthViewModel) {
     Text(
-        text = "${state.email} 로 보낸 코드를 입력하세요",
+        text = stringResource(R.string.auth_code_sent, state.email),
         style = MutterText.caption,
         color = InkSoft,
         textAlign = TextAlign.Center,
@@ -178,23 +182,18 @@ private fun CodeStep(state: AuthUiState, vm: AuthViewModel) {
     MutterField(
         value = state.code,
         onValueChange = vm::onCodeChange,
-        placeholder = "인증코드",
+        placeholder = stringResource(R.string.auth_code_field),
         keyboardType = KeyboardType.Number,
     )
     MutterButton(
-        text = "확인",
+        text = stringResource(R.string.auth_confirm),
         onClick = vm::verifyCode,
         isLoading = state.isLoading,
         enabled = state.code.isNotEmpty(),
     )
     MutterButton(
-        text = "이메일 다시 입력",
+        text = stringResource(R.string.auth_reenter_email),
         onClick = vm::backFromCode,
-        style = MutterButtonStyle.Ghost,
-    )
-    MutterButton(
-        text = stringResource(R.string.auth_password_login),
-        onClick = vm::switchToPassword,
         style = MutterButtonStyle.Ghost,
     )
 }
@@ -204,18 +203,18 @@ private fun PasswordStep(state: AuthUiState, vm: AuthViewModel) {
     MutterField(
         value = state.email,
         onValueChange = vm::onEmailChange,
-        placeholder = "이메일",
+        placeholder = stringResource(R.string.auth_email),
         keyboardType = KeyboardType.Email,
     )
     MutterField(
         value = state.password,
         onValueChange = vm::onPasswordChange,
-        placeholder = "비밀번호",
+        placeholder = stringResource(R.string.auth_password),
         keyboardType = KeyboardType.Password,
         isPassword = true,
     )
     MutterButton(
-        text = "로그인",
+        text = stringResource(R.string.auth_login),
         onClick = vm::signInWithPassword,
         isLoading = state.isLoading,
         enabled = vm.isEmailValid && state.password.isNotEmpty(),
@@ -255,7 +254,7 @@ private fun SignUpStep(state: AuthUiState, vm: AuthViewModel) {
     MutterField(
         value = state.email,
         onValueChange = vm::onEmailChange,
-        placeholder = "이메일",
+        placeholder = stringResource(R.string.auth_email),
         keyboardType = KeyboardType.Email,
     )
     MutterField(
@@ -289,14 +288,14 @@ private fun SignUpStep(state: AuthUiState, vm: AuthViewModel) {
 @Composable
 private fun SocialNicknameStep(state: AuthUiState, vm: AuthViewModel) {
     Text(
-        text = "어떻게 불러드릴까요?",
+        text = stringResource(R.string.auth_nickname_title),
         style = MutterText.title,
         color = Ink,
         textAlign = TextAlign.Center,
         modifier = Modifier.fillMaxWidth(),
     )
     Text(
-        text = "받는 사람에게 보일 이름이에요",
+        text = stringResource(R.string.auth_nickname_subtitle),
         style = MutterText.caption,
         color = InkSoft,
         textAlign = TextAlign.Center,
@@ -305,17 +304,17 @@ private fun SocialNicknameStep(state: AuthUiState, vm: AuthViewModel) {
     MutterField(
         value = state.nickname,
         onValueChange = vm::onNicknameChange,
-        placeholder = "닉네임",
+        placeholder = stringResource(R.string.auth_nickname_field),
         keyboardType = KeyboardType.Text,
     )
     MutterButton(
-        text = "시작하기",
+        text = stringResource(R.string.auth_nickname_start),
         onClick = vm::submitSocialNickname,
         isLoading = state.isLoading,
         enabled = vm.isNicknameValid,
     )
     MutterButton(
-        text = "다른 방법으로 로그인",
+        text = stringResource(R.string.auth_back_to_login),
         onClick = vm::backToLogin,
         style = MutterButtonStyle.Ghost,
     )
@@ -380,9 +379,19 @@ private fun SocialSection(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("또는", style = MutterText.caption, color = InkFaint)
+        Text(stringResource(R.string.auth_or), style = MutterText.caption, color = InkFaint)
+        // 순서는 iOS `OauthProvider.allCases`(apple, google, kakao)와 같다.
         SocialButton(
-            text = "Google로 계속하기",
+            text = stringResource(R.string.auth_apple),
+            iconRes = DsR.drawable.social_apple,
+            container = AppleBlack,
+            content = Color.White,
+            tintIcon = Color.White,
+            enabled = enabled,
+            onClick = onApple,
+        )
+        SocialButton(
+            text = stringResource(R.string.auth_google),
             iconRes = DsR.drawable.social_google,
             container = Surface,
             content = Ink,
@@ -391,21 +400,12 @@ private fun SocialSection(
             onClick = onGoogle,
         )
         SocialButton(
-            text = "카카오로 계속하기",
+            text = stringResource(R.string.auth_kakao),
             iconRes = DsR.drawable.social_kakao,
             container = KakaoYellow,
             content = KakaoLabel,
             enabled = enabled,
             onClick = onKakao,
-        )
-        SocialButton(
-            text = "Apple로 계속하기",
-            iconRes = DsR.drawable.social_apple,
-            container = AppleBlack,
-            content = Color.White,
-            tintIcon = Color.White,
-            enabled = enabled,
-            onClick = onApple,
         )
     }
 }

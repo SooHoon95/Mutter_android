@@ -16,7 +16,11 @@ import javax.inject.Inject
 sealed class ConnectInviteUiState {
     object Loading : ConnectInviteUiState()
     data class Ready(val invite: ConnectInvite) : ConnectInviteUiState()
-    object Accepted : ConnectInviteUiState()
+    /**
+     * 연결됨. [justAccepted]는 이 화면에서 방금 accept()가 성공했을 때만 true — 화면은 그때만 닫힌다.
+     * 이미 수락한 링크를 다시 열면 false로 "연결됐어요"에 머문다(iOS ConnectInviteModelData와 같음).
+     */
+    data class Accepted(val justAccepted: Boolean) : ConnectInviteUiState()
     data class Failed(val message: String) : ConnectInviteUiState()
 }
 
@@ -38,19 +42,22 @@ class ConnectInviteViewModel @Inject constructor(
         load()
     }
 
+    /** 실패 화면의 "다시 시도" — 같은 토큰이라도 다시 불러온다(start()의 같은-토큰 가드는 회전 재로드 방지용). */
+    fun retry() = load()
+
     private fun load() {
         viewModelScope.launch {
             _state.value = ConnectInviteUiState.Loading
             // 이미 수락한 토큰이면 서버 재확인 없이 연결 완료 표시(멱등 처리).
             if (acceptedInviteStore.contains(token)) {
-                _state.value = ConnectInviteUiState.Accepted
+                _state.value = ConnectInviteUiState.Accepted(justAccepted = false)
                 return@launch
             }
             try {
                 val invite = connectionUseCase.invite(token)
                 _state.value = ConnectInviteUiState.Ready(invite)
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "초대 정보를 불러올 수 없어요."
+                val message = (e as? MutterError)?.userMessage ?: "초대를 불러올 수 없어요."
                 _state.value = ConnectInviteUiState.Failed(message)
             }
         }
@@ -61,11 +68,18 @@ class ConnectInviteViewModel @Inject constructor(
             try {
                 connectionUseCase.accept(token)
                 acceptedInviteStore.markAccepted(token)
-                _state.value = ConnectInviteUiState.Accepted
+                _state.value = ConnectInviteUiState.Accepted(justAccepted = true)
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "수락할 수 없었어요. 다시 시도해 주세요."
+                val message = (e as? MutterError)?.userMessage ?: "수락에 실패했어요."
                 _state.value = ConnectInviteUiState.Failed(message)
             }
+        }
+    }
+
+    /** 화면이 닫기 콜백을 부르기 직전에 호출 — 재구성·코루틴 재시작에도 닫기가 두 번 나가지 않게 한다. */
+    fun onAcceptedHandled() {
+        if ((_state.value as? ConnectInviteUiState.Accepted)?.justAccepted == true) {
+            _state.value = ConnectInviteUiState.Accepted(justAccepted = false)
         }
     }
 }

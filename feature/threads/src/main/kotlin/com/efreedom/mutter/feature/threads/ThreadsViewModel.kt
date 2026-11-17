@@ -19,8 +19,8 @@ data class ThreadsUiState(
     val isLoading: Boolean = false,
     /** 스레드 시트 로드 중 — 빈 시트 대신 로딩 스피너를 표시하기 위함. */
     val isThreadLoading: Boolean = false,
-    /** 스레드 로드 실패 메시지 — 에러를 삼키지 않고 시트에 드러낸다. */
-    val threadError: String? = null,
+    /** 스레드 로드 실패 — 에러를 삼키지 않고 시트에 드러낸다(문구는 iOS처럼 항상 같아 화면이 리소스로 그린다). */
+    val threadLoadFailed: Boolean = false,
 )
 
 /** iOS ThreadsModelData 대응. 스레드 탭 상대 목록 + 선택 상대와의 편지 흐름. */
@@ -51,7 +51,7 @@ class ThreadsViewModel @Inject constructor(
             _state.value = _state.value.copy(
                 selectedCounterpart = counterpart,
                 thread = emptyList(),
-                threadError = null,
+                threadLoadFailed = false,
                 isThreadLoading = true,
             )
             try {
@@ -59,7 +59,7 @@ class ThreadsViewModel @Inject constructor(
                 _state.value = _state.value.copy(thread = thread)
             } catch (e: Throwable) {
                 // 실패를 삼키지 않고 시트에 에러 상태로 드러낸다(빈 시트 방지).
-                _state.value = _state.value.copy(threadError = "편지를 불러오지 못했어요. 다시 시도해 주세요.")
+                _state.value = _state.value.copy(threadLoadFailed = true)
             } finally {
                 _state.value = _state.value.copy(isThreadLoading = false)
             }
@@ -70,7 +70,7 @@ class ThreadsViewModel @Inject constructor(
         _state.value = _state.value.copy(
             selectedCounterpart = null,
             thread = emptyList(),
-            threadError = null,
+            threadLoadFailed = false,
         )
     }
 }

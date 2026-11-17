@@ -2,6 +2,8 @@ package com.efreedom.mutter.feature.connections
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.efreedom.mutter.domain.analytics.Analytics
+import com.efreedom.mutter.domain.analytics.AnalyticsEvent
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Connection
 import com.efreedom.mutter.domain.usecase.ConnectionUseCase
@@ -25,27 +27,42 @@ data class ConnectionsUiState(
 @HiltViewModel
 class ConnectionsViewModel @Inject constructor(
     private val connectionUseCase: ConnectionUseCase,
+    private val analytics: Analytics,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ConnectionsUiState())
     val state: StateFlow<ConnectionsUiState> = _state.asStateFlow()
 
+    /** 진입·앱 복귀 때의 조용한 로드 — 당김 표시를 켜지 않는다. */
     fun load() {
+        viewModelScope.launch { fetch() }
+    }
+
+    /** 당겨서 새로고침 — 이때만 표시를 켠다. */
+    fun refresh() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isRefreshing = true, error = null)
+            _state.value = _state.value.copy(isRefreshing = true)
             try {
-                _state.value = _state.value.copy(connections = connectionUseCase.myConnections())
-            } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
-                _state.value = _state.value.copy(error = message)
+                fetch()
             } finally {
                 _state.value = _state.value.copy(isRefreshing = false)
             }
         }
     }
 
+    private suspend fun fetch() {
+        _state.value = _state.value.copy(error = null)
+        try {
+            _state.value = _state.value.copy(connections = connectionUseCase.myConnections())
+        } catch (e: Throwable) {
+            val message = (e as? MutterError)?.userMessage ?: "잠시 후 다시 시도해 주세요."
+            _state.value = _state.value.copy(error = message)
+        }
+    }
+
     fun createInvite() = run {
         _state.value = _state.value.copy(inviteToken = connectionUseCase.createInvite())
+        analytics.log(AnalyticsEvent.InviteCreate)
     }
 
     fun revokeInvite() {
@@ -69,7 +86,7 @@ class ConnectionsViewModel @Inject constructor(
             try {
                 block()
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
+                val message = (e as? MutterError)?.userMessage ?: "잠시 후 다시 시도해 주세요."
                 _state.value = _state.value.copy(error = message)
             } finally {
                 _state.value = _state.value.copy(isLoading = false)

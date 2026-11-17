@@ -63,7 +63,7 @@ class LegalViewModel @Inject constructor(
                 )
                 _state.value = _state.value.copy(submitted = true)
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "신고 접수 중 오류가 발생했어요. 다시 시도해 주세요."
+                val message = (e as? MutterError)?.userMessage ?: "신고 접수에 실패했어요. 잠시 후 다시 시도해 주세요."
                 _state.value = _state.value.copy(error = message)
             } finally {
                 _state.value = _state.value.copy(isLoading = false)

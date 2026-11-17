@@ -1,30 +1,56 @@
 <resources>
-    <!-- 결제 안내 시트 — 영어. 이 시트는 영어 문구가 있는 화면(보내기 시트·뷰어) 위에 뜬다. 용어는 뷰어의 "letter pass"를 따른다 -->
+    <!-- 편지권 화면·결제 안내 시트 — 영어. 문구·용어는 iOS en을 따른다("Letter tickets", "ticket"). -->
+    <!-- plurals: other는 iOS 원문, one은 올바른 단수형(iOS는 1일 때도 복수 — 수정 후보) -->
+    <string name="tickets_screen_title">Letter tickets</string>
+    <string name="tickets_screen_balance">%1$d</string>
+    <string name="tickets_description">One ticket keeps one letter with no time limit.</string>
+    <string name="tickets_none">You have no tickets</string>
+    <plurals name="tickets_product">
+        <item quantity="one">%1$d ticket</item>
+        <item quantity="other">%1$d tickets</item>
+    </plurals>
+    <plurals name="tickets_product_price">
+        <item quantity="one">%1$d ticket · %2$s</item>
+        <item quantity="other">%1$d tickets · %2$s</item>
+    </plurals>
+    <string name="tickets_history">History</string>
+    <string name="tickets_history_empty">No history yet</string>
+    <string name="tickets_reason_purchase">Purchase</string>
+    <string name="tickets_reason_use">Used</string>
+    <string name="tickets_reason_grant">Granted</string>
+    <string name="tickets_reason_refund">Refund</string>
+    <!-- Android 전용(iOS 원문 없음) -->
+    <string name="tickets_granted">Your tickets have arrived.</string>
+    <string name="tickets_pending">Waiting for payment approval. Tickets arrive once approved.</string>
+    <!-- iOS ticket.purchaseNotice에서 App Store → Google Play -->
+    <string name="tickets_purchase_notice">Tickets are added right away and can\'t be refunded after purchase.</string>
+
     <string name="checkout_send_subtitle">The recipient can keep it with no time limit</string>
     <string name="checkout_send_point1">It never closes, however much time passes</string>
     <string name="checkout_send_point2">It stays in the recipient\'s inbox even if you delete it</string>
     <string name="checkout_send_title">Send as a permanent letter</string>
-    <string name="checkout_send_buy">Buy a letter pass and continue</string>
+    <string name="checkout_send_buy">Buy a ticket and continue</string>
     <string name="checkout_send_use">Continue</string>
     <string name="checkout_make_title">Make it a permanent letter</string>
     <string name="checkout_make_buy">Buy and make it permanent</string>
-    <string name="checkout_make_use">Make permanent with 1 letter pass</string>
+    <string name="checkout_make_use">Make permanent with 1 ticket</string>
     <string name="checkout_keep_title">Keep this letter</string>
     <string name="checkout_keep_subtitle">Open it any time, with no time limit</string>
     <string name="checkout_keep_point1">A closed letter opens again</string>
     <string name="checkout_keep_point2">It stays in your inbox even if the sender deletes it</string>
     <string name="checkout_keep_buy">Buy and keep</string>
-    <string name="checkout_keep_use">Keep with 1 letter pass</string>
+    <string name="checkout_keep_use">Keep with 1 ticket</string>
     <plurals name="checkout_balance">
-        <item quantity="one">You have %1$d letter pass</item>
-        <item quantity="other">You have %1$d letter passes</item>
+        <item quantity="one">You have %1$d ticket</item>
+        <item quantity="other">You have %1$d tickets</item>
     </plurals>
     <plurals name="checkout_product">
-        <item quantity="one">%1$d letter pass</item>
-        <item quantity="other">%1$d letter passes</item>
+        <item quantity="one">%1$d ticket</item>
+        <item quantity="other">%1$d tickets</item>
     </plurals>
-    <string name="checkout_unavailable">Letter passes can\'t be purchased right now.</string>
-    <string name="checkout_pending">Your letter pass arrives once the payment completes.</string>
     <string name="checkout_cancel">Cancel</string>
-    <string name="checkout_purchase_notice">Letter passes are added right away and can\'t be refunded after purchase.</string>
+    <!-- iOS ticket.purchaseNotice에서 App Store → Google Play -->
+    <string name="checkout_purchase_notice">Tickets are added right away and can\'t be refunded after purchase.</string>
+    <!-- iOS ticket.accountMismatch -->
+    <string name="ticket_account_mismatch">These tickets were bought with another account. Sign in with that account to receive them.</string>
 </resources>

@@ -1,7 +1,8 @@
 package com.efreedom.mutter.domain.model
 
-import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * 편지 접근 상태(영구 편지권 계약). 서버 문자열 `permanent`·`open`·`locked`·`gone`.
@@ -29,12 +30,13 @@ data class LetterAccessState(
     val accessUntil: Instant?,
     val deleteAt: Instant?,
 ) {
-    /** [now] 기준 잠기기까지 남은 일수(올림). 아직 아무도 안 열었거나 영구면 null. */
-    fun daysLeft(now: Instant): Int? =
-        if (kind == LetterAccessKind.OPEN) accessUntil?.let { LetterAccessDays.until(it, now) } else null
+    /** [now] 기준 잠기기까지 남은 일수(달력, 최소 1 — 목록 문구엔 '오늘'이 없다). 아직 아무도 안 열었거나 영구면 null. */
+    fun daysLeft(now: Instant, zone: ZoneId = ZoneId.systemDefault()): Int? =
+        if (kind == LetterAccessKind.OPEN) accessUntil?.let { maxOf(1, LetterAccessDays.until(it, now, zone)) } else null
 
-    /** [now] 기준 삭제까지 남은 일수(올림, 0 = 오늘). 삭제 시각을 모르면 null. 계약 "삭제 안내". */
-    fun daysUntilDelete(now: Instant): Int? = deleteAt?.let { LetterAccessDays.until(it, now) }
+    /** [now] 기준 삭제까지 남은 일수(달력, 0 = 오늘). 삭제 시각을 모르면 null. 계약 "삭제 안내". */
+    fun daysUntilDelete(now: Instant, zone: ZoneId = ZoneId.systemDefault()): Int? =
+        deleteAt?.let { LetterAccessDays.until(it, now, zone) }
 }
 
 /**
@@ -76,14 +78,12 @@ object SendChoice {
         !hasLinks && !hasChosen
 }
 
-/** 남은 일수 계산(올림). 0 이하면 0 — 화면은 0을 "오늘"로 보인다. */
+/** 남은 일수 계산. 화면은 0을 "오늘"로 보인다. */
 object LetterAccessDays {
-    fun until(at: Instant, now: Instant): Int {
-        val remaining = Duration.between(now, at)
-        if (remaining.isNegative || remaining.isZero) return 0
-        val days = remaining.toDays()
-        return (if (remaining > Duration.ofDays(days)) days + 1 else days).toInt()
-    }
+    /** 기기 자정 기준 달력 일수(같은 날 = 0, 지났으면 0). iOS `LetterAccessCountdown.days`. */
+    fun until(at: Instant, now: Instant, zone: ZoneId = ZoneId.systemDefault()): Int =
+        ChronoUnit.DAYS.between(now.atZone(zone).toLocalDate(), at.atZone(zone).toLocalDate())
+            .coerceAtLeast(0).toInt()
 }
 
 /** 목록 상태 표시(계약 문구 `영구` / `{n}일 남음` / 자물쇠 + `{n}일 뒤 삭제`). 문구는 화면이 리소스로 붙인다. */
@@ -93,7 +93,7 @@ sealed interface LetterAccessLabel {
     data class DaysLeft(val days: Int) : LetterAccessLabel
 
     /**
-     * 닫힌 편지. [daysUntilDelete]는 삭제까지 남은 일수(올림, 0 = "오늘 삭제").
+     * 닫힌 편지. [daysUntilDelete]는 삭제까지 남은 일수(달력, 0 = "오늘 삭제").
      * null이면 삭제 시각을 모른다 — "닫힘"만 보인다.
      */
     data class Closed(val daysUntilDelete: Int?) : LetterAccessLabel
@@ -107,11 +107,7 @@ sealed interface LetterAccessLabel {
         fun of(state: LetterAccessState?, showPermanent: Boolean, now: Instant): LetterAccessLabel = when (state?.kind) {
             null -> None
             LetterAccessKind.PERMANENT -> if (showPermanent) Permanent else None
-            LetterAccessKind.OPEN -> when (val days = state.daysLeft(now)) {
-                null -> None
-                0 -> Closed(state.daysUntilDelete(now))
-                else -> DaysLeft(days)
-            }
+            LetterAccessKind.OPEN -> state.daysLeft(now)?.let(::DaysLeft) ?: None
             // 닫힌 뒤 유예가 끝나면 삭제된다 — 목록에서 며칠 남았는지 함께 보인다(계약 "삭제 안내").
             LetterAccessKind.LOCKED -> Closed(state.daysUntilDelete(now))
             LetterAccessKind.GONE -> Closed(null)

@@ -1,5 +1,6 @@
 package com.efreedom.mutter.domain.usecase
 
+import com.efreedom.mutter.domain.error.LetterPhotoSaveException
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Connection
 import com.efreedom.mutter.domain.model.ConnectInvite
@@ -158,7 +159,7 @@ class LetterUseCase @Inject constructor(
      * 사진 포함 저장(계약 §5). 순서가 중요하다 — Storage 경로에 letterId가 들어가므로 id가 먼저 있어야 한다.
      *  1. 새 편지면 먼저 생성해 id를 확보한다(이때는 아직 경로가 없는 사진을 뺀 채로 저장).
      *     생성 직후 [onCreated]로 id를 알린다 — 뒤 단계가 실패해도 호출부가 edit 모드로 승격해 중복 생성을 막게.
-     *  2. 대기 중인 사진을 업로드해 path를 받는다. 하나라도 실패하면 throw(저장 실패). 이미 올라간 객체는
+     *  2. 대기 중인 사진을 업로드해 path를 받는다. 하나라도 실패하면 [LetterPhotoSaveException]. 이미 올라간 객체는
      *     남겨 둔다 — 다음 저장의 4단계가 정리한다.
      *  3. path가 채워진 paragraphs로 update한다.
      *  4. [previousPhotoPaths]에 있었지만 지금은 없는 경로를 지운다(best effort).
@@ -172,24 +173,39 @@ class LetterUseCase @Inject constructor(
         val hasPending = draft.blocks.any { it is LetterBlock.Photo && it.photo.path == null }
         val id = letterId ?: repository.create(withoutPendingPhotos(draft)).id.also(onCreated)
 
-        val resolved = draft.blocks.map { block ->
-            if (block is LetterBlock.Photo && block.photo.path == null) {
-                val jpeg = block.photo.pendingJpeg
-                    ?: throw MutterError.Server("사진을 올릴 수 없었어요. 다시 시도해 주세요.")
-                val path = photos.upload(id, jpeg)
-                LetterBlock.Photo(block.photo.copy(path = path, pendingJpeg = null))
-            } else {
-                block
+        // 업로드 실패는 LetterPhotoSaveException으로 감싼다(iOS LetterPhotoSaveError). 취소는 감싸지 않는다.
+        val resolved = wrapPhotoSaveFailure {
+            draft.blocks.map { block ->
+                if (block is LetterBlock.Photo && block.photo.path == null) {
+                    val jpeg = block.photo.pendingJpeg
+                        ?: throw MutterError.Server("사진을 올릴 수 없었어요. 다시 시도해 주세요.")
+                    val path = photos.upload(id, jpeg)
+                    LetterBlock.Photo(block.photo.copy(path = path, pendingJpeg = null))
+                } else {
+                    block
+                }
             }
         }
         // 새 편지이고 올릴 사진도 없으면 1단계 생성 내용이 이미 최종본이다 — 같은 내용을 다시 update하지 않는다.
-        if (letterId != null || hasPending) {
+        if (letterId != null) {
             repository.update(id, draft.copy(blocks = resolved))
+        } else if (hasPending) {
+            // 새 편지의 사진 반영 update 실패도 사진 저장 실패로 본다(행은 이미 있음) — iOS LetterUsecase.create와 같다.
+            wrapPhotoSaveFailure { repository.update(id, draft.copy(blocks = resolved)) }
         }
 
         val removed = previousPhotoPaths - LetterBlocks.photoPaths(resolved)
         if (removed.isNotEmpty()) runCatching { photos.delete(removed) }
         return SavedLetter(id = id, blocks = resolved)
+    }
+
+    /** [block]의 실패를 [LetterPhotoSaveException]으로 감싼다. 코루틴 취소는 그대로 다시 던진다. */
+    private inline fun <T> wrapPhotoSaveFailure(block: () -> T): T = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        throw LetterPhotoSaveException(e)
     }
 
     /** 아직 업로드 전(path 없음) 사진 블록을 뺀다 — paragraphs에는 경로가 있는 사진만 들어갈 수 있다. */

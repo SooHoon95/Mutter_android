@@ -1,6 +1,7 @@
 package com.efreedom.mutter.domain.model
 
 import java.time.Instant
+import java.time.ZoneId
 
 /** 편지 음악 큐. ref: soundcloud=트랙 URL / hosted=Storage 경로·트랙 id. */
 enum class MusicSource(val raw: String) {
@@ -135,6 +136,13 @@ data class LetterPayload(
     ) : this(id, title, LetterBlocks.fromBody(body), templateId, cue, audioDisabled)
 
     val body: String get() = LetterBlocks.body(blocks)
+
+    /** 받은 사람에게 보일 "곧 닫혀요" 남은 일수(달력, 0 = 오늘). 영구·시각 없음·이미 지남, 또는 [warnDays]보다 많으면 null. */
+    fun closingSoonDays(warnDays: Int, now: Instant = Instant.now(), zone: ZoneId = ZoneId.systemDefault()): Int? {
+        val until = accessUntil
+        if (isPermanent || until == null || !until.isAfter(now)) return null
+        return LetterAccessDays.until(until, now, zone).takeIf { it <= warnDays }
+    }
 }
 
 /** 저장 결과 — 업로드로 path가 채워진 블록을 돌려줘 다음 저장이 같은 사진을 다시 올리지 않게 한다. */

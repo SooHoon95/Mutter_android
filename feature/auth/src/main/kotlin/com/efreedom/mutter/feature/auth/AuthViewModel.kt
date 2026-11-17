@@ -3,6 +3,9 @@ package com.efreedom.mutter.feature.auth
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.efreedom.mutter.domain.analytics.Analytics
+import com.efreedom.mutter.domain.analytics.AnalyticsEvent
+import com.efreedom.mutter.domain.analytics.LoginMethod
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.SocialAuthResult
 import com.efreedom.mutter.domain.model.SocialProvider
@@ -38,10 +41,11 @@ data class AuthUiState(
     val authenticated: Boolean = false,
 )
 
-/** iOS AuthModelData 대응. 이메일 OTP + 비밀번호 + 소셜(Google/Kakao). */
+/** iOS AuthModelData 대응. 이메일 OTP + 비밀번호 + 소셜(Google/Kakao/Apple). */
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authUseCase: AuthUseCase,
+    private val analytics: Analytics,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AuthUiState())
@@ -81,19 +85,21 @@ class AuthViewModel @Inject constructor(
 
     fun requestCode() = run {
         authUseCase.requestCode(_state.value.email.trim())
+        pendingSignUpPassword = null
         _state.value = _state.value.copy(step = AuthStep.ENTER_CODE)
     }
 
     /**
      * 회원가입 "인증 코드 받기" — 비밀번호 규칙(길이 → 일치)을 먼저 검사하고 코드를 보낸다(createUser=true).
-     * 비밀번호는 인증 성공 직후 저장하려고 [pendingSignUpPassword]에 둔다.
+     * 비밀번호는 인증 성공 직후 저장하려고 [pendingSignUpPassword]에 둔다. 입력칸은 비우지 않는다 —
+     * 코드 단계에서 "이메일 다시 입력"으로 돌아오면 비밀번호·확인이 그대로 남아 있다(iOS와 같다).
      */
     fun requestSignUpCode() = run {
         val password = _state.value.password
         authUseCase.validatePassword(password, _state.value.passwordConfirm)
         authUseCase.requestCode(_state.value.email.trim())
         pendingSignUpPassword = password
-        _state.value = _state.value.copy(step = AuthStep.ENTER_CODE, code = "", password = "", passwordConfirm = "")
+        _state.value = _state.value.copy(step = AuthStep.ENTER_CODE)
     }
 
     /**
@@ -105,6 +111,9 @@ class AuthViewModel @Inject constructor(
     fun verifyCode() = run {
         authUseCase.verifyCode(_state.value.email.trim(), _state.value.code.trim())
         val signUpPassword = pendingSignUpPassword
+        // 코드 인증 = 로그인 성공. 회원가입 중이었으면 가입도 함께 기록한다(이후 비밀번호 저장 성패와 무관).
+        if (signUpPassword != null) analytics.log(AnalyticsEvent.SignUpEmail)
+        analytics.log(AnalyticsEvent.Login(LoginMethod.CODE))
         if (signUpPassword != null) {
             pendingSignUpPassword = null
             val error = try {
@@ -113,7 +122,7 @@ class AuthViewModel @Inject constructor(
             } catch (e: MutterError.SamePassword) {
                 null
             } catch (e: Throwable) {
-                (e as? MutterError)?.userMessage ?: MutterError.Unknown.userMessage
+                (e as? MutterError)?.userMessage ?: RETRY_LATER
             }
             _state.value = if (error == null) {
                 _state.value.copy(authenticated = true)
@@ -143,6 +152,7 @@ class AuthViewModel @Inject constructor(
 
     fun signInWithPassword() = run {
         authUseCase.signIn(_state.value.email.trim(), _state.value.password)
+        analytics.log(AnalyticsEvent.Login(LoginMethod.PASSWORD))
         _state.value = _state.value.copy(authenticated = true)
     }
 
@@ -163,7 +173,7 @@ class AuthViewModel @Inject constructor(
             try {
                 authUseCase.signInAppleWeb()
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "Apple 로그인을 시작할 수 없어요."
+                val message = (e as? MutterError)?.userMessage ?: RETRY_LATER
                 _state.value = _state.value.copy(error = message)
             } finally {
                 _state.value = _state.value.copy(isLoading = false)
@@ -181,8 +191,10 @@ class AuthViewModel @Inject constructor(
             try {
                 val idToken = acquireToken()
                 when (authUseCase.startSocial(provider, idToken)) {
-                    is SocialAuthResult.Authenticated ->
+                    is SocialAuthResult.Authenticated -> {
+                        analytics.log(AnalyticsEvent.Login(provider.loginMethod))
                         _state.value = _state.value.copy(authenticated = true)
+                    }
                     SocialAuthResult.NeedsNickname -> {
                         pendingProvider = provider
                         pendingIdToken = idToken
@@ -192,7 +204,7 @@ class AuthViewModel @Inject constructor(
             } catch (e: OauthCancelledException) {
                 // 사용자가 로그인 창을 닫음 — 조용히 무시.
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "로그인에 실패했어요. 다시 시도해 주세요."
+                val message = (e as? MutterError)?.userMessage ?: RETRY_LATER
                 _state.value = _state.value.copy(error = message)
             } finally {
                 _state.value = _state.value.copy(isLoading = false)
@@ -205,44 +217,70 @@ class AuthViewModel @Inject constructor(
         val provider = pendingProvider ?: return@run
         val idToken = pendingIdToken ?: return@run
         authUseCase.registerSocial(provider, idToken, _state.value.nickname.trim())
+        analytics.log(AnalyticsEvent.Login(provider.loginMethod))
+        // 소셜 신규 회원은 닉네임과 함께 가입한다 — 닉네임 온보딩 화면을 거치지 않으므로 가입 완료를 여기서 기록한다.
+        analytics.log(AnalyticsEvent.OnboardComplete)
         pendingProvider = null
         pendingIdToken = null
         _state.value = _state.value.copy(authenticated = true)
     }
 
-    fun switchToPassword() {
-        // 입력한 코드는 유지(iOS 대응) — 비밀번호로 갔다가 돌아와도 코드가 남아 있게.
-        pendingSignUpPassword = null
-        _state.value = _state.value.copy(step = AuthStep.ENTER_PASSWORD, error = null)
-    }
+    /** "비밀번호로 로그인" — 기본 단계로. */
+    fun switchToPassword() = move(AuthStep.ENTER_PASSWORD)
 
-    /** "이메일로 회원가입하기" — 입력한 이메일은 유지, 비밀번호 칸은 비운다. */
-    fun switchToSignUp() {
-        pendingSignUpPassword = null
-        _state.value = _state.value.copy(step = AuthStep.SIGN_UP, password = "", passwordConfirm = "", error = null)
-    }
+    /** "이메일로 회원가입하기" — 입력한 이메일만 남긴다. */
+    fun switchToSignUp() = move(AuthStep.SIGN_UP)
 
     /** "로그인으로 돌아가기"(회원가입·소셜 닉네임) — 기본 단계인 비밀번호 로그인으로. */
     fun backToLogin() {
-        pendingProvider = null
-        pendingIdToken = null
+        clearSocialPending()
+        move(AuthStep.ENTER_PASSWORD)
+    }
+
+    /** "코드로 로그인" — 코드 로그인 이메일 단계로. */
+    fun backToEmail() {
+        clearSocialPending()
+        move(AuthStep.ENTER_EMAIL)
+    }
+
+    /**
+     * 코드 단계의 "이메일 다시 입력" — 회원가입 중이었으면 입력해 둔 비밀번호·확인을 살려 회원가입 단계로,
+     * 아니면 코드 로그인 이메일 단계로. [move]를 거치지 않는 유일한 전환이다(iOS `backFromCode`와 같다).
+     */
+    fun backFromCode() {
+        val wasSigningUp = pendingSignUpPassword != null
         pendingSignUpPassword = null
         _state.value = _state.value.copy(
-            step = AuthStep.ENTER_PASSWORD, code = "", password = "", passwordConfirm = "", nickname = "", error = null,
+            step = if (wasSigningUp) AuthStep.SIGN_UP else AuthStep.ENTER_EMAIL,
+            code = "",
+            error = null,
         )
     }
 
-    /** 코드 단계의 "이메일 다시 입력" — 회원가입 중이면 회원가입 단계로(비밀번호 재입력), 아니면 코드 로그인 이메일 단계로. */
-    fun backFromCode() {
-        if (pendingSignUpPassword != null) switchToSignUp() else backToEmail()
+    /** 로그인 완료 신호를 받았다 — 같은 화면에서 다시 로그인하면 신호가 다시 가도록 내린다. */
+    fun consumeAuthenticated() {
+        _state.value = _state.value.copy(authenticated = false)
     }
 
-    fun backToEmail() {
+    /** 로그아웃 뒤 새 로그인 화면으로 — 앞 로그인의 단계·입력·대기값을 버린다(iOS는 로그인 화면마다 새 모델). */
+    fun reset() {
         pendingProvider = null
         pendingIdToken = null
         pendingSignUpPassword = null
+        _state.value = AuthUiState()
+    }
+
+    private fun clearSocialPending() {
+        pendingProvider = null
+        pendingIdToken = null
+        _state.value = _state.value.copy(nickname = "")
+    }
+
+    /** 단계 전환 — 이메일만 남기고 입력·오류를 비운다(iOS `move(to:)`). */
+    private fun move(next: AuthStep) {
+        pendingSignUpPassword = null
         _state.value = _state.value.copy(
-            step = AuthStep.ENTER_EMAIL, code = "", password = "", passwordConfirm = "", nickname = "", error = null,
+            step = next, code = "", password = "", passwordConfirm = "", error = null,
         )
     }
 
@@ -252,7 +290,7 @@ class AuthViewModel @Inject constructor(
             try {
                 block()
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
+                val message = (e as? MutterError)?.userMessage ?: RETRY_LATER
                 _state.value = _state.value.copy(error = message)
             } finally {
                 _state.value = _state.value.copy(isLoading = false)
@@ -260,3 +298,13 @@ class AuthViewModel @Inject constructor(
         }
     }
 }
+
+/** 분석 `login.method` 값. */
+private val SocialProvider.loginMethod: LoginMethod
+    get() = when (this) {
+        SocialProvider.GOOGLE -> LoginMethod.GOOGLE
+        SocialProvider.KAKAO -> LoginMethod.KAKAO
+    }
+
+/** 일반 실패 문구(iOS `common.retryLater`). */
+private const val RETRY_LATER = "잠시 후 다시 시도해 주세요."

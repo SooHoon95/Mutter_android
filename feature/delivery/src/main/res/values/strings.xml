@@ -9,4 +9,23 @@
     <string name="delivery_locked_ticket_hint">편지권을 쓰면 다시 열리고 삭제되지 않아요.</string>
     <string name="delivery_make_permanent">영구 편지로 만들기 · 편지권 1장</string>
     <string name="delivery_duplicate">같은 내용으로 한 통 더 보내기</string>
+    <!-- 전달 링크 화면(iOS delivery.* · send.* · common.* 원문) -->
+    <string name="delivery_nav">전달 링크</string>
+    <string name="delivery_link_send">링크로 보내기</string>
+    <string name="delivery_preview">편지 미리보기</string>
+    <string name="delivery_password_title">암호 보호</string>
+    <string name="delivery_password">암호</string>
+    <string name="delivery_reveal">예약 공개</string>
+    <string name="delivery_reveal_at">공개 시각</string>
+    <string name="delivery_issue">링크 발급</string>
+    <string name="delivery_issued">발급된 링크</string>
+    <string name="delivery_revoke">무효화</string>
+    <string name="delivery_revoked">무효화됨</string>
+    <string name="delivery_share">공유하기</string>
+    <string name="delivery_copy_link">링크 복사하기</string>
+    <string name="delivery_confirm">확인</string>
+    <string name="delivery_cancel">취소</string>
+    <!-- 발급된 링크 행의 태그(Android 전용 B군) -->
+    <string name="delivery_tag_password">암호</string>
+    <string name="delivery_tag_reveal">예약공개</string>
 </resources>

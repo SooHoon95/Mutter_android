@@ -60,9 +60,10 @@ google-identity-googleid = { group = "com.google.android.libraries.identity.goog
 kakao-user = { group = "com.kakao.sdk", name = "v2-user", version.ref = "kakao" }
 lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version.ref = "lottie" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
-# FCM — 버전은 BoM이 정하므로 messaging에는 version을 쓰지 않는다.
+# FCM·GA4 — 버전은 BoM이 정하므로 messaging·analytics에는 version을 쓰지 않는다.
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
 # Play Billing — 편지권(소모성 인앱 상품). billing-ktx 9.x는 Kotlin 2.3 메타데이터·stdlib 2.2로 빌드돼
 # 지금 Kotlin(2.0.21) 컴파일러가 못 읽는다 → Java API 본체만 쓰고 suspend 래핑은 PlayTicketStore가 직접 한다.
 billing = { group = "com.android.billingclient", name = "billing", version.ref = "billing" }

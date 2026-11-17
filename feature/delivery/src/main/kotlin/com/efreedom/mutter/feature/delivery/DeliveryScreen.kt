@@ -5,10 +5,12 @@ package com.efreedom.mutter.feature.delivery
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,9 +19,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.OutlinedTextField
@@ -28,7 +32,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,12 +54,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.uicomponent.component.LockedStatusLabel
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.MutterButton
+import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.PermanentSendNotice
 import com.efreedom.mutter.uicomponent.component.SendChoiceCard
 import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.shareText
-import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
 import com.efreedom.mutter.uicomponent.theme.GoldSoft
@@ -72,6 +81,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.time.temporal.ChronoUnit
 
 /** iOS DeliveryView 대응. 전달 링크 발급/관리 — 암호 기본 ON, 예약공개, revoke. */
 @Composable
@@ -98,16 +109,24 @@ fun DeliveryScreen(
         }
     }
 
+    // 상태·잔액으로 정한 표시 — "영구"는 제목 줄 오른쪽에(iOS showsPermanentBadge), "n일 남음"·닫힘은 AccessSection에.
+    val accessLabel = remember(state.access, state.entitlements) {
+        LetterAccessLabel.of(state.access, state.entitlements?.showsTicketUi == true, Instant.now())
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(Ivory)
-            // background 뒤에 둬야 배경은 화면 전체를 칠하고 콘텐츠만 인셋만큼 들어간다.
-            // 아래 상단 바는 순수 Row라(M3 TopAppBar가 아니라) 직접 넣지 않으면 상태바와 겹친다.
+            // background 뒤에 둬야 배경은 화면 전체를 칠하고 콘텐츠만 인셋만큼 들어간다(상단 바 인셋도 여기서 맡는다).
             .systemBarsPadding(),
     ) {
-        // 상단 뒤로 헤더는 두지 않는다 — 안드로이드는 시스템 뒤로(제스처/버튼)로 이 화면을 벗어난다.
-        // NavHost 목적지라 시스템 뒤로가 popBackStack을 그대로 수행한다.
+        // navigationIcon 없음 — 안드로이드는 시스템 뒤로(제스처/버튼)로 이 화면을 벗어난다(NavHost popBackStack).
+        TopAppBar(
+            title = { Text(text = stringResource(R.string.delivery_nav), style = MutterText.headline, color = Ink) },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Ivory),
+            windowInsets = WindowInsets(0),
+        )
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
             onRefresh = viewModel::load,
@@ -120,15 +139,37 @@ fun DeliveryScreen(
                     .padding(horizontal = 24.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                Text(text = "편지 보내기", style = MutterText.titleLarge, color = Ink)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.delivery_link_send),
+                        style = MutterText.titleLarge,
+                        color = Ink,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (accessLabel == LetterAccessLabel.Permanent) {
+                        Text(
+                            text = stringResource(R.string.delivery_access_permanent),
+                            style = MutterText.bodyMediumBold,
+                            color = GoldDeep,
+                        )
+                    }
+                }
 
                 MutterButton(
-                    text = "미리보기",
+                    text = stringResource(R.string.delivery_preview),
                     onClick = onPreview,
                     style = MutterButtonStyle.Ghost,
                 )
 
-                AccessSection(state = state, onMakePermanent = viewModel::makeSentLetterPermanent)
+                AccessSection(
+                    state = state,
+                    label = accessLabel,
+                    onMakePermanent = viewModel::makeSentLetterPermanent,
+                )
 
                 // 보내기 전 선택 — 고르기 전에는 발급 폼을 보이지 않는다.
                 if (state.showsSendChoice) {
@@ -145,14 +186,17 @@ fun DeliveryScreen(
                     if (state.showsPermanentPending) {
                         PermanentSendNotice(onChooseAgain = viewModel::chooseAgain)
                     }
-                    IssueCard(
-                        state = state,
-                        onUsePasswordChange = viewModel::setUsePassword,
-                        onPasswordChange = viewModel::setPassword,
-                        onUseRevealChange = viewModel::setUseReveal,
-                        onRevealAtChange = viewModel::setRevealAt,
-                        onIssue = viewModel::issue,
-                    )
+                    // 첫 조회 전에는 발급 폼을 그리지 않는다 — 조회 뒤 선택 카드로 바뀌며 깜빡이지 않게(iOS hasLoaded).
+                    if (state.hasLoaded) {
+                        IssueCard(
+                            state = state,
+                            onUsePasswordChange = viewModel::setUsePassword,
+                            onPasswordChange = viewModel::setPassword,
+                            onUseRevealChange = viewModel::setUseReveal,
+                            onRevealAtChange = viewModel::setRevealAt,
+                            onIssue = viewModel::issue,
+                        )
+                    }
                 }
 
                 state.lastIssuedLink?.let { link ->
@@ -173,8 +217,9 @@ fun DeliveryScreen(
                 }
 
 
-                // 사본 — 서버 반영 뒤(상태 조회 성공)에만 보인다. 닫힌 뒤 처음 온 사람에게 새로 보내는 길.
-                if (state.access != null) {
+                // 사본 — 새 서버 계약(duplicate-letter)이 있을 때만, 권한 조회 성공으로 판단한다(iOS canDuplicate).
+                // 닫힌 뒤 처음 온 사람에게 새로 보내는 길.
+                if (state.entitlements != null) {
                     MutterButton(
                         text = stringResource(R.string.delivery_duplicate),
                         onClick = viewModel::duplicate,
@@ -201,6 +246,8 @@ private fun IssueCard(
     onIssue: () -> Unit,
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Surface(
         color = MutterSurface,
@@ -218,7 +265,7 @@ private fun IssueCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(text = "암호 설정", style = MutterText.bodyMediumBold, color = Ink)
+                Text(text = stringResource(R.string.delivery_password_title), style = MutterText.bodyMediumBold, color = Ink)
                 Switch(
                     checked = state.usePassword,
                     onCheckedChange = onUsePasswordChange,
@@ -230,7 +277,7 @@ private fun IssueCard(
                 OutlinedTextField(
                     value = state.password,
                     onValueChange = onPasswordChange,
-                    label = { Text("암호") },
+                    label = { Text(stringResource(R.string.delivery_password)) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -244,7 +291,7 @@ private fun IssueCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(text = "예약 공개", style = MutterText.bodyMediumBold, color = Ink)
+                Text(text = stringResource(R.string.delivery_reveal), style = MutterText.bodyMediumBold, color = Ink)
                 Switch(
                     checked = state.useReveal,
                     onCheckedChange = onUseRevealChange,
@@ -252,21 +299,37 @@ private fun IssueCard(
                 )
             }
 
+            // iOS DatePicker(L10n.deliveryRevealAt, in: Date()...) compact 대응 — 값 버튼 → 날짜 → 시각을 차례로 고른다.
             if (state.useReveal) {
-                TextButton(
-                    onClick = { showDatePicker = true },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = "공개 날짜: ${state.revealAt.toDateDisplay()}",
-                        style = MutterText.bodySmall,
-                        color = GoldDeep,
-                    )
+                    Text(text = stringResource(R.string.delivery_reveal_at), style = MutterText.bodyMedium, color = Ink)
+                    TextButton(onClick = { showDatePicker = true }) {
+                        Text(
+                            text = state.revealAt.toRevealDisplay(),
+                            style = MutterText.bodySmall,
+                            color = GoldDeep,
+                        )
+                    }
                 }
             }
 
+            // 무료 기간이 적용되는 편지 — 받는 분 기준 열람 기간 안내(일수는 서버 값). iOS처럼 발급 버튼 바로 위.
+            val notice = state.freeDaysNotice
+            val graceDays = state.entitlements?.graceDays
+            if (notice != null && graceDays != null) {
+                Text(
+                    text = stringResource(R.string.delivery_free_days_notice, notice, graceDays),
+                    style = MutterText.caption,
+                    color = InkSoft,
+                )
+            }
+
             MutterButton(
-                text = "링크 발급",
+                text = stringResource(R.string.delivery_issue),
                 onClick = onIssue,
                 enabled = state.canIssue,
                 isLoading = state.isLoading,
@@ -279,7 +342,9 @@ private fun IssueCard(
         val today = remember { LocalDate.now() }
         val minMillis = remember { today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.revealAt.toEpochMilli(),
+            // DatePicker는 "그 날짜의 UTC 자정" 밀리초를 기대한다 — 순간의 밀리초를 넣으면 로컬 00:00–08:59(KST)에 전날이 선택된다.
+            initialSelectedDateMillis = state.revealAt.atZone(ZoneId.systemDefault()).toLocalDate()
+                .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
             selectableDates = object : SelectableDates {
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis >= minMillis
                 override fun isSelectableYear(year: Int): Boolean = year >= today.year
@@ -290,26 +355,60 @@ private fun IssueCard(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        // 날짜는 확인 즉시 반영(시각 유지) → 이어서 시각을 고른다. 시각을 취소해도 날짜는 바뀐 채로 남는다.
                         datePickerState.selectedDateMillis?.let { picked ->
-                            // 선택한 날짜 + 기존 시각(기본 now+1h)을 합쳐 시각 정밀도를 유지한다(iOS는 날짜·시각 모두 선택).
-                            val pickedDate = Instant.ofEpochMilli(picked)
-                                .atZone(ZoneOffset.UTC).toLocalDate()
-                            val keepTime = state.revealAt.atZone(ZoneId.systemDefault()).toLocalTime()
-                            onRevealAtChange(
-                                pickedDate.atTime(keepTime).atZone(ZoneId.systemDefault()).toInstant(),
-                            )
+                            val zone = ZoneId.systemDefault()
+                            val pickedDate = Instant.ofEpochMilli(picked).atZone(ZoneOffset.UTC).toLocalDate()
+                            val keepTime = state.revealAt.atZone(zone).toLocalTime()
+                            onRevealAtChange(pickedDate.atTime(keepTime).atZone(zone).toInstant().notInPast())
                         }
                         showDatePicker = false
+                        showTimePicker = true
                     },
-                ) { Text("확인") }
+                ) { Text(stringResource(R.string.delivery_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("취소") }
+                TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.delivery_cancel)) }
             },
         ) {
             DatePicker(state = datePickerState)
         }
     }
+
+    if (showTimePicker) {
+        // M3 1.3.x엔 TimePickerDialog가 없어 AlertDialog에 TimePicker를 담는다. 시각만 바꾼다(날짜는 그대로).
+        val local = state.revealAt.atZone(ZoneId.systemDefault())
+        val timePickerState = rememberTimePickerState(
+            initialHour = local.hour,
+            initialMinute = local.minute,
+            is24Hour = DateFormat.is24HourFormat(context),
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val zone = ZoneId.systemDefault()
+                        val date = state.revealAt.atZone(zone).toLocalDate()
+                        onRevealAtChange(
+                            date.atTime(timePickerState.hour, timePickerState.minute).atZone(zone).toInstant().notInPast(),
+                        )
+                        showTimePicker = false
+                    },
+                ) { Text(stringResource(R.string.delivery_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.delivery_cancel)) }
+            },
+            text = { TimePicker(state = timePickerState) },
+        )
+    }
+}
+
+/** 예약 공개는 미래만 — 지금보다 이르면 지금(다음 분으로 올림). iOS DatePicker(in: Date()...)와 같은 하한. */
+private fun Instant.notInPast(): Instant {
+    val now = Instant.now()
+    return if (isBefore(now)) now.truncatedTo(ChronoUnit.MINUTES).plus(1, ChronoUnit.MINUTES) else this
 }
 
 /** 공유 시트용 동봉 문구(암호·예약 반영) + 링크. iOS `LetterShareMessage` 대응. */
@@ -339,12 +438,22 @@ private fun IssuedLinkRow(link: DeliveryLink, onCopy: () -> Unit, onShare: () ->
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        // 공유(동봉 문구 포함)가 1순위, 복사는 병기.
-        TextButton(onClick = onShare) {
-            Text("공유", style = MutterText.captionBold, color = GoldDeep)
+        // iOS issuedLink 대응 — 복사·공유(동봉 문구 포함) 아이콘.
+        IconButton(onClick = onCopy) {
+            MutterIcon(
+                id = DsR.drawable.copy,
+                contentDescription = stringResource(R.string.delivery_copy_link),
+                size = 20.dp,
+                tint = Gold,
+            )
         }
-        TextButton(onClick = onCopy) {
-            Text("복사", style = MutterText.captionBold, color = GoldDeep)
+        IconButton(onClick = onShare) {
+            MutterIcon(
+                id = DsR.drawable.share,
+                contentDescription = stringResource(R.string.delivery_share),
+                size = 20.dp,
+                tint = Gold,
+            )
         }
     }
 }
@@ -357,7 +466,10 @@ private fun ExistingLinksSection(
     onRevoke: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(text = "발급된 링크", style = MutterText.bodyMediumBold, color = InkSoft)
+        Text(text = stringResource(R.string.delivery_issued), style = MutterText.bodyMediumBold, color = InkSoft)
+        val tagPassword = stringResource(R.string.delivery_tag_password)
+        val tagReveal = stringResource(R.string.delivery_tag_reveal)
+        val revokedText = stringResource(R.string.delivery_revoked)
         links.forEach { link ->
             Surface(
                 color = MutterSurface,
@@ -376,28 +488,42 @@ private fun ExistingLinksSection(
                             style = MutterText.caption,
                             color = InkMid,
                         )
-                        val badgeText = buildString {
-                            if (link.hasPassword) append("암호 ")
-                            if (link.revealAt != null) append("예약공개 ")
-                            if (link.revoked) append("· 취소됨")
-                        }.trim()
+                        // 암호·예약 태그(B군) 뒤에 회수 표시를 한 번만(iOS는 토큰 아래 "무효화됨").
+                        val tags = listOfNotNull(
+                            tagPassword.takeIf { link.hasPassword },
+                            tagReveal.takeIf { link.revealAt != null },
+                        ).joinToString(" ")
+                        val badgeText = when {
+                            !link.revoked -> tags
+                            tags.isEmpty() -> revokedText
+                            else -> "$tags · $revokedText"
+                        }
                         if (badgeText.isNotEmpty()) {
                             Text(text = badgeText, style = MutterText.caption, color = InkFaint)
                         }
                     }
 
                     if (!link.revoked) {
-                        TextButton(onClick = { onShare(link) }) {
-                            Text("공유", style = MutterText.caption, color = Gold)
+                        // 링크 유실 대비 — 발급된 링크를 다시 복사·공유해 전달할 수 있게(iOS existingLinks).
+                        IconButton(onClick = { onCopy(link.token) }) {
+                            MutterIcon(
+                                id = DsR.drawable.copy,
+                                contentDescription = stringResource(R.string.delivery_copy_link),
+                                size = 18.dp,
+                                tint = Gold,
+                            )
                         }
-                        TextButton(onClick = { onCopy(link.token) }) {
-                            Text("복사", style = MutterText.caption, color = Gold)
+                        IconButton(onClick = { onShare(link) }) {
+                            MutterIcon(
+                                id = DsR.drawable.share,
+                                contentDescription = stringResource(R.string.delivery_share),
+                                size = 18.dp,
+                                tint = Gold,
+                            )
                         }
                         TextButton(onClick = { onRevoke(link.token) }) {
-                            Text("취소", style = MutterText.captionBold, color = GoldDeep)
+                            Text(stringResource(R.string.delivery_revoke), style = MutterText.captionBold, color = GoldDeep)
                         }
-                    } else {
-                        Text(text = "취소됨", style = MutterText.caption, color = InkFaint)
                     }
                 }
             }
@@ -406,28 +532,21 @@ private fun ExistingLinksSection(
 }
 
 /**
- * 상태 표시 + 링크 발급 안내 + 닫힌 편지의 삭제 안내 + "영구 편지로 만들기 · 편지권 1장"(이미 보낸 편지에만).
+ * 상태 표시("n일 남음"·닫힘, B군) + 닫힌 편지의 삭제 안내 + "영구 편지로 만들기 · 편지권 1장"(이미 보낸 편지에만).
+ * "영구"는 제목 줄 오른쪽, 무료 기간 안내는 발급 카드 안에 있다(iOS 위치).
  * 상태를 모르면(서버 반영 전) 아무것도 그리지 않는다.
  * 버튼 문구가 편지권 1장을 말하므로 확인 없이 진행한다(편지권이 없으면 결제 안내 시트).
  */
 @Composable
-private fun AccessSection(state: DeliveryUiState, onMakePermanent: () -> Unit) {
-    val access = state.access ?: return
-    val label = remember(access, state.entitlements) {
-        LetterAccessLabel.of(access, state.entitlements?.showsTicketUi == true, Instant.now())
-    }
+private fun AccessSection(state: DeliveryUiState, label: LetterAccessLabel, onMakePermanent: () -> Unit) {
+    if (state.access == null) return
     val labelText = when (label) {
-        // 닫힌 편지는 글자 대신 자물쇠 + "{n}일 뒤 삭제"(아래 LockedStatusLabel)로 보인다.
-        LetterAccessLabel.None, is LetterAccessLabel.Closed -> null
-        LetterAccessLabel.Permanent -> stringResource(R.string.delivery_access_permanent)
+        // 닫힌 편지는 글자 대신 자물쇠 + "{n}일 뒤 삭제"(아래 LockedStatusLabel)로 보인다. "영구"는 제목 줄에.
+        LetterAccessLabel.None, LetterAccessLabel.Permanent, is LetterAccessLabel.Closed -> null
         is LetterAccessLabel.DaysLeft -> stringResource(R.string.delivery_access_days_left, label.days)
     }
     val closed = label as? LetterAccessLabel.Closed
-    // 선택 카드가 보이는 동안은 무료 기간 안내가 카드 선택지와 겹치므로 숨긴다.
-    val notice = state.freeDaysNotice?.takeIf { !state.showsSendChoice }
-    // 안내의 일수는 서버 값만 쓴다 — notice가 있으면 권한(entitlements)도 있다.
-    val graceDays = state.entitlements?.graceDays
-    if (labelText == null && closed == null && notice == null && !state.canMakePermanent) return
+    if (labelText == null && closed == null && !state.canMakePermanent) return
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         labelText?.let { Text(text = it, style = MutterText.bodyMediumBold, color = GoldDeep) }
@@ -437,13 +556,6 @@ private fun AccessSection(state: DeliveryUiState, onMakePermanent: () -> Unit) {
                 style = MutterText.bodyMediumBold,
                 color = GoldDeep,
                 iconSize = 14.dp,
-            )
-        }
-        if (notice != null && graceDays != null) {
-            Text(
-                text = stringResource(R.string.delivery_free_days_notice, notice, graceDays),
-                style = MutterText.caption,
-                color = InkSoft,
             )
         }
         // 닫힌 편지 — 언제 삭제되는지를 "영구 편지로 만들기" 위에서 알린다.
@@ -480,8 +592,9 @@ private fun LockedNotice(deleteAt: Instant, showsTicketHint: Boolean) {
     }
 }
 
-private fun Instant.toDateDisplay(): String =
-    DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm").withZone(ZoneId.systemDefault()).format(this)
+/** 예약 공개 시각 — 기기 언어·시간대의 날짜(중간)+시각(짧게). */
+private fun Instant.toRevealDisplay(): String =
+    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withZone(ZoneId.systemDefault()).format(this)
 
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

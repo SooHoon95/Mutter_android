@@ -3,6 +3,7 @@ package com.efreedom.mutter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.domain.SessionInvalidation
+import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.domain.usecase.AppUpdateUseCase
 import com.efreedom.mutter.domain.usecase.AuthUseCase
@@ -76,10 +77,15 @@ class AppViewModel @Inject constructor(
         }
     }
 
-    /** 세션 만료 신호를 구독해 자동 로그아웃(iOS SessionManager.observeUnauthorized 대응). */
+    /**
+     * 세션 만료 신호를 구독해 자동 로그아웃(iOS SessionManager.observeUnauthorized 대응).
+     * iOS `guard subject.value`처럼 로그인 상태(READY·NEEDS_NICKNAME)에서만 동작한다 — LOADING 중에 오면
+     * 버린다(그때는 [refresh]가 Unauthorized를 보고 로그아웃한다. 여기서 SIGNED_OUT으로 바꾸면 refresh가 READY로 덮어쓴다).
+     */
     private fun observeSessionInvalidation() {
         viewModelScope.launch {
             SessionInvalidation.events.collect {
+                if (_state.value != AppState.READY && _state.value != AppState.NEEDS_NICKNAME) return@collect
                 runCatching { authUseCase.signOut() }
                 _state.value = AppState.SIGNED_OUT
             }
@@ -96,22 +102,30 @@ class AppViewModel @Inject constructor(
             }
             // 권한 조회가 화면 진입을 늦추지 않게 따로 돈다.
             launch { checkWhatsNew(signedIn = true) }
+            // 세션이 확인된 시점에 FCM 토큰을 등록한다. onNewToken은 토큰이 "바뀔 때"만 오므로
+            // 이미 토큰이 있는 기기에서 로그인하면 이 경로가 유일한 등록 기회다.
+            // 프로필 조회 결과와 상관없이(iOS처럼) 기다리지 않고 띄운다 — 오프라인에서 토큰 조회가 멈춰도 스플래시가 멈추지 않게.
+            launch { pushTokenRegistrar.register() }
+            // 검증·소비 못 하고 남은 편지권 거래를 다시 보낸다(서버 200 뒤에만 소비). 실패는 조용히 다음 기회로.
+            launch { ticketUseCase.resendUnconsumed() }
             // 닉네임 게이트 — 프로필 조회는 읽기 전용(SELECT). 회원가입 쓰기 아님.
             // 조회 실패(일시적 네트워크/500)는 기존 로그인 사용자를 닉네임 화면으로 내몰지 않는다.
             // myProfile()은 행이 없으면 null(예외 아님) → 신규 사용자는 여전히 NEEDS_NICKNAME으로 게이트된다.
-            // iOS는 콜드스타트에서 닉네임을 재검사하지 않으므로, 실패 시엔 메인으로 진행한다.
+            // iOS와 다른 점(콜드 스타트 보호): iOS는 콜드스타트에서 닉네임을 재검사하지 않으므로, 실패 시엔 메인으로 진행한다.
             val profileResult = runCatching { profileUseCase.myProfile() }
+            if (profileResult.exceptionOrNull() is MutterError.Unauthorized) {
+                // 세션이 쓸모없다 — 로컬 세션을 지우고 로그인 화면으로(iOS signOut()). 수집기는 LOADING 중 신호를 버리므로 여기가 유일한 경로.
+                // 알고 받아들이는 점: Unauthorized는 세션 만료 외에 FORBIDDEN·not_authorized·AUTH_REQUIRED에서도 나온다 — 본인 프로필 SELECT에서는 세션 문제로 본다.
+                runCatching { authUseCase.signOut() }
+                _state.value = AppState.SIGNED_OUT
+                return@launch
+            }
             if (profileResult.isFailure) {
                 _state.value = AppState.READY
                 return@launch
             }
             val needsNickname = profileResult.getOrNull()?.nickname?.trim().isNullOrEmpty()
             _state.value = if (needsNickname) AppState.NEEDS_NICKNAME else AppState.READY
-            // 세션이 확인된 시점에 FCM 토큰을 등록한다. onNewToken은 토큰이 "바뀔 때"만 오므로
-            // 이미 토큰이 있는 기기에서 로그인하면 이 경로가 유일한 등록 기회다.
-            pushTokenRegistrar.register()
-            // 검증·소비 못 하고 남은 편지권 거래를 다시 보낸다(서버 200 뒤에만 소비). 실패는 조용히 다음 기회로.
-            launch { ticketUseCase.resendUnconsumed() }
         }
     }
 

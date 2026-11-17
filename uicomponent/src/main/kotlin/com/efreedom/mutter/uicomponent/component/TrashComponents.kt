@@ -5,6 +5,7 @@ package com.efreedom.mutter.uicomponent.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -24,11 +25,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.efreedom.mutter.uicomponent.R
 import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.Ink
@@ -39,8 +43,9 @@ import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.Surface as MutterSurface
 
 /**
- * 삭제함 화면 공통 틀(보낸 편지 삭제함·받은 편지 삭제함). 상단 제목 + 안내 문구 + 목록/로딩/빈 상태 + 에러 + 스낵바.
+ * 삭제함 화면 공통 틀(보낸 편지 삭제함·받은 편지 삭제함). 상단 제목 + 안내 문구 + 에러 + 목록/로딩/빈 상태 + 스낵바.
  * 화면별 차이(행 내용·RPC·확인 문구)는 호출부가 [rows]와 다이얼로그로 채운다.
+ * [onRefresh]를 주면 목록·빈 상태 모두 당겨서 새로고침이 된다([isRefreshing]은 첫 로드 뒤 새로고침 중 표시).
  */
 @Composable
 fun TrashScreenLayout(
@@ -51,6 +56,8 @@ fun TrashScreenLayout(
     error: String?,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
+    isRefreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
     rows: LazyListScope.() -> Unit,
 ) {
     Box(modifier = modifier.fillMaxSize().background(Ivory)) {
@@ -61,46 +68,73 @@ fun TrashScreenLayout(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Ivory),
             )
 
-            Text(
-                text = notice,
-                style = MutterText.caption,
-                color = InkSoft,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-            )
+            // iOS VStack(spacing: 14) — 안내·오류·목록 사이 14dp.
+            Column(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    text = notice,
+                    style = MutterText.caption,
+                    color = InkSoft,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
 
-            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                when {
-                    isInitialLoading -> {
-                        CircularProgressIndicator(color = Gold, modifier = Modifier.align(Alignment.Center))
-                    }
+                error?.let {
+                    Text(
+                        text = it,
+                        style = MutterText.caption,
+                        color = Danger,
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                    )
+                }
 
-                    isEmpty -> {
-                        Text(
-                            text = "삭제함이 비어 있어요",
-                            style = MutterText.bodyMedium,
-                            color = InkSoft,
-                            modifier = Modifier.align(Alignment.Center),
-                        )
-                    }
+                val content: @Composable BoxScope.() -> Unit = {
+                    when {
+                        isInitialLoading -> {
+                            CircularProgressIndicator(color = Gold, modifier = Modifier.align(Alignment.Center))
+                        }
 
-                    else -> {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                            content = rows,
-                        )
+                        isEmpty -> {
+                            val empty: @Composable BoxScope.() -> Unit = {
+                                Column(
+                                    modifier = Modifier.align(Alignment.Center),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    MutterIcon(id = R.drawable.trash, size = 44.dp, tint = InkFaint)
+                                    Text(
+                                        text = stringResource(R.string.trash_empty),
+                                        style = MutterText.bodyLarge,
+                                        color = InkSoft,
+                                    )
+                                }
+                            }
+                            // 빈 상태도 당겨서 새로고침이 되도록 스크롤 컨테이너로 감싼다(PullableFullSizeBox 주석 참고).
+                            if (onRefresh != null) PullableFullSizeBox(content = empty) else empty()
+                        }
+
+                        else -> {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                content = rows,
+                            )
+                        }
                     }
                 }
-            }
 
-            error?.let {
-                Text(
-                    text = it,
-                    style = MutterText.caption,
-                    color = Danger,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                )
+                if (onRefresh != null) {
+                    PullToRefreshBox(
+                        isRefreshing = isRefreshing,
+                        onRefresh = onRefresh,
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        content = content,
+                    )
+                } else {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), content = content)
+                }
             }
         }
 
@@ -136,7 +170,7 @@ fun TrashLetterRow(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = title.ifBlank { "제목 없음" },
+                text = title.ifBlank { stringResource(R.string.trash_untitled) },
                 style = MutterText.bodyMediumBold,
                 color = Ink,
                 maxLines = 1,
@@ -153,16 +187,20 @@ fun TrashLetterRow(
                 )
             }
             Text(
-                text = if (daysUntilPurge <= 0) "오늘 완전히 삭제" else "${daysUntilPurge}일 후 완전히 삭제",
+                text = if (daysUntilPurge <= 0) {
+                    stringResource(R.string.trash_purge_today)
+                } else {
+                    stringResource(R.string.trash_days_left, daysUntilPurge)
+                },
                 style = MutterText.caption,
                 color = InkFaint,
             )
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onRestore, enabled = !isBusy) {
-                    Text("복구", color = if (isBusy) InkFaint else Gold)
+                    Text(stringResource(R.string.trash_restore), color = if (isBusy) InkFaint else Gold)
                 }
                 TextButton(onClick = onPurge, enabled = !isBusy) {
-                    Text("완전히 삭제", color = if (isBusy) InkFaint else Danger)
+                    Text(stringResource(R.string.trash_purge), color = if (isBusy) InkFaint else Danger)
                 }
             }
         }

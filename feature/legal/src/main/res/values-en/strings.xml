@@ -1,0 +1,13 @@
+<resources>
+    <!-- 권리침해 신고 화면 — 영어. 값은 iOS Localizable.strings en 원문. -->
+    <string name="legal_contact">Contact</string>
+    <string name="legal_takedown_title">Report Infringement</string>
+    <string name="legal_takedown_subtitle">Report copyright or other infringement and we\'ll review it promptly.</string>
+    <string name="legal_takedown_claimant">Name / Organization</string>
+    <string name="legal_takedown_contact">Contact (email)</string>
+    <string name="legal_takedown_target">Target (link/track, optional)</string>
+    <string name="legal_takedown_reason">Reason</string>
+    <string name="legal_takedown_submit">Submit Report</string>
+    <string name="legal_takedown_done_title">Report Received</string>
+    <string name="legal_takedown_done_detail">We\'ll follow up at your contact after review.</string>
+</resources>

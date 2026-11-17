@@ -5,6 +5,7 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import com.efreedom.mutter.domain.error.MutterError
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.kakao.sdk.auth.model.OAuthToken
@@ -41,7 +42,7 @@ object OauthClient {
             ) {
                 return GoogleIdTokenCredential.createFrom(credential.data).idToken
             }
-            throw IllegalStateException("예상치 못한 자격 증명 형식이에요.")
+            throw MutterError.Server("Google 토큰을 받지 못했어요.")
         } catch (e: GetCredentialCancellationException) {
             throw OauthCancelledException()
         }
@@ -58,7 +59,7 @@ object OauthClient {
                     error?.isCancel() == true -> cont.resumeWithException(OauthCancelledException())
                     error != null -> cont.resumeWithException(error)
                     token != null -> cont.resume(token)
-                    else -> cont.resumeWithException(IllegalStateException("카카오 로그인에 실패했어요."))
+                    else -> cont.resumeWithException(MutterError.Server("카카오 로그인에 실패했어요."))
                 }
             }
             if (UserApiClient.instance.isKakaoTalkLoginAvailable(context)) {
@@ -77,7 +78,7 @@ object OauthClient {
         if (token.idToken != null && (token.idToken?.isNotEmpty() == true)) {
             return token.idToken!!
         }
-        // 취소는 조용히, 그 외는 실패 메시지.
-        throw IllegalStateException("카카오 id_token을 받지 못했어요(콘솔 OpenID Connect 확인).")
+        // id_token 없음 — 콘솔 OpenID Connect 비활성 등. 문구는 iOS `auth.error.kakaoNoIdToken`.
+        throw MutterError.Server("카카오 로그인 정보를 받지 못했어요. 잠시 후 다시 시도해 주세요.")
     }
 }

@@ -3,6 +3,8 @@ package com.efreedom.mutter.feature.ticket
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
+import com.efreedom.mutter.domain.analytics.Analytics
+import com.efreedom.mutter.domain.analytics.AnalyticsEvent
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Entitlements
 import com.efreedom.mutter.domain.model.TicketProduct
@@ -22,8 +24,10 @@ import javax.inject.Inject
 
 /** 시트가 보일 안내·오류. 문구는 화면이 리소스로 붙인다(서버·스토어 오류만 문자열을 그대로 싣는다). */
 sealed interface TicketCheckoutMessage {
-    /** 스토어 상품을 받지 못했다 — 살 수 없다. */
+    /** 스토어 상품을 받지 못했거나 결제 테스트 대상이 아닌 계정(403 not_tester)이다 — 살 수 없다. */
     data object PurchaseUnavailable : TicketCheckoutMessage
+    /** 다른 계정으로 산 구매(403 account_mismatch) — 구매한 계정으로 로그인해야 한다. */
+    data object AccountMismatch : TicketCheckoutMessage
     /** 결제 대기(현금 결제 등) — 끝나면 편지권이 들어온다. */
     data object Pending : TicketCheckoutMessage
     data class Error(val text: String) : TicketCheckoutMessage
@@ -62,6 +66,7 @@ data class TicketCheckoutUiState(
 class TicketCheckoutViewModel @Inject constructor(
     private val ticketUseCase: TicketUseCase,
     private val letterAccessUseCase: LetterAccessUseCase,
+    private val analytics: Analytics,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(TicketCheckoutUiState())
@@ -126,8 +131,11 @@ class TicketCheckoutViewModel @Inject constructor(
             _state.value = _state.value.copy(isWorking = true, message = null)
             try {
                 if (!_state.value.canUseNow) {
-                    when (val outcome = ticketUseCase.purchase(_state.value.selectedProductId)) {
+                    val productId = _state.value.selectedProductId
+                    when (val outcome = ticketUseCase.purchase(productId)) {
                         is TicketPurchaseOutcome.Granted -> {
+                            // Granted = 서버 검증·지급까지 끝났다.
+                            analytics.log(AnalyticsEvent.TicketPurchase(productId))
                             val entitlements = ticketUseCase.entitlementsOrNull()
                                 ?: _state.value.entitlements?.copy(tickets = outcome.tickets)
                             _state.value = _state.value.copy(entitlements = entitlements)
@@ -147,11 +155,14 @@ class TicketCheckoutViewModel @Inject constructor(
             } catch (e: Throwable) {
                 // 구매는 됐는데 사용이 실패했으면 편지권은 남아 있다 — 잔액을 다시 받아 버튼을 "편지권 1장으로 …"로 바꾼다.
                 val entitlements = ticketUseCase.entitlementsOrNull() ?: _state.value.entitlements
-                val text = (e as? MutterError)?.userMessage ?: MutterError.Unknown.userMessage
-                _state.value = _state.value.copy(
-                    entitlements = entitlements,
-                    message = TicketCheckoutMessage.Error(text),
-                )
+                // 결제 테스트 대상이 아닌 계정(403 not_tester)은 상품을 못 받았을 때와 같은 현지화 문구로 보인다.
+                val message = when (e) {
+                    is MutterError.PurchaseUnavailable -> TicketCheckoutMessage.PurchaseUnavailable
+                    // 다른 계정으로 산 구매 — 현지화 문구로 보인다. 거래는 남아 있다.
+                    is MutterError.PurchaseAccountMismatch -> TicketCheckoutMessage.AccountMismatch
+                    else -> TicketCheckoutMessage.Error((e as? MutterError)?.userMessage ?: MutterError.Unknown.userMessage)
+                }
+                _state.value = _state.value.copy(entitlements = entitlements, message = message)
             } finally {
                 _state.value = _state.value.copy(isWorking = false)
             }
@@ -162,8 +173,14 @@ class TicketCheckoutViewModel @Inject constructor(
         when (route) {
             // 아직 안 보낸 편지 — 여기서 쓰지 않는다. 링크 발급·발송 때 서버가 쓴다.
             TicketCheckoutRoute.SendPermanent -> Unit
-            is TicketCheckoutRoute.MakePermanent -> letterAccessUseCase.makePermanent(route.letterId)
-            is TicketCheckoutRoute.KeepReceived -> letterAccessUseCase.keepReceived(route.token, route.password)
+            is TicketCheckoutRoute.MakePermanent -> {
+                letterAccessUseCase.makePermanent(route.letterId)
+                analytics.log(AnalyticsEvent.LetterMakePermanent)
+            }
+            is TicketCheckoutRoute.KeepReceived -> {
+                letterAccessUseCase.keepReceived(route.token, route.password)
+                analytics.log(AnalyticsEvent.LetterKeep)
+            }
         }
     }
 }

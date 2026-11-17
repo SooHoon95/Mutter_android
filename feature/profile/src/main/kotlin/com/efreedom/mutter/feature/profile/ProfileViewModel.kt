@@ -31,6 +31,9 @@ data class ProfileUiState(
     /** 로그인 비밀번호 — null이거나 isAvailable=false(소셜 계정)면 항목을 숨긴다. */
     val passwordStatus: LoginPasswordStatus? = null,
     val isPasswordDialogVisible: Boolean = false,
+    /** 비밀번호 다이얼로그 전용 오류·저장 중 — 화면의 [error]·[isLoading]과 분리(iOS passwordErrorMessage·isSavingPassword). */
+    val passwordError: String? = null,
+    val isSavingPassword: Boolean = false,
 ) {
     val showsLoginPassword: Boolean get() = passwordStatus?.isAvailable == true
 
@@ -78,21 +81,31 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun showPasswordDialog() {
-        _state.value = _state.value.copy(isPasswordDialogVisible = true, error = null)
+        _state.value = _state.value.copy(isPasswordDialogVisible = true, passwordError = null)
     }
 
     fun dismissPasswordDialog() {
-        _state.value = _state.value.copy(isPasswordDialogVisible = false, error = null)
+        _state.value = _state.value.copy(isPasswordDialogVisible = false, passwordError = null)
     }
 
-    /** 로그인 비밀번호 저장 — 실패하면 다이얼로그에 오류를 보이고 열어 둔다. */
-    fun savePassword(password: String, confirm: String) = run {
-        authUseCase.setPassword(password, confirm)
-        _state.value = _state.value.copy(
-            isPasswordDialogVisible = false,
-            savedToast = ProfileSavedToast.PASSWORD,
-            passwordStatus = authUseCase.loginPasswordStatus() ?: _state.value.passwordStatus,
-        )
+    /** 로그인 비밀번호 저장 — 실패하면 다이얼로그 안에만 오류를 보이고 열어 둔다(화면 오류·로딩은 건드리지 않는다). */
+    fun savePassword(password: String, confirm: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isSavingPassword = true, passwordError = null)
+            try {
+                authUseCase.setPassword(password, confirm)
+                _state.value = _state.value.copy(
+                    isPasswordDialogVisible = false,
+                    savedToast = ProfileSavedToast.PASSWORD,
+                    passwordStatus = runCatching { authUseCase.loginPasswordStatus() }.getOrNull()
+                        ?: _state.value.passwordStatus,
+                )
+            } catch (e: Throwable) {
+                _state.value = _state.value.copy(passwordError = (e as? MutterError)?.userMessage ?: RETRY_LATER)
+            } finally {
+                _state.value = _state.value.copy(isSavingPassword = false)
+            }
+        }
     }
 
     fun signOut() = run {
@@ -112,7 +125,7 @@ class ProfileViewModel @Inject constructor(
             try {
                 block()
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
+                val message = (e as? MutterError)?.userMessage ?: RETRY_LATER
                 _state.value = _state.value.copy(error = message)
             } finally {
                 _state.value = _state.value.copy(isLoading = false)
@@ -120,3 +133,6 @@ class ProfileViewModel @Inject constructor(
         }
     }
 }
+
+/** 일반 실패 문구(iOS `common.retryLater`). */
+private const val RETRY_LATER = "잠시 후 다시 시도해 주세요."

@@ -45,4 +45,11 @@
 
     <!-- 스토어 상품을 못 받았을 때 — 편지권 화면·결제 안내 시트 공통 -->
     <string name="ticket_purchase_unavailable">지금은 편지권을 살 수 없어요.</string>
+    <string name="common_undo">되돌리기</string>
+    <string name="trash_empty">삭제함이 비어 있어요</string>
+    <string name="trash_untitled">제목 없음</string>
+    <string name="trash_days_left">%1$d일 후 완전히 삭제</string>
+    <string name="trash_purge_today">오늘 완전히 삭제</string>
+    <string name="trash_restore">복구</string>
+    <string name="trash_purge">완전히 삭제</string>
 </resources>

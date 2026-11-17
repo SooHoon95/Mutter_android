@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -80,6 +81,8 @@ fun InboxScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val pullRefreshState = rememberPullToRefreshState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val resources = LocalContext.current.resources
+    val undoLabel = stringResource(DsR.string.common_undo)
 
     // 삭제함 등 다른 화면에서 돌아오면 이 컴포저블이 다시 들어오며 재실행된다 → 복구 결과가 목록에 반영된다.
     LaunchedEffect(Unit) {
@@ -90,9 +93,13 @@ fun InboxScreen(
     state.undo?.let { undo ->
         LaunchedEffect(undo.key) {
             val count = undo.letterIds.size
-            val message = if (count == 1) "편지를 삭제함으로 옮겼어요" else "${count}통을 삭제함으로 옮겼어요"
+            val message = if (count == 1) {
+                resources.getString(R.string.inbox_moved_to_trash)
+            } else {
+                resources.getString(R.string.inbox_moved_to_trash_many, count)
+            }
             try {
-                if (snackbarHostState.showUndo(message)) viewModel.undoDelete(undo)
+                if (snackbarHostState.showUndo(message, actionLabel = undoLabel)) viewModel.undoDelete(undo)
             } finally {
                 viewModel.undoDismissed(undo.key)
             }
@@ -109,7 +116,7 @@ fun InboxScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "받은 편지함",
+                    text = stringResource(R.string.inbox_title),
                     style = MutterText.titleLarge,
                     color = Ink,
                     modifier = Modifier.weight(1f),
@@ -117,7 +124,7 @@ fun InboxScreen(
                 IconButton(onClick = onOpenTrash, enabled = !state.isEditing) {
                     MutterIcon(
                         id = DsR.drawable.trash,
-                        contentDescription = "받은 편지 삭제함",
+                        contentDescription = stringResource(R.string.inbox_trash_title),
                         tint = if (state.isEditing) InkFaint else InkSoft,
                     )
                 }
@@ -126,11 +133,20 @@ fun InboxScreen(
                     enabled = state.isEditing || state.items.isNotEmpty(),
                 ) {
                     Text(
-                        text = if (state.isEditing) "완료" else "편집",
+                        text = stringResource(if (state.isEditing) R.string.inbox_done else R.string.inbox_edit),
                         style = MutterText.bodyMediumBold,
                         color = if (state.isEditing || state.items.isNotEmpty()) Gold else InkFaint,
                     )
                 }
+            }
+
+            state.error?.let {
+                Text(
+                    text = it,
+                    style = MutterText.caption,
+                    color = Danger,
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+                )
             }
 
             // PullToRefreshBox엔 끄는 옵션이 없어 같은 구성(modifier + Indicator)을 풀어 쓰고 편집 모드에서 enabled=false로 끈다.
@@ -185,15 +201,6 @@ fun InboxScreen(
                 )
             }
 
-            state.error?.let {
-                Text(
-                    text = it,
-                    style = MutterText.caption,
-                    color = Danger,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                )
-            }
-
             if (state.isEditing) {
                 EditBar(
                     isAllSelected = state.isAllSelected,
@@ -229,12 +236,12 @@ private fun EditBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TextButton(onClick = onToggleSelectAll) {
-            Text(text = if (isAllSelected) "선택 해제" else "전체 선택", style = MutterText.bodyMediumBold, color = Ink)
+            Text(text = stringResource(if (isAllSelected) R.string.inbox_deselect_all else R.string.inbox_select_all), style = MutterText.bodyMediumBold, color = Ink)
         }
         Spacer(modifier = Modifier.weight(1f))
         TextButton(onClick = onDelete, enabled = selectedCount > 0) {
             Text(
-                text = "삭제 ($selectedCount)",
+                text = stringResource(R.string.inbox_delete_selected, selectedCount),
                 style = MutterText.bodyMediumBold,
                 color = if (selectedCount > 0) Danger else InkFaint,
             )
@@ -278,7 +285,7 @@ private fun SwipeToDeleteContainer(
             ) {
                 MutterIcon(
                     id = DsR.drawable.trash,
-                    contentDescription = "삭제",
+                    contentDescription = stringResource(R.string.inbox_delete),
                     tint = Color.White,
                     size = 20.dp,
                 )
@@ -325,7 +332,7 @@ private fun LetterCard(item: InboxItem, accessLabel: LetterAccessLabel?, selecte
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = item.title.ifEmpty { "제목 없는 편지" },
+                text = item.title.ifEmpty { stringResource(R.string.inbox_untitled) },
                 style = MutterText.bodyMediumBold,
                 color = Ink,
                 maxLines = 1,
@@ -365,7 +372,7 @@ private fun SelectionCircle(selected: Boolean) {
         contentAlignment = Alignment.Center,
     ) {
         if (selected) {
-            MutterIcon(id = DsR.drawable.ic_check, contentDescription = "선택됨", tint = Color.White, size = 14.dp)
+            MutterIcon(id = DsR.drawable.ic_check, contentDescription = stringResource(R.string.inbox_selected), tint = Color.White, size = 14.dp)
         }
     }
 }
@@ -381,7 +388,7 @@ private fun InboxEmptyState() {
     ) {
         MutterImage(id = DsR.drawable.empty_received, modifier = Modifier.size(120.dp))
         Text(
-            text = "아직 보관한 편지가 없어요",
+            text = stringResource(R.string.inbox_empty),
             style = MutterText.bodyLarge,
             color = InkSoft,
         )

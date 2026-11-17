@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -77,9 +78,9 @@ fun NicknameOnboardScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("어떻게 불러드릴까요?", style = MutterText.titleLarge, color = Ink)
+                Text(stringResource(R.string.auth_nickname_title), style = MutterText.titleLarge, color = Ink)
                 Text(
-                    "받는 사람에게 보일 이름이에요",
+                    stringResource(R.string.auth_nickname_subtitle),
                     style = MutterText.bodyMedium,
                     color = InkSoft,
                     textAlign = TextAlign.Center,
@@ -89,7 +90,7 @@ fun NicknameOnboardScreen(
             OutlinedTextField(
                 value = state.nickname,
                 onValueChange = viewModel::onNicknameChange,
-                placeholder = { Text("닉네임", style = MutterText.bodyMedium, color = InkFaint) },
+                placeholder = { Text(stringResource(R.string.auth_nickname_field), style = MutterText.bodyMedium, color = InkFaint) },
                 singleLine = true,
                 textStyle = MutterText.bodyMedium,
                 shape = RoundedCornerShape(8.dp),
@@ -116,7 +117,7 @@ fun NicknameOnboardScreen(
             }
 
             MutterButton(
-                text = "시작하기",
+                text = stringResource(R.string.auth_nickname_start),
                 onClick = viewModel::save,
                 isLoading = state.isLoading,
                 enabled = viewModel.isValid,

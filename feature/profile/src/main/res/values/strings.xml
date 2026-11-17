@@ -1,18 +1,38 @@
 <resources>
+    <!-- 프로필 화면(iOS ProfileView). 값은 iOS Localizable.strings ko 원문. 영어는 values-en. -->
+    <string name="profile_nickname">닉네임</string>
+    <string name="profile_default_paper">기본 편지지</string>
+    <string name="profile_default_paper_value">봄날</string>
+    <string name="profile_password_default">암호 기본값</string>
+    <string name="profile_on">켜짐</string>
+    <string name="profile_report">권리침해 신고</string>
+    <string name="profile_terms">이용약관</string>
+    <string name="profile_privacy">개인정보처리방침</string>
+    <string name="profile_contact">문의하기</string>
+    <string name="profile_contact_subject">[Mutter] 문의사항</string>
+    <string name="profile_contact_body">문의 내용을 적어주세요.\n\n———\n(원활한 답변을 위해 앱 버전/기기 정보를 함께 남겨주시면 좋아요.)</string>
+    <string name="profile_mail_fallback">메일 앱이 없어 이메일 주소를 복사했어요</string>
+    <string name="profile_logout">로그아웃</string>
+    <string name="profile_delete_account">계정 삭제</string>
+    <string name="profile_delete_confirm">계정을 삭제할까요?</string>
+    <string name="profile_delete_detail">편지와 연결이 모두 사라지며 되돌릴 수 없어요. 보낸 편지는 받은 분의 편지함에 남아요.</string>
+    <string name="profile_delete">삭제</string>
+    <!-- 닉네임 저장 체크 아이콘 접근성 설명 -->
+    <string name="profile_save">저장</string>
+
     <!-- 영구 편지권 계약 문구(docs/specs/permanent-letter-contract.md, 세 플랫폼 동일) -->
     <string name="tickets_title">편지권</string>
     <string name="tickets_balance">%1$d장</string>
     <string name="profile_delete_tickets_warning">남은 편지권 %1$d장이 사라져요.</string>
-    <string name="profile_delete_sent_letters_remain">보낸 편지는 받은 분의 편지함에 남아요.</string>
 
     <!-- 로그인 비밀번호(Mutter/docs/specs/2026-11-14-login-password.md, 세 플랫폼 동일) -->
     <string name="profile_login_password">로그인 비밀번호</string>
     <string name="profile_login_password_set">설정됨</string>
     <string name="profile_login_password_unset">설정하기</string>
     <string name="profile_login_password_saved">비밀번호를 저장했어요</string>
-    <string name="profile_login_password_new">새 비밀번호</string>
+    <string name="profile_login_password_new">새 비밀번호 (6자 이상)</string>
     <string name="profile_login_password_confirm">비밀번호 확인</string>
     <string name="profile_login_password_save">저장</string>
     <string name="profile_login_password_cancel">취소</string>
-    <string name="profile_nickname_saved">닉네임이 저장됐어요.</string>
+    <string name="profile_nickname_saved">저장했어요</string>
 </resources>

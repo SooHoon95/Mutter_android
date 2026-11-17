@@ -1,9 +1,12 @@
 package com.efreedom.mutter.feature.viewer
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,15 +31,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +44,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -62,22 +62,20 @@ import com.efreedom.mutter.uicomponent.component.LetterPhotoImage
 import com.efreedom.mutter.uicomponent.component.MutterButton
 import com.efreedom.mutter.uicomponent.component.MutterEqualizer
 import com.efreedom.mutter.uicomponent.component.MutterIcon
-import com.efreedom.mutter.uicomponent.component.SoundCloudAttribution
+import com.efreedom.mutter.uicomponent.component.SoundCloudOrange
 import com.efreedom.mutter.uicomponent.theme.BlushLavender
 import com.efreedom.mutter.uicomponent.theme.BlushPink
+import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
-import com.efreedom.mutter.uicomponent.theme.GoldDeep
 import com.efreedom.mutter.uicomponent.theme.GoldLight
 import com.efreedom.mutter.uicomponent.theme.GoldSoft
 import com.efreedom.mutter.uicomponent.theme.Ink
 import com.efreedom.mutter.uicomponent.theme.InkFaint
 import com.efreedom.mutter.uicomponent.theme.InkSoft
 import com.efreedom.mutter.uicomponent.theme.Ivory
-import com.efreedom.mutter.uicomponent.theme.LetterTheme
 import com.efreedom.mutter.uicomponent.theme.LetterThemes
 import com.efreedom.mutter.uicomponent.theme.MutterText
 import com.efreedom.mutter.uicomponent.theme.OnGold
-import com.efreedom.mutter.domain.model.LetterAccessDays
 import com.efreedom.mutter.domain.model.LetterBlock
 import com.efreedom.mutter.domain.model.LetterCover
 import com.efreedom.mutter.domain.model.LetterPayload
@@ -101,7 +99,7 @@ import java.util.Locale
  * 화면을 벗어나는 건 시스템 뒤로(제스처/버튼)뿐이다 — 화면 내 뒤로 버튼은 두지 않는다.
  *
  * [onLoginRequest] — 로그인해야 열리는 편지의 봉투에서 "편지 열기"를 누르면(로그아웃 상태) 호출된다.
- * 호출부가 로그인 화면을 보인 뒤 같은 토큰으로 이 화면을 다시 띄운다. null이면 그냥 다시 불러온다.
+ * 호출부가 로그인 화면을 보인 뒤 같은 토큰으로 이 화면을 다시 띄운다. null이거나 이미 로그인 상태면 봉투에 버튼을 두지 않는다.
  * [ticketCheckout] — 간직하려는데 편지권이 없을 때 편지 위로 띄우는 결제 안내 시트(앱이 주입). null이면 띄우지 않는다.
  */
 @Composable
@@ -115,6 +113,8 @@ fun ViewerScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isOpened = viewModel.isOpened
     val keepOffer = KeepOffer(
+        isTokenViewer = viewModel.isTokenViewer,
+        isSignedIn = viewModel.isSignedIn,
         isRecipient = viewModel.isRecipient,
         canKeep = viewModel.canKeep,
         hasTicket = viewModel.hasTicket,
@@ -152,16 +152,18 @@ fun ViewerScreen(
         // ── 상태별 콘텐츠 ────────────────────────────────────────────────────
         when (val s = state) {
             ViewerState.Loading -> LoadingContent()
-            ViewerState.PasswordRequired -> PasswordGate(onSubmit = viewModel::submitPassword)
+            ViewerState.PasswordRequired -> PasswordGate(
+                password = viewModel.passwordInput,
+                onPasswordChange = viewModel::updatePassword,
+                onSubmit = viewModel::submitPassword,
+            )
             is ViewerState.RevealPending -> RevealPendingContent(s.revealAt)
             is ViewerState.Failed -> FailedContent(s.message)
             ViewerState.Gone -> FailedContent(stringResource(R.string.viewer_gone))
+            // 로그인 상태면 버튼을 숨긴다(iOS는 콜백을 nil로 넘긴다).
             is ViewerState.Envelope -> EnvelopeContent(
                 cover = s.cover,
-                onOpen = {
-                    val login = onLoginRequest
-                    if (!viewModel.isSignedIn && login != null) login() else viewModel.reload()
-                },
+                onOpen = onLoginRequest?.takeIf { !viewModel.isSignedIn },
             )
             is ViewerState.Locked -> LockedContent(
                 state = s,
@@ -177,19 +179,10 @@ fun ViewerScreen(
                         player = viewModel.player,
                         photoUrls = viewModel.photoUrls,
                         keepOffer = keepOffer,
+                        savedToInbox = viewModel.savedToInbox,
                     )
-                    // 받은함 자동 저장 표시(인증 + 토큰 수신 시). iOS ViewerView savedToInbox 대응.
-                    if (viewModel.savedToInbox) {
-                        SavedToInboxBadge(
-                            theme = LetterThemes.byId(s.payload.templateId),
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .statusBarsPadding()
-                                .padding(top = 8.dp),
-                        )
-                    }
                 } else {
-                    OpenGate(payload = s.payload, keepOffer = keepOffer, onOpen = viewModel::open)
+                    OpenGate(payload = s.payload, onOpen = viewModel::open)
                 }
             }
         }
@@ -227,7 +220,7 @@ private fun FailedContent(message: String) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(32.dp),
         ) {
-            Text("편지를 열 수 없어요", style = MutterText.title, color = Ink)
+            Text(stringResource(R.string.viewer_error_cant_open), style = MutterText.title, color = Ink)
             Text(
                 text = message,
                 style = MutterText.bodyMedium,
@@ -240,9 +233,12 @@ private fun FailedContent(message: String) {
 
 // ─── Envelope (LOGIN_REQUIRED) ───────────────────────────────────────────────
 
-/** 로그인 전 봉투 — 제목·보낸 사람만(get_letter_cover). 본문·열람 기록 없음. */
+/**
+ * 로그인 전 봉투 — 제목·보낸 사람만(get_letter_cover). 본문·열람 기록 없음. iOS `ViewerCoverView`.
+ * [onOpen]이 null이면(로그인 상태 등) 버튼을 숨긴다.
+ */
 @Composable
-private fun EnvelopeContent(cover: LetterCover?, onOpen: () -> Unit) {
+private fun EnvelopeContent(cover: LetterCover?, onOpen: (() -> Unit)?) {
     Box(
         modifier = Modifier.fillMaxSize().background(Ivory),
         contentAlignment = Alignment.Center,
@@ -254,43 +250,47 @@ private fun EnvelopeContent(cover: LetterCover?, onOpen: () -> Unit) {
         ) {
             EnvelopeBadge()
             CoverTitle(cover)
+            if (onOpen != null) {
+                MutterButton(
+                    text = stringResource(R.string.viewer_envelope_open),
+                    onClick = onOpen,
+                    leadingIconRes = DsR.drawable.play,
+                    modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
+                )
+            }
             Text(
                 stringResource(R.string.viewer_envelope_login_hint),
-                style = MutterText.bodyMedium,
-                color = InkSoft,
+                style = MutterText.caption,
+                color = InkFaint,
                 textAlign = TextAlign.Center,
-            )
-            MutterButton(
-                text = stringResource(R.string.viewer_envelope_open),
-                onClick = onOpen,
-                modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
             )
         }
     }
 }
 
-/** 봉투·잠김 화면 공통 — 제목과 보낸 사람(있을 때만). */
+/** 봉투 전용 — 보낸이(없으면 "편지가 도착했어요")와 제목(없으면 "소중한 편지"). */
 @Composable
 private fun CoverTitle(cover: LetterCover?) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        cover?.senderNickname?.takeIf { it.isNotBlank() }?.let { sender ->
-            Text(
-                stringResource(R.string.viewer_cover_sender, sender),
-                style = MutterText.caption,
-                color = InkSoft,
-            )
-        }
-        cover?.title?.takeIf { it.isNotBlank() }?.let { title ->
-            Text(
-                text = title,
-                style = MutterText.titleLarge,
-                color = Ink,
-                textAlign = TextAlign.Center,
-            )
-        }
+        val sender = cover?.senderNickname?.takeIf { it.isNotBlank() }
+        Text(
+            text = if (sender != null) {
+                stringResource(R.string.viewer_cover_sender, sender)
+            } else {
+                stringResource(R.string.viewer_arrived)
+            },
+            style = MutterText.caption,
+            color = InkSoft,
+        )
+        Text(
+            text = cover?.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.viewer_untitled),
+            style = MutterText.titleLarge,
+            color = Ink,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -333,7 +333,7 @@ private fun LockedContent(
             verticalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier
                 .widthIn(max = 360.dp)
-                .padding(24.dp),
+                .padding(32.dp),
         ) {
             Box(
                 modifier = Modifier
@@ -343,12 +343,27 @@ private fun LockedContent(
             ) {
                 MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = Gold, size = 32.dp)
             }
-            CoverTitle(state.cover)
+            // iOS ViewerLockedView 순서: 안내 제목 → 편지 제목 → 보낸이 → 삭제 날짜(제목·보낸이는 있을 때만, 폴백 없음).
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(stringResource(R.string.viewer_locked_title), style = MutterText.title, color = Ink)
+                Text(
+                    stringResource(R.string.viewer_locked_title),
+                    style = MutterText.title,
+                    color = Ink,
+                    textAlign = TextAlign.Center,
+                )
+                state.cover?.title?.takeIf { it.isNotBlank() }?.let { title ->
+                    Text(title, style = MutterText.bodyMediumBold, color = Ink, textAlign = TextAlign.Center)
+                }
+                state.cover?.senderNickname?.takeIf { it.isNotBlank() }?.let { sender ->
+                    Text(
+                        stringResource(R.string.viewer_cover_sender, sender),
+                        style = MutterText.caption,
+                        color = InkSoft,
+                    )
+                }
                 state.deleteAt?.let { deleteAt ->
                     val date = remember(deleteAt) { deleteAt.atZone(ZoneId.systemDefault()).toLocalDate() }
                     // "{M}월 {D}일에 삭제돼요." + (간직 버튼이 보일 때만) "그 전에 간직하면 계속 열 수 있어요."
@@ -378,7 +393,7 @@ private fun LockedContent(
                 }
             }
             error?.let {
-                Text(text = it, style = MutterText.caption, color = GoldDeep, textAlign = TextAlign.Center)
+                Text(text = it, style = MutterText.caption, color = Danger, textAlign = TextAlign.Center)
             }
         }
     }
@@ -387,13 +402,15 @@ private fun LockedContent(
 // ─── Password Gate ───────────────────────────────────────────────────────────
 
 /**
- * 암호 게이트 — 잠금 배지 + 입력 필드 + 확인 버튼.
- * 암호 입력 상태는 화면 로컬로 관리하고, 확인 시 [onSubmit]에 전달한다.
+ * 암호 게이트 — 잠금 배지 + 입력 필드 + 열기 버튼.
+ * 입력값은 ViewModel([ViewerViewModel.passwordInput])이 가진다 — 틀려서 이 화면이 다시 떠도 남는다(iOS `model.password`).
  */
 @Composable
-private fun PasswordGate(onSubmit: (String) -> Unit) {
-    var password by remember { mutableStateOf("") }
-
+private fun PasswordGate(
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+) {
     Box(
         modifier = Modifier.fillMaxSize().background(Ivory),
         contentAlignment = Alignment.Center,
@@ -419,9 +436,9 @@ private fun PasswordGate(onSubmit: (String) -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text("암호가 필요해요", style = MutterText.title, color = Ink)
+                Text(stringResource(R.string.viewer_password_title), style = MutterText.title, color = Ink)
                 Text(
-                    "이 편지는 암호로 보호돼 있어요",
+                    stringResource(R.string.viewer_password_subtitle),
                     style = MutterText.bodyMedium,
                     color = InkSoft,
                     textAlign = TextAlign.Center,
@@ -430,8 +447,8 @@ private fun PasswordGate(onSubmit: (String) -> Unit) {
 
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
-                label = { Text("암호") },
+                onValueChange = onPasswordChange,
+                label = { Text(stringResource(R.string.viewer_password_label)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -439,9 +456,9 @@ private fun PasswordGate(onSubmit: (String) -> Unit) {
             )
 
             MutterButton(
-                text = "확인",
-                onClick = { onSubmit(password) },
-                enabled = password.isNotBlank(),
+                text = stringResource(R.string.viewer_open_short),
+                onClick = onSubmit,
+                enabled = password.isNotEmpty(),
             )
         }
     }
@@ -463,9 +480,9 @@ private fun RevealPendingContent(revealAt: Instant) {
             modifier = Modifier.padding(32.dp),
         ) {
             MutterIcon(id = DsR.drawable.lock, contentDescription = null, tint = Gold, size = 28.dp)
-            Text("아직 열 수 없어요", style = MutterText.title, color = Ivory)
+            Text(stringResource(R.string.viewer_not_yet_title), style = MutterText.title, color = Ivory)
             Text(
-                text = "${formatted}에 열려요",
+                text = stringResource(R.string.viewer_not_yet_at, formatted),
                 style = MutterText.bodyMedium,
                 color = GoldSoft,
                 textAlign = TextAlign.Center,
@@ -477,13 +494,12 @@ private fun RevealPendingContent(revealAt: Instant) {
 // ─── Open Gate (Screen 4) ────────────────────────────────────────────────────
 
 /**
- * 봉투 배지 + 편지 제목 + "열기 ▶" CTA.
+ * 봉투 배지 + 편지 제목 + 안내 + "편지 열기"(재생 아이콘) + 설치 불필요 줄. iOS `ViewerView.openGate`.
  * [onOpen]은 사용자 제스처(onClick)에서 호출되므로 SoundCloud 오디오 언락이 성립한다.
  */
 @Composable
 private fun OpenGate(
     payload: LetterPayload,
-    keepOffer: KeepOffer,
     onOpen: () -> Unit,
 ) {
     Box(
@@ -502,9 +518,9 @@ private fun OpenGate(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("편지가 도착했어요", style = MutterText.caption, color = InkSoft)
+                Text(stringResource(R.string.viewer_arrived), style = MutterText.caption, color = InkSoft)
                 Text(
-                    text = payload.title.ifBlank { "무제" },
+                    text = payload.title.ifBlank { stringResource(R.string.viewer_untitled) },
                     style = MutterText.titleLarge,
                     color = Ink,
                     textAlign = TextAlign.Center,
@@ -512,189 +528,26 @@ private fun OpenGate(
             }
 
             Text(
-                "음악과 함께 편지를 열어보세요",
+                stringResource(R.string.viewer_subtitle),
                 style = MutterText.bodyMedium,
                 color = InkSoft,
                 textAlign = TextAlign.Center,
             )
 
             MutterButton(
-                text = "열기 ▶",
+                text = stringResource(R.string.viewer_envelope_open),
                 onClick = onOpen,
+                leadingIconRes = DsR.drawable.play,
                 modifier = Modifier.widthIn(min = 200.dp, max = 280.dp),
             )
 
-            ClosingSoonLine(payload, keepOffer)
-        }
-    }
-}
-
-/**
- * 받은 사람의 간직하기 상태 — 편지 끝 안내(①)·닫힘 예고(②)가 같이 쓴다.
- * [isRecipient] 로그인·소유자 아님, [canKeep] 버튼 노출(`tickets > 0 || paid_enabled || is_admin`).
- * [hasTicket] 지금 쓸 편지권이 있는지 — 있으면 글자 버튼을 누른 자리에서 한 번 더 묻고, 없으면 바로 [onKeep](결제 안내 시트).
- * [graceDays] 닫힌 뒤 삭제까지의 일수 — 안내 문장 뒤에 삭제 문장을 잇는다. 권한을 못 받았으면 null(그 문장만 뺀다).
- */
-private data class KeepOffer(
-    val isRecipient: Boolean,
-    val canKeep: Boolean,
-    val hasTicket: Boolean,
-    val isKept: Boolean,
-    val isKeeping: Boolean,
-    val error: String?,
-    val warnDays: Int,
-    val graceDays: Int?,
-    val onKeep: () -> Unit,
-)
-
-/**
- * 안내 문장 뒤에 "닫힌 뒤 {n}일이 지나면 삭제돼요."를 잇는다(계약 "삭제 안내").
- * 처음 받은 사람이 삭제 규칙을 아는 자리다. 일수를 모르면 문장을 그대로 둔다.
- */
-@Composable
-private fun withPurgeNotice(text: String, graceDays: Int?): String =
-    if (graceDays == null) text else stringResource(R.string.viewer_with_purge_notice, text, graceDays)
-
-/**
- * ② 닫힘 예고 — 영구가 아니고 남은 기간이 warn_days 이하일 때 조용히 안내 + 그 아래 "간직하기"(간직할 수 있는 받은 사람).
- * 방금 간직했으면 "간직한 편지예요". 보낸 사람 본인(`is_mine`)에게는 아무것도 없다.
- */
-@Composable
-private fun ClosingSoonLine(payload: LetterPayload, keepOffer: KeepOffer) {
-    if (payload.isMine) return
-    if (keepOffer.isKept) {
-        Text(
-            text = stringResource(R.string.viewer_kept),
-            style = MutterText.caption,
-            color = InkFaint,
-            textAlign = TextAlign.Center,
-        )
-        return
-    }
-    val accessUntil = payload.accessUntil ?: return
-    if (payload.isPermanent) return
-    val days = remember(accessUntil) { LetterAccessDays.until(accessUntil, Instant.now()) }
-    if (days > keepOffer.warnDays) return
-    var confirming by remember { mutableStateOf(false) }
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        if (confirming) {
-            KeepInlineConfirm(keepOffer = keepOffer, muted = InkFaint, accent = GoldDeep, onCancel = { confirming = false })
-        } else {
-            // 삭제 문장이 붙으면 한 줄에 버튼까지 들어가지 않는다 — 안내 아래에 버튼을 둔다(편지 끝 안내와 같은 배치).
-            Text(
-                text = withPurgeNotice(
-                    text = if (days <= 0) {
-                        stringResource(R.string.viewer_closing_today)
-                    } else {
-                        stringResource(R.string.viewer_closing_in_days, days)
-                    },
-                    graceDays = keepOffer.graceDays,
-                ),
-                style = MutterText.caption,
-                color = InkFaint,
-                textAlign = TextAlign.Center,
-            )
-            if (keepOffer.isRecipient && keepOffer.canKeep) {
-                KeepTextButton(
-                    text = stringResource(R.string.viewer_closing_keep),
-                    color = GoldDeep,
-                    keepOffer = keepOffer,
-                    onConfirmRequest = { confirming = true },
-                )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MutterIcon(id = DsR.drawable.ic_check, contentDescription = null, tint = InkFaint, size = 14.dp)
+                Text(stringResource(R.string.viewer_no_install), style = MutterText.caption, color = InkFaint)
             }
-        }
-        keepOffer.error?.let {
-            Text(text = it, style = MutterText.caption, color = GoldDeep, textAlign = TextAlign.Center)
-        }
-    }
-}
-
-/**
- * 간직하기 글자 버튼(편지 끝·닫힘 예고). 편지권이 있으면 [onConfirmRequest]로 같은 자리의 확인([KeepInlineConfirm])을 열고,
- * 없으면 바로 [KeepOffer.onKeep] — 결제 안내 시트가 뜬다.
- */
-@Composable
-private fun KeepTextButton(text: String, color: Color, keepOffer: KeepOffer, onConfirmRequest: () -> Unit) {
-    TextButton(onClick = { if (keepOffer.hasTicket) onConfirmRequest() else keepOffer.onKeep() }) {
-        Text(text = text, style = MutterText.captionBold, color = color)
-    }
-}
-
-/**
- * 글자 버튼을 누른 그 자리의 확인 — "편지권 1장을 사용해요. …" + 취소 / 간직하기(팝업 없이).
- * 작은 글자 버튼 한 번에 편지권이 쓰이지 않게 한다. 계약 "편지권이 있을 때의 확인".
- */
-@Composable
-private fun KeepInlineConfirm(keepOffer: KeepOffer, muted: Color, accent: Color, onCancel: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = stringResource(R.string.viewer_keep_confirm_body),
-            style = MutterText.caption,
-            color = muted,
-            textAlign = TextAlign.Center,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = onCancel, enabled = !keepOffer.isKeeping) {
-                Text(text = stringResource(R.string.viewer_cancel), style = MutterText.caption, color = muted)
-            }
-            if (keepOffer.isKeeping) {
-                CircularProgressIndicator(
-                    modifier = Modifier.padding(horizontal = 12.dp).size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = accent,
-                )
-            } else {
-                TextButton(onClick = keepOffer.onKeep) {
-                    Text(text = stringResource(R.string.viewer_keep_confirm), style = MutterText.captionBold, color = accent)
-                }
-            }
-        }
-    }
-}
-
-/**
- * ① 편지 맨 끝 — 기간 제한 편지를 연 받은 사람에게 작은 한 줄 "이 편지는 {M}월 {D}일까지 열려요" + "계속 간직하기".
- * 영구 편지·익명·내 편지는 아무것도 없다. 방금 간직했으면 "간직한 편지예요".
- */
-@Composable
-private fun LetterEndKeepLine(payload: LetterPayload, keepOffer: KeepOffer, foreground: Color) {
-    val muted = foreground.copy(alpha = 0.6f)
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 24.dp),
-    ) {
-        if (keepOffer.isKept) {
-            Text(text = stringResource(R.string.viewer_kept), style = MutterText.caption, color = muted)
-            return@Column
-        }
-        val accessUntil = payload.accessUntil ?: return@Column
-        val date = remember(accessUntil) { accessUntil.atZone(ZoneId.systemDefault()).toLocalDate() }
-        var confirming by remember { mutableStateOf(false) }
-        if (confirming) {
-            KeepInlineConfirm(keepOffer = keepOffer, muted = muted, accent = foreground, onCancel = { confirming = false })
-        } else {
-            Text(
-                text = withPurgeNotice(
-                    text = stringResource(R.string.viewer_letter_end_until, date.monthValue, date.dayOfMonth),
-                    graceDays = keepOffer.graceDays,
-                ),
-                style = MutterText.caption,
-                color = muted,
-                textAlign = TextAlign.Center,
-            )
-            if (keepOffer.canKeep) {
-                KeepTextButton(
-                    text = stringResource(R.string.viewer_letter_end_keep),
-                    color = foreground,
-                    keepOffer = keepOffer,
-                    onConfirmRequest = { confirming = true },
-                )
-            }
-        }
-        keepOffer.error?.let {
-            Text(text = it, style = MutterText.caption, color = muted, textAlign = TextAlign.Center)
         }
     }
 }
@@ -704,7 +557,7 @@ private fun LetterEndKeepLine(payload: LetterPayload, keepOffer: KeepOffer, fore
 /**
  * 편지 본문 열람 화면.
  *
- * 첫 화면은 "아래로 스크롤" 안내로 가득 채워 편지를 아래로 밀어낸다.
+ * 첫 화면은 "스크롤 해주세요" 안내로 가득 채워 편지를 아래로 밀어낸다.
  * 각 단락은 LazyColumn 아이템으로 분리되며, 뷰포트에 진입한 순간부터
  * alpha·offset 애니메이션으로 서서히 나타난다(iOS revealOnScroll 대응).
  */
@@ -714,8 +567,19 @@ private fun LetterReader(
     player: LetterAudioPlayer,
     photoUrls: Map<String, String>,
     keepOffer: KeepOffer,
+    savedToInbox: Boolean,
 ) {
     val theme = remember(payload.templateId) { LetterThemes.byId(payload.templateId) }
+    // 편지 끝 안내 값(iOS ViewerModelData.openUntil / closingSoonDays) — 토큰 수신·내 편지 아님은 아래 아이템 조건이 본다.
+    // ① 로그인 + 기간 제한 편지의 열린 기한. ② 간직 전 + 남은 날 ≤ warnDays(로그인 무관). now는 remember로 고정(iOS처럼 다시 그릴 때만 재평가).
+    val openUntil = payload.accessUntil?.takeIf { keepOffer.isSignedIn && !payload.isPermanent }
+    val closingSoonDays = if (keepOffer.isKept) {
+        null
+    } else {
+        remember(payload.accessUntil, keepOffer.warnDays) { payload.closingSoonDays(keepOffer.warnDays) }
+    }
+    val showKeepFooter = keepOffer.isTokenViewer && !payload.isMine &&
+        (openUntil != null || closingSoonDays != null || keepOffer.isKept || keepOffer.error != null)
     // 줄 단위 등장(iOS per-line reveal) — 텍스트 블록을 하드 개행(\n)으로 분할, 빈 줄은 문단 간격.
     // 사진 블록은 제자리에서 한 아이템으로 끼워 같은 등장 애니메이션을 탄다.
     val items = remember(payload.blocks) { readerItems(payload.blocks) }
@@ -857,10 +721,35 @@ private fun LetterReader(
                 }
             }
 
-            // ── ① 편지 끝 간직 안내(받은 사람, 기간 제한 편지) — 본문·사진이 끝난 자리, 스크롤 내용의 일부 ──
-            if (keepOffer.isRecipient && (keepOffer.isKept || (!payload.isPermanent && payload.accessUntil != null))) {
+            // ── 편지 끝 간직 안내(열린 기한·닫힘 예고·간직한 편지) — 읽기를 끊지 않게 스크롤 마지막에만 ──
+            if (showKeepFooter) {
                 item(key = "keep-end") {
-                    LetterEndKeepLine(payload = payload, keepOffer = keepOffer, foreground = theme.foreground)
+                    ViewerKeepFooter(
+                        openUntil = openUntil,
+                        closingSoonDays = closingSoonDays,
+                        keepOffer = keepOffer,
+                        foreground = theme.foreground,
+                    )
+                }
+            }
+
+            // ── 받은함 자동 저장 표시(로그인 + 토큰 수신 + 로드 성공 — 내 편지도). iOS ViewerView savedToInbox ──
+            if (savedToInbox) {
+                item(key = "saved") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                    ) {
+                        MutterIcon(id = DsR.drawable.ic_check, contentDescription = null, tint = Gold, size = 16.dp)
+                        Text(
+                            text = stringResource(R.string.viewer_saved_to_inbox),
+                            style = MutterText.caption,
+                            color = InkSoft,
+                        )
+                    }
                 }
             }
 
@@ -931,7 +820,7 @@ private fun ScrollPromptView(
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = "아래로 스크롤",
+            text = stringResource(R.string.viewer_scroll),
             style = MutterText.bodyMedium,
             color = foreground.copy(alpha = 0.7f),
         )
@@ -946,28 +835,11 @@ private fun ScrollPromptView(
     }
 }
 
-// ─── Saved-to-inbox badge ─────────────────────────────────────────────────────
-
-/** "받은함에 저장됨" 표시 — 편지 테마 색으로 상단에 얹는 알약(iOS savedToInbox 행 대응). */
-@Composable
-private fun SavedToInboxBadge(theme: LetterTheme, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .background(color = theme.background.copy(alpha = 0.92f), shape = RoundedCornerShape(999.dp))
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        MutterIcon(id = DsR.drawable.check_circle, contentDescription = null, tint = theme.accent, size = 14.dp)
-        Text(text = "받은함에 저장됨", style = MutterText.caption, color = theme.foreground)
-    }
-}
-
 // ─── Now Playing Bar ─────────────────────────────────────────────────────────
 
 /**
  * 화면 하단 고정 음악 플레이어 바.
- * 트랙명·아티스트 + 재생/일시정지 토글. [player.isPlaying]이 true일 때만 표시된다.
+ * 트랙명·아티스트 + 재생/일시정지 토글. 플레이어가 있으면 재생 중이든 멈춤이든 표시된다.
  */
 @Composable
 private fun NowPlayingBar(
@@ -993,9 +865,27 @@ private fun NowPlayingBar(
                 MutterIcon(id = DsR.drawable.note, contentDescription = null, tint = Gold, size = 18.dp)
             }
             Spacer(modifier = Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
+            // 곡 정보 영역 전체가 한 버튼 — 탭하면 원곡(SoundCloud)으로(Widget 이용약관: 브랜딩 + 링크백). iOS MusicPlayerBar.
+            // iOS는 기본 제공 곡에도 "SoundCloud"를 붙이지만 사실과 달라 SoundCloud 큐에만 출처 줄·링크를 둔다(정책 1).
+            val isSoundCloud = cue?.source == MusicSource.SOUNDCLOUD
+            val scUrl = cue?.takeIf { isSoundCloud }?.let { it.sourceUrl ?: it.ref }
+            val context = LocalContext.current
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(enabled = scUrl != null) {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse(scUrl))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    },
+            ) {
                 Text(
-                    text = cue?.title ?: "트랙",
+                    text = cue?.title ?: stringResource(
+                        if (cue?.source == MusicSource.HOSTED) R.string.viewer_builtin_music else R.string.viewer_soundcloud_track,
+                    ),
                     style = MutterText.captionBold,
                     color = Ivory,
                     maxLines = 1,
@@ -1008,17 +898,22 @@ private fun NowPlayingBar(
                         maxLines = 1,
                     )
                 }
-                // SoundCloud 트랙이면 브랜드 표기 + 원곡 링크백(Widget 이용약관 준수). iOS MusicPlayerBar 대응.
-                val scUrl = cue?.takeIf { it.source == MusicSource.SOUNDCLOUD }
-                    ?.let { it.sourceUrl ?: it.ref }
-                if (scUrl != null) {
-                    SoundCloudAttribution(sourceUrl = scUrl)
+                if (isSoundCloud) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("SoundCloud", style = MutterText.caption, color = SoundCloudOrange)
+                        if (scUrl != null) {
+                            MutterIcon(id = DsR.drawable.link, contentDescription = null, tint = SoundCloudOrange, size = 10.dp)
+                        }
+                    }
                 }
             }
             IconButton(onClick = onToggle) {
                 MutterIcon(
                     id = if (isPlaying) DsR.drawable.pause else DsR.drawable.play,
-                    contentDescription = if (isPlaying) "일시정지" else "재생",
+                    contentDescription = stringResource(if (isPlaying) R.string.viewer_pause else R.string.viewer_play),
                     tint = Ivory,
                 )
             }

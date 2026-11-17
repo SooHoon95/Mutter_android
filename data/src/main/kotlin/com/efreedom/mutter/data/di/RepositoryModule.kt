@@ -1,6 +1,8 @@
 package com.efreedom.mutter.data.di
 
+import com.efreedom.mutter.data.analytics.FirebaseAnalyticsTracker
 import com.efreedom.mutter.data.billing.PlayTicketStore
+import com.efreedom.mutter.domain.analytics.Analytics
 import com.efreedom.mutter.data.repository.AppUpdateRepositoryImpl
 import com.efreedom.mutter.data.repository.AuthRepositoryImpl
 import com.efreedom.mutter.data.repository.ConnectionRepositoryImpl
@@ -95,4 +97,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindTicketStore(impl: PlayTicketStore): TicketStore
+
+    @Binds @Singleton
+    abstract fun bindAnalytics(impl: FirebaseAnalyticsTracker): Analytics
 }

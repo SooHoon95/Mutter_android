@@ -1,0 +1,13 @@
+<resources>
+    <!-- Letters tab — iOS ThreadsView copy (threads.*, common.retry) -->
+    <string name="threads_unnamed">Unnamed</string>
+    <string name="threads_exchange_count">%1$d exchanged</string>
+    <string name="threads_letter_fallback">Letter</string>
+    <string name="threads_write_to">Write to %1$s</string>
+    <string name="threads_write">Write a Letter</string>
+    <string name="threads_empty_title">No letters exchanged yet</string>
+    <string name="threads_empty_detail">Write your first letter to a connection</string>
+    <string name="threads_sheet_empty">No letters yet</string>
+    <string name="threads_sheet_load_error">Couldn\'t load the letters.</string>
+    <string name="threads_retry">Try Again</string>
+</resources>

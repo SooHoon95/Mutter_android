@@ -16,6 +16,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.domain.model.DeletedLetter
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.TrashLetterRow
 import com.efreedom.mutter.uicomponent.component.TrashScreenLayout
 import com.efreedom.mutter.uicomponent.theme.Danger
@@ -37,18 +38,21 @@ fun TrashScreen(
     LaunchedEffect(Unit) { viewModel.load() }
 
     // 0은 초기값이라 건너뛴다. 연속 복구면 이전 스낵바를 취소(닫음)하고 새로 띄운다.
+    val restoredMessage = stringResource(R.string.trash_restored)
     LaunchedEffect(state.restoredCount) {
-        if (state.restoredCount > 0) snackbarHostState.showSnackbar("편지를 되살렸어요")
+        if (state.restoredCount > 0) snackbarHostState.showSnackbar(restoredMessage)
     }
 
     // 남은 일수 기준 시각은 목록이 바뀔 때 하나로 고정한다 — 행마다 now()를 부르면 경계에서 어긋난다.
     val now = remember(state.letters) { Instant.now() }
 
     TrashScreenLayout(
-        title = "보낸 편지 삭제함",
-        notice = "삭제한 편지는 30일 동안 보관된 뒤 완전히 지워져요. " +
+        title = stringResource(R.string.trash_title),
+        notice = stringResource(R.string.trash_notice) + " " +
             stringResource(R.string.home_sent_delete_kept_notice),
-        isInitialLoading = state.letters.isEmpty() && (state.isLoading || !state.hasLoaded),
+        isInitialLoading = state.letters.isEmpty() && !state.hasLoaded,
+        isRefreshing = state.isLoading && state.hasLoaded,
+        onRefresh = viewModel::load,
         isEmpty = state.letters.isEmpty(),
         error = state.error,
         snackbarHostState = snackbarHostState,
@@ -69,19 +73,19 @@ fun TrashScreen(
     purgeTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { purgeTarget = null },
-            title = { Text("완전히 삭제할까요? 되돌릴 수 없어요.") },
-            text = { Text(stringResource(R.string.home_sent_delete_kept_notice)) },
+            title = { Text(stringResource(R.string.trash_purge_confirm)) },
+            text = { Text(stringResource(R.string.trash_purge_confirm_detail)) },
             confirmButton = {
                 TextButton(onClick = {
                     purgeTarget = null
                     viewModel.purge(target.id)
                 }) {
-                    Text("완전히 삭제", color = Danger)
+                    Text(stringResource(DsR.string.trash_purge), color = Danger)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { purgeTarget = null }) {
-                    Text("취소")
+                    Text(stringResource(R.string.home_cancel))
                 }
             },
         )

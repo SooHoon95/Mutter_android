@@ -1,0 +1,14 @@
+<resources>
+    <!-- 앱 모듈 — 영어. 값은 iOS Localizable.strings en 원문. app_name·푸시 채널 문구는 기본값(values)을 그대로 쓴다. -->
+    <!-- 하단 탭 -->
+    <string name="tab_home">Home</string>
+    <string name="tab_threads">Threads</string>
+    <string name="tab_inbox">Inbox</string>
+    <string name="tab_connections">People</string>
+    <string name="tab_profile">Profile</string>
+
+    <!-- 강제 업데이트. 버튼은 iOS "Update on the App Store"의 스토어 이름만 바꾼 것(의도한 차이). -->
+    <string name="force_update_title">Update Required</string>
+    <string name="force_update_detail">Please update to the latest version\nto keep using the app.</string>
+    <string name="force_update_button">Update on Google Play</string>
+</resources>

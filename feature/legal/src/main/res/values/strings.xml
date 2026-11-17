@@ -1,0 +1,13 @@
+<resources>
+    <!-- 권리침해 신고 화면(iOS TakedownView). 이용약관·처리방침은 웹 정식본을 연다(AppLink). 값은 iOS Localizable.strings ko 원문. 영어는 values-en. -->
+    <string name="legal_contact">문의하기</string>
+    <string name="legal_takedown_title">권리침해 신고</string>
+    <string name="legal_takedown_subtitle">저작권 등 권리침해를 신고하시면 신속히 검토합니다.</string>
+    <string name="legal_takedown_claimant">성명/단체</string>
+    <string name="legal_takedown_contact">연락처(이메일)</string>
+    <string name="legal_takedown_target">신고 대상(링크/트랙, 선택)</string>
+    <string name="legal_takedown_reason">사유</string>
+    <string name="legal_takedown_submit">신고 접수</string>
+    <string name="legal_takedown_done_title">신고가 접수됐어요</string>
+    <string name="legal_takedown_done_detail">검토 후 연락처로 안내드립니다.</string>
+</resources>

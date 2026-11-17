@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.efreedom.mutter.feature.ticket
 
 import androidx.compose.foundation.background
@@ -13,15 +15,22 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,6 +52,7 @@ import com.efreedom.mutter.uicomponent.theme.Surface
 import kotlinx.coroutines.delay
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /**
  * 편지권 화면 — 잔액·설명·구매(1장/5장)·내역. 프로필의 "편지권" 행에서 들어온다.
@@ -63,83 +73,95 @@ fun TicketsScreen(
         }
     }
 
-    Column(
+    PullToRefreshBox(
+        isRefreshing = state.isRefreshing,
+        onRefresh = viewModel::refresh,
         modifier = modifier
             .fillMaxSize()
             .background(Ivory)
-            .systemBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+            .systemBarsPadding(),
     ) {
-        Text(text = stringResource(R.string.tickets_screen_title), style = MutterText.titleLarge, color = Ink)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            Text(text = stringResource(R.string.tickets_screen_title), style = MutterText.titleLarge, color = Ink)
 
-        state.entitlements?.let { ent ->
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = if (ent.tickets > 0) {
-                        stringResource(R.string.tickets_screen_balance, ent.tickets)
-                    } else {
-                        stringResource(R.string.tickets_none)
-                    },
-                    style = MutterText.display,
-                    color = GoldDeep,
-                )
-                Text(text = stringResource(R.string.tickets_description), style = MutterText.bodyMedium, color = InkSoft)
-            }
-
-            if (ent.canPurchase) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ProductButton(
-                        label = stringResource(R.string.tickets_buy_one),
-                        product = state.products[TicketProduct.ONE],
-                        isLoading = state.purchasingId == TicketProduct.ONE,
-                        onClick = { viewModel.purchase(TicketProduct.ONE) },
-                    )
-                    ProductButton(
-                        label = stringResource(R.string.tickets_buy_five),
-                        product = state.products[TicketProduct.FIVE],
-                        isLoading = state.purchasingId == TicketProduct.FIVE,
-                        onClick = { viewModel.purchase(TicketProduct.FIVE) },
-                    )
-                    // 지급 시점과 환불 불가 안내 — 구매 버튼이 보이는 동안 함께 보인다.
+            state.entitlements?.let { ent ->
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = stringResource(R.string.tickets_purchase_notice),
-                        style = MutterText.caption,
-                        color = InkFaint,
+                        text = if (ent.tickets > 0) {
+                            stringResource(R.string.tickets_screen_balance, ent.tickets)
+                        } else {
+                            stringResource(R.string.tickets_none)
+                        },
+                        style = MutterText.display,
+                        color = GoldDeep,
                     )
+                    Text(text = stringResource(R.string.tickets_description), style = MutterText.bodyMedium, color = InkSoft)
+                }
+
+                if (ent.canPurchase) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ProductButton(
+                            count = 1,
+                            product = state.products[TicketProduct.ONE],
+                            isLoading = state.purchasingId == TicketProduct.ONE,
+                            onClick = { viewModel.purchase(TicketProduct.ONE) },
+                        )
+                        ProductButton(
+                            count = 5,
+                            product = state.products[TicketProduct.FIVE],
+                            isLoading = state.purchasingId == TicketProduct.FIVE,
+                            onClick = { viewModel.purchase(TicketProduct.FIVE) },
+                        )
+                        // 지급 시점과 환불 불가 안내 — 구매 버튼이 보이는 동안 함께 보인다.
+                        Text(
+                            text = stringResource(R.string.tickets_purchase_notice),
+                            style = MutterText.caption,
+                            color = InkFaint,
+                        )
+                    }
                 }
             }
-        }
 
-        state.notice?.let { notice ->
-            Text(
-                text = stringResource(
-                    when (notice) {
-                        TicketNotice.GRANTED -> R.string.tickets_granted
-                        TicketNotice.PENDING -> R.string.tickets_pending
-                    },
-                ),
-                style = MutterText.bodyMediumBold,
-                color = GoldDeep,
-            )
-        }
+            state.notice?.let { notice ->
+                Text(
+                    text = stringResource(
+                        when (notice) {
+                            TicketNotice.GRANTED -> R.string.tickets_granted
+                            TicketNotice.PENDING -> R.string.tickets_pending
+                        },
+                    ),
+                    style = MutterText.bodyMediumBold,
+                    color = GoldDeep,
+                )
+            }
 
-        // 스토어 상품을 못 받으면 버튼이 꺼진 채 이유가 안 보인다 — 살 수 없는 상태임을 알린다(다른 오류가 있으면 그쪽이 우선).
-        val error = state.error
-            ?: stringResource(DsR.string.ticket_purchase_unavailable).takeIf { state.purchaseUnavailable }
-        error?.let { Text(text = it, style = MutterText.caption, color = Danger) }
+            // 스토어 상품을 못 받았거나 서버가 결제 대상이 아니라고 하면(403 not_tester) 살 수 없는 상태임을 알린다
+            // (다른 오류가 있으면 그쪽이 우선).
+            val error = state.error
+                ?: stringResource(DsR.string.ticket_purchase_unavailable).takeIf { state.purchaseUnavailable }
+                ?: stringResource(R.string.ticket_account_mismatch).takeIf { state.purchaseAccountMismatch }
+            error?.let { Text(text = it, style = MutterText.caption, color = Danger) }
 
-        if (state.history.isNotEmpty()) {
             HistorySection(state.history)
         }
     }
 }
 
-/** 상품 버튼 — 스토어에 상품이 없으면(미등록) 끈 채로 둔다. */
+/** 상품 버튼(장수 + 가격) — 스토어에 상품이 없으면(미등록) 끈 채로 둔다. */
 @Composable
-private fun ProductButton(label: String, product: TicketProduct?, isLoading: Boolean, onClick: () -> Unit) {
-    val text = product?.price?.takeIf { it.isNotBlank() }?.let { "$label · $it" } ?: label
+private fun ProductButton(count: Int, product: TicketProduct?, isLoading: Boolean, onClick: () -> Unit) {
+    val price = product?.price?.takeIf { it.isNotBlank() }
+    val text = if (price != null) {
+        pluralStringResource(R.plurals.tickets_product_price, count, count, price)
+    } else {
+        pluralStringResource(R.plurals.tickets_product, count, count)
+    }
     MutterButton(
         text = text,
         onClick = onClick,
@@ -153,16 +175,26 @@ private fun ProductButton(label: String, product: TicketProduct?, isLoading: Boo
 private fun HistorySection(history: List<TicketHistoryItem>) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(text = stringResource(R.string.tickets_history), style = MutterText.bodyMediumBold, color = InkSoft)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(Surface)
-                .border(width = 0.5.dp, color = Hairline, shape = RoundedCornerShape(16.dp)),
-        ) {
-            history.forEachIndexed { index, item ->
-                if (index > 0) HorizontalDivider(color = Hairline, thickness = 0.5.dp)
-                HistoryRow(item)
+        if (history.isEmpty()) {
+            Text(
+                text = stringResource(R.string.tickets_history_empty),
+                style = MutterText.bodyMedium,
+                color = InkFaint,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Surface)
+                    .border(width = 0.5.dp, color = Hairline, shape = RoundedCornerShape(16.dp)),
+            ) {
+                history.forEachIndexed { index, item ->
+                    if (index > 0) HorizontalDivider(color = Hairline, thickness = 0.5.dp)
+                    HistoryRow(item)
+                }
             }
         }
     }
@@ -176,17 +208,29 @@ private fun HistoryRow(item: TicketHistoryItem) {
             TicketReason.USE -> R.string.tickets_reason_use
             TicketReason.GRANT -> R.string.tickets_reason_grant
             TicketReason.REFUND -> R.string.tickets_reason_refund
-            TicketReason.OTHER -> R.string.tickets_reason_other
+            // 사유를 모르면 "편지권"(iOS `.unknown → ticket.title`).
+            TicketReason.OTHER -> R.string.tickets_screen_title
         },
     )
+    // 굵은 줄 "사유 · 편지 제목"(제목 없으면 사유만), 아래 줄 날짜(로캘 medium — ko "2026. 11. 15.") — iOS TicketHistoryRowView.
+    val title = listOfNotNull(reason, item.letterTitle?.takeIf { it.isNotBlank() }).joinToString(" · ")
+    val locale = LocalConfiguration.current.locales[0]
+    val dateFormatter = remember(locale) {
+        DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale).withZone(ZoneId.systemDefault())
+    }
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(text = reason, style = MutterText.bodyMediumBold, color = Ink)
-            val sub = listOfNotNull(item.letterTitle?.takeIf { it.isNotBlank() }, HISTORY_DATE.format(item.createdAt))
-            Text(text = sub.joinToString(" · "), style = MutterText.caption, color = InkFaint)
+            Text(
+                text = title,
+                style = MutterText.bodyMediumBold,
+                color = Ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(text = dateFormatter.format(item.createdAt), style = MutterText.caption, color = InkSoft)
         }
         Text(
             text = if (item.delta > 0) "+${item.delta}" else "${item.delta}",
@@ -196,6 +240,3 @@ private fun HistoryRow(item: TicketHistoryItem) {
         )
     }
 }
-
-private val HISTORY_DATE: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("yyyy.MM.dd").withZone(ZoneId.systemDefault())

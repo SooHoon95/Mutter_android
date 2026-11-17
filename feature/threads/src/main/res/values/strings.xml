@@ -1,0 +1,13 @@
+<resources>
+    <!-- 주고받음 탭 — iOS ThreadsView 문구(threads.*, common.retry) -->
+    <string name="threads_unnamed">이름 없음</string>
+    <string name="threads_exchange_count">%1$d통 주고받음</string>
+    <string name="threads_letter_fallback">편지</string>
+    <string name="threads_write_to">%1$s에게 편지 쓰기</string>
+    <string name="threads_write">편지 쓰기</string>
+    <string name="threads_empty_title">주고받은 편지가 없어요</string>
+    <string name="threads_empty_detail">연결된 사람에게 첫 편지를 써보세요</string>
+    <string name="threads_sheet_empty">아직 편지가 없어요</string>
+    <string name="threads_sheet_load_error">편지를 불러오지 못했어요.</string>
+    <string name="threads_retry">다시 시도</string>
+</resources>

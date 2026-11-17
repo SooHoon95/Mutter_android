@@ -46,6 +46,8 @@ class TicketRepositoryImpl @Inject constructor(
         } catch (e: RestException) {
             // 다른 계정으로 산 거래 — 소비하지 않고 남겨 두면 구매한 계정으로 로그인했을 때 재전송으로 지급된다.
             if (e.statusCode == 403 && errorCode(e) == "account_mismatch") throw MutterError.PurchaseAccountMismatch
+            // 결제 테스트 대상이 아닌 계정 — iOS StoreKitTicketPurchaser와 같은 판정(상태 코드 + 본문 error).
+            if (e.statusCode == 403 && errorCode(e) == "not_tester") throw MutterError.PurchaseUnavailable
             throw e
         }
         json.decodeFromString(VerifyPurchaseResponse.serializer(), response.bodyAsText()).tickets

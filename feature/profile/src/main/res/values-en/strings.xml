@@ -1,0 +1,35 @@
+<resources>
+    <!-- 프로필 화면 — 영어. 값은 iOS Localizable.strings en 원문(용어 "Letter tickets"). -->
+    <string name="profile_nickname">Nickname</string>
+    <string name="profile_default_paper">Default Stationery</string>
+    <string name="profile_default_paper_value">Spring Day</string>
+    <string name="profile_password_default">Password Default</string>
+    <string name="profile_on">On</string>
+    <string name="profile_report">Report Infringement</string>
+    <string name="profile_terms">Terms of Service</string>
+    <string name="profile_privacy">Privacy Policy</string>
+    <string name="profile_contact">Contact</string>
+    <string name="profile_contact_subject">[Mutter] Inquiry</string>
+    <string name="profile_contact_body">Please describe your inquiry.\n\n———\n(Including your app version and device info helps us respond faster.)</string>
+    <string name="profile_mail_fallback">No mail app — copied the email address instead</string>
+    <string name="profile_logout">Sign Out</string>
+    <string name="profile_delete_account">Delete Account</string>
+    <string name="profile_delete_confirm">Delete account?</string>
+    <string name="profile_delete_detail">All your letters and connections are permanently deleted. Letters you sent stay in their recipients\' Inboxes.</string>
+    <string name="profile_delete">Delete</string>
+    <string name="profile_save">Save</string>
+
+    <string name="tickets_title">Letter tickets</string>
+    <string name="tickets_balance">%1$d</string>
+    <string name="profile_delete_tickets_warning">Your remaining %1$d tickets will be lost.</string>
+
+    <string name="profile_login_password">Sign-in Password</string>
+    <string name="profile_login_password_set">Set</string>
+    <string name="profile_login_password_unset">Set Up</string>
+    <string name="profile_login_password_saved">Password saved</string>
+    <string name="profile_login_password_new">New password (6+ characters)</string>
+    <string name="profile_login_password_confirm">Confirm password</string>
+    <string name="profile_login_password_save">Save</string>
+    <string name="profile_login_password_cancel">Cancel</string>
+    <string name="profile_nickname_saved">Saved</string>
+</resources>

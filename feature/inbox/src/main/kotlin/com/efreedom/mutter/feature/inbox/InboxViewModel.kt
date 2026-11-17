@@ -59,7 +59,7 @@ class InboxViewModel @Inject constructor(
                 _state.value = _state.value.copy(items = items, selectedIds = _state.value.selectedIds intersect ids)
                 loadAccessLabels(items.map { it.letterId })
             } catch (_: Throwable) {
-                // 빈 상태 유지 — 재시도는 pull-to-refresh로
+                // B군 — 이전 목록 유지(iOS는 비움). 편지가 있는데 "받은 편지가 없어요"를 보이지 않게. 재시도는 pull-to-refresh로
             } finally {
                 _state.value = _state.value.copy(isLoading = false)
             }
@@ -111,7 +111,7 @@ class InboxViewModel @Inject constructor(
     // ─── 삭제 · 되돌리기 ─────────────────────────────────────────────────────
 
     /**
-     * 삭제(편집 모드·스와이프 공통, 계약 §6.2). 목록에서 바로 빼고 편집 모드를 끝낸 뒤 서버에 delete를 보낸다
+     * 삭제(편집 모드·스와이프 공통, 계약 §6.2). 목록에서 바로 빼고 서버에 delete를 보낸다(성공하면 편집 모드를 끝낸다)
      * (inbox 뷰 트리거가 삭제함 30일 보관으로 바꾼다). 성공하면 "되돌리기" 스낵바, 실패하면 뺀 항목만 원래 자리로 되살린다
      * (전체 스냅샷 복원은 연속 삭제 중 다른 항목까지 부활시킨다).
      */
@@ -124,19 +124,25 @@ class InboxViewModel @Inject constructor(
         if (removed.isEmpty()) return
         _state.value = _state.value.copy(
             items = current.filterNot { it.letterId in ids },
-            isEditing = false,
-            selectedIds = emptySet(),
             error = null,
         )
         val letterIds = removed.map { it.value.letterId }
         viewModelScope.launch {
             try {
                 inboxUseCase.remove(letterIds)
-                _state.value = _state.value.copy(undo = InboxUndo(key = ++undoSeq, letterIds = letterIds))
+                // 편집 모드·선택은 성공한 뒤에만 지운다 — 실패하면 그대로 두고 다시 시도하게(iOS 동일).
+                _state.value = _state.value.copy(
+                    isEditing = false,
+                    selectedIds = emptySet(),
+                    undo = InboxUndo(key = ++undoSeq, letterIds = letterIds),
+                )
             } catch (e: Throwable) {
                 val latest = _state.value.items.toMutableList()
-                removed.forEach { (index, item) -> latest.add(index.coerceAtMost(latest.size), item) }
-                val message = (e as? MutterError)?.userMessage ?: "삭제할 수 없었어요."
+                // 삭제 중 load()가 끼어 같은 항목이 이미 돌아와 있으면 다시 넣지 않는다(iOS 가드) — LazyColumn 키 중복 방지.
+                removed.forEach { (index, item) ->
+                    if (latest.none { it.id == item.id }) latest.add(index.coerceAtMost(latest.size), item)
+                }
+                val message = (e as? MutterError)?.userMessage ?: "삭제하지 못했어요."
                 _state.value = _state.value.copy(items = latest, error = message)
             }
         }
@@ -145,12 +151,14 @@ class InboxViewModel @Inject constructor(
     /** 스낵바 "되돌리기" — restore_inbox_items로 되살린 뒤 목록을 다시 받는다(순서·제목을 서버 기준으로 맞춘다). */
     fun undoDelete(undo: InboxUndo) {
         undoDismissed(undo.key)
+        // 되돌리기를 시작하면 이전 오류를 지운다(iOS `undoDelete`와 같다).
+        _state.value = _state.value.copy(error = null)
         viewModelScope.launch {
             try {
                 inboxUseCase.restore(undo.letterIds)
                 load()
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "되돌릴 수 없었어요."
+                val message = (e as? MutterError)?.userMessage ?: "되살리지 못했어요."
                 _state.value = _state.value.copy(error = message)
             }
         }

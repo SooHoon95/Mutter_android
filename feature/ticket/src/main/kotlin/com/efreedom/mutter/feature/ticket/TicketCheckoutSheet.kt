@@ -165,8 +165,10 @@ fun TicketCheckoutSheet(
             state.message?.let { message ->
                 Text(
                     text = when (message) {
-                        TicketCheckoutMessage.PurchaseUnavailable -> stringResource(R.string.checkout_unavailable)
-                        TicketCheckoutMessage.Pending -> stringResource(R.string.checkout_pending)
+                        TicketCheckoutMessage.PurchaseUnavailable ->
+                            stringResource(DsR.string.ticket_purchase_unavailable)
+                        TicketCheckoutMessage.AccountMismatch -> stringResource(R.string.ticket_account_mismatch)
+                        TicketCheckoutMessage.Pending -> stringResource(R.string.tickets_pending)
                         is TicketCheckoutMessage.Error -> message.text
                     },
                     style = MutterText.caption,

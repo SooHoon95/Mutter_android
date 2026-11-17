@@ -4,16 +4,22 @@
     <string name="tickets_screen_balance">%1$d장</string>
     <string name="tickets_description">편지권 1장으로 편지 한 통을 기간 제한 없이 간직할 수 있어요.</string>
     <string name="tickets_none">편지권이 없어요</string>
-    <string name="tickets_buy_one">편지권 1장</string>
-    <string name="tickets_buy_five">편지권 5장</string>
+    <plurals name="tickets_product">
+        <item quantity="other">편지권 %1$d장</item>
+    </plurals>
+    <plurals name="tickets_product_price">
+        <item quantity="other">편지권 %1$d장 · %2$s</item>
+    </plurals>
     <string name="tickets_history">내역</string>
+    <string name="tickets_history_empty">아직 내역이 없어요</string>
     <string name="tickets_reason_purchase">구매</string>
     <string name="tickets_reason_use">사용</string>
     <string name="tickets_reason_grant">지급</string>
     <string name="tickets_reason_refund">환불</string>
-    <string name="tickets_reason_other">기타</string>
+    <!-- Android 전용(구매 직후 안내 — iOS 원문 없음) -->
     <string name="tickets_granted">편지권이 들어왔어요.</string>
-    <string name="tickets_pending">결제가 끝나면 편지권이 들어와요.</string>
+    <!-- 결제 대기 — 편지권 화면과 결제 안내 시트가 함께 쓴다 -->
+    <string name="tickets_pending">결제 승인을 기다리고 있어요. 승인되면 편지권이 들어와요.</string>
     <!-- 구매 버튼 아래 안내 — 지급 시점과 환불 불가. 결제 안내 시트의 checkout_purchase_notice와 같은 문장 -->
     <string name="tickets_purchase_notice">구매한 편지권은 바로 지급되며, 구매 후에는 환불되지 않아요.</string>
 
@@ -44,9 +50,9 @@
     <plurals name="checkout_product">
         <item quantity="other">편지권 %1$d장</item>
     </plurals>
-    <string name="checkout_unavailable">지금은 편지권을 살 수 없어요.</string>
-    <string name="checkout_pending">결제가 끝나면 편지권이 들어와요.</string>
     <string name="checkout_cancel">취소</string>
     <!-- 구매 버튼 아래 안내(구매 버튼일 때만) — 지급 시점과 환불 불가 -->
     <string name="checkout_purchase_notice">구매한 편지권은 바로 지급되며, 구매 후에는 환불되지 않아요.</string>
+    <!-- 다른 계정으로 산 구매(403 account_mismatch) — iOS ticket.accountMismatch -->
+    <string name="ticket_account_mismatch">다른 계정으로 구매한 편지권이에요. 구매한 계정으로 로그인하면 들어와요.</string>
 </resources>

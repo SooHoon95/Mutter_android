@@ -133,7 +133,7 @@ class HomeViewModel @Inject constructor(
             } catch (e: Throwable) {
                 val latest = _state.value.rows.toMutableList()
                 latest.add(index.coerceAtMost(latest.size), removed)
-                val message = (e as? MutterError)?.userMessage ?: "삭제할 수 없었어요."
+                val message = (e as? MutterError)?.userMessage ?: "삭제하지 못했어요."
                 _state.value = _state.value.copy(rows = latest, error = message)
             }
         }
@@ -147,7 +147,7 @@ class HomeViewModel @Inject constructor(
                 letterUseCase.restore(letterId)
                 load()
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "되돌릴 수 없었어요."
+                val message = (e as? MutterError)?.userMessage ?: "되살리지 못했어요."
                 _state.value = _state.value.copy(error = message)
             }
         }

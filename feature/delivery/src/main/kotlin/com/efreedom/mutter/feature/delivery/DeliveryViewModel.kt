@@ -3,6 +3,8 @@ package com.efreedom.mutter.feature.delivery
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.core.navigation.TicketCheckoutRoute
+import com.efreedom.mutter.domain.analytics.Analytics
+import com.efreedom.mutter.domain.analytics.AnalyticsEvent
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.DeliveryLink
 import com.efreedom.mutter.domain.model.Entitlements
@@ -37,7 +39,7 @@ data class DeliveryUiState(
     /** 방금 발급한 링크. 암호·예약 여부가 공유 문구에 쓰인다. */
     val lastIssuedLink: DeliveryLink? = null,
     /**
-     * 편지 접근 상태(영구 편지권). null이면 서버 반영 전이거나 조회 실패 — 열람자·사본·영구화 UI를 숨겨 기존 화면 그대로.
+     * 편지 접근 상태(영구 편지권). null이면 서버 반영 전이거나 조회 실패 — 열람자·영구화 UI를 숨겨 기존 화면 그대로(사본 버튼은 entitlements로 정한다).
      */
     val access: LetterAccessState? = null,
     val entitlements: Entitlements? = null,
@@ -52,6 +54,8 @@ data class DeliveryUiState(
     val choseFreeDays: Boolean = false,
     /** 보내기 전 선택에서 영구 편지를 골랐다 — **고른 것만 기억한다.** 편지권은 링크를 만들 때 서버가 쓴다. */
     val chosePermanent: Boolean = false,
+    /** 첫 조회가 끝났는지. 끝나기 전엔 발급 폼을 그리지 않는다(선택 카드로 바뀌며 깜빡이지 않게 — iOS hasLoaded). */
+    val hasLoaded: Boolean = false,
 ) {
     /** 보내기 전 선택 카드. 보이는 동안 발급 폼과 "영구 편지로 만들기"를 숨긴다(카드가 대신한다). */
     val showsSendChoice: Boolean
@@ -94,6 +98,7 @@ class DeliveryViewModel @Inject constructor(
     private val deliveryUseCase: DeliveryUseCase,
     private val letterAccessUseCase: LetterAccessUseCase,
     private val ticketUseCase: TicketUseCase,
+    private val analytics: Analytics,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DeliveryUiState())
@@ -108,16 +113,39 @@ class DeliveryViewModel @Inject constructor(
         load()
     }
 
+    /**
+     * iOS DeliveryModelData.load 대응 — 링크·상태·잔액·열람자 네 조회를 함께 시작하고 각자 실패한다
+     * (링크 조회가 실패해도 나머지는 반영된다). 결과는 [DeliveryUiState.hasLoaded]와 한 번에 넣는다 —
+     * 첫 조회 전에 발급 폼이 그려졌다가 선택 카드로 바뀌며 깜빡이지 않게.
+     * 링크 조회가 실패하면 이전 목록을 유지하고 오류를 보인다(B군 — iOS는 빈 목록·무표시).
+     */
     fun load() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isRefreshing = true, error = null)
             try {
-                val links = deliveryUseCase.links(letterId)
-                _state.value = _state.value.copy(links = links)
-                loadAccess()
-            } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
-                _state.value = _state.value.copy(error = message)
+                val (linksResult, extras) = coroutineScope {
+                    val linksDeferred = async {
+                        try {
+                            Result.success(deliveryUseCase.links(letterId))
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Throwable) {
+                            Result.failure(e)
+                        }
+                    }
+                    val extrasDeferred = async { fetchAccess() }
+                    linksDeferred.await() to extrasDeferred.await()
+                }
+                val (access, entitlements) = extras
+                val linksError = linksResult.exceptionOrNull()
+                _state.value = _state.value.copy(
+                    links = linksResult.getOrNull() ?: _state.value.links,
+                    access = access,
+                    entitlements = entitlements,
+                    hasLoaded = true,
+                    error = linksError?.let { (it as? MutterError)?.userMessage ?: "잠시 후 다시 시도해 주세요." }
+                        ?: _state.value.error,
+                )
             } finally {
                 _state.value = _state.value.copy(isRefreshing = false)
             }
@@ -133,6 +161,7 @@ class DeliveryViewModel @Inject constructor(
                 val revealAt = if (st.useReveal) st.revealAt else null
                 // 영구 편지를 골랐으면 서버가 링크 발급과 편지권 1장 사용을 한 트랜잭션으로 처리한다.
                 val link = deliveryUseCase.issue(letterId, password, revealAt, permanent = st.showsPermanentPending)
+                analytics.log(AnalyticsEvent.LinkIssue(permanent = st.showsPermanentPending, hasPassword = password != null))
                 _state.value = _state.value.copy(
                     lastIssuedLink = link,
                     password = "",
@@ -146,7 +175,7 @@ class DeliveryViewModel @Inject constructor(
                     _state.value.copy(error = e.userMessage)
                 }
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "발급할 수 없었어요. 다시 시도해 주세요."
+                val message = (e as? MutterError)?.userMessage ?: "잠시 후 다시 시도해 주세요."
                 _state.value = _state.value.copy(error = message)
             } finally {
                 _state.value = _state.value.copy(isLoading = false)
@@ -161,7 +190,7 @@ class DeliveryViewModel @Inject constructor(
                 deliveryUseCase.revoke(token)
                 load()
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "취소할 수 없었어요. 다시 시도해 주세요."
+                val message = (e as? MutterError)?.userMessage ?: "잠시 후 다시 시도해 주세요."
                 _state.value = _state.value.copy(error = message)
             } finally {
                 _state.value = _state.value.copy(isLoading = false)
@@ -173,12 +202,14 @@ class DeliveryViewModel @Inject constructor(
      * 상태·잔액. 둘 다 서버 반영 전에는 실패한다 → 조용히 빈 값(오류 표시 없음).
      */
     private suspend fun loadAccess() {
-        val (access, entitlements) = coroutineScope {
-            val accessDeferred = async { letterAccessUseCase.accessStates(listOf(letterId))[letterId] }
-            val entitlementsDeferred = async { ticketUseCase.entitlementsOrNull() }
-            Pair(accessDeferred.await(), entitlementsDeferred.await())
-        }
+        val (access, entitlements) = fetchAccess()
         _state.value = _state.value.copy(access = access, entitlements = entitlements)
+    }
+
+    private suspend fun fetchAccess(): Pair<LetterAccessState?, Entitlements?> = coroutineScope {
+        val accessDeferred = async { letterAccessUseCase.accessStates(listOf(letterId))[letterId] }
+        val entitlementsDeferred = async { ticketUseCase.entitlementsOrNull() }
+        Pair(accessDeferred.await(), entitlementsDeferred.await())
     }
 
     /**
@@ -217,6 +248,7 @@ class DeliveryViewModel @Inject constructor(
         _state.value = _state.value.copy(isMakingPermanent = true, error = null)
         try {
             letterAccessUseCase.makePermanent(letterId)
+            analytics.log(AnalyticsEvent.LetterMakePermanent)
             loadAccess()
         } catch (e: MutterError.NoTicket) {
             // 화면의 잔액이 낡았다(다른 기기에서 사용 등) — 살 수 있는 계정이면 결제 안내 시트로.
@@ -226,7 +258,7 @@ class DeliveryViewModel @Inject constructor(
                 _state.value.copy(error = e.userMessage)
             }
         } catch (e: Throwable) {
-            val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
+            val message = (e as? MutterError)?.userMessage ?: "잠시 후 다시 시도해 주세요."
             _state.value = _state.value.copy(error = message)
         } finally {
             _state.value = _state.value.copy(isMakingPermanent = false)
@@ -265,7 +297,7 @@ class DeliveryViewModel @Inject constructor(
                 val newId = letterAccessUseCase.duplicate(letterId)
                 _state.value = _state.value.copy(duplicatedLetterId = newId)
             } catch (e: Throwable) {
-                val message = (e as? MutterError)?.userMessage ?: "문제가 생겼어요. 다시 시도해 주세요."
+                val message = (e as? MutterError)?.userMessage ?: "잠시 후 다시 시도해 주세요."
                 _state.value = _state.value.copy(error = message)
             } finally {
                 _state.value = _state.value.copy(isDuplicating = false)

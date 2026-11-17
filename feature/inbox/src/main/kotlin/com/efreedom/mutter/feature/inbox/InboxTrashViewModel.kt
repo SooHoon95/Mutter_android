@@ -35,22 +35,22 @@ class InboxTrashViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+            _state.value = _state.value.copy(isLoading = true)
             try {
-                _state.value = _state.value.copy(items = inboxUseCase.deletedItems())
+                _state.value = _state.value.copy(items = inboxUseCase.deletedItems(), error = null)
             } catch (e: Throwable) {
-                _state.value = _state.value.copy(error = message(e, "삭제함을 불러올 수 없었어요."))
+                _state.value = _state.value.copy(error = message(e, "삭제함을 불러오지 못했어요."))
             } finally {
                 _state.value = _state.value.copy(isLoading = false, hasLoaded = true)
             }
         }
     }
 
-    fun restore(letterId: String) = act(letterId, failure = "되살릴 수 없었어요.", onSuccess = {
+    fun restore(letterId: String) = act(letterId, failure = "되살리지 못했어요.", onSuccess = {
         it.copy(restoredCount = it.restoredCount + 1)
     }) { inboxUseCase.restore(listOf(letterId)) }
 
-    fun purge(letterId: String) = act(letterId, failure = "완전히 삭제할 수 없었어요.") {
+    fun purge(letterId: String) = act(letterId, failure = "삭제하지 못했어요.") {
         inboxUseCase.purge(listOf(letterId))
     }
 

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -26,11 +25,14 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,7 +45,6 @@ import com.efreedom.mutter.uicomponent.component.MutterButtonStyle
 import com.efreedom.mutter.uicomponent.component.MutterIcon
 import com.efreedom.mutter.uicomponent.component.MutterImage
 import com.efreedom.mutter.uicomponent.component.PullableFullSizeBox
-import com.efreedom.mutter.uicomponent.theme.Danger
 import com.efreedom.mutter.uicomponent.theme.Gold
 import com.efreedom.mutter.uicomponent.theme.GoldDeep
 import com.efreedom.mutter.uicomponent.theme.GoldSoft
@@ -57,8 +58,16 @@ import com.efreedom.mutter.uicomponent.theme.Surface as MutterSurface
 import com.efreedom.mutter.domain.model.Counterpart
 import com.efreedom.mutter.domain.model.LetterDirection
 import com.efreedom.mutter.domain.model.ThreadLetter
+import android.icu.text.MeasureFormat
+import android.icu.util.Measure
+import android.icu.util.MeasureUnit
+import android.icu.util.ULocale
+import java.time.Duration
+import java.time.Instant
+import java.time.Period
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import java.time.ZonedDateTime
+import java.util.Locale
 
 /** iOS ThreadsView 대응. 주고받은 상대 목록 + 선택 상대와의 편지 흐름(ModalBottomSheet). */
 @Composable
@@ -99,9 +108,9 @@ fun ThreadsScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         MutterImage(id = DsR.drawable.empty_connections, modifier = Modifier.size(120.dp))
-                        Text(text = "아직 주고받은 편지가 없어요", style = MutterText.bodyLarge, color = InkSoft)
+                        Text(text = stringResource(R.string.threads_empty_title), style = MutterText.bodyLarge, color = InkSoft)
                         Text(
-                            text = "편지를 보내면 여기서 대화를 볼 수 있어요",
+                            text = stringResource(R.string.threads_empty_detail),
                             style = MutterText.caption,
                             color = InkFaint,
                         )
@@ -186,14 +195,14 @@ private fun CounterpartRow(counterpart: Counterpart, onClick: () -> Unit) {
 
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
-                    text = counterpart.nickname ?: "이름 없음",
+                    text = counterpart.nickname ?: stringResource(R.string.threads_unnamed),
                     style = MutterText.bodyLargeBold,
                     color = Ink,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "${counterpart.exchangeCount}통 주고받음",
+                    text = stringResource(R.string.threads_exchange_count, counterpart.exchangeCount),
                     style = MutterText.caption,
                     color = InkFaint,
                 )
@@ -235,7 +244,7 @@ private fun ThreadSheetContent(
                 )
             }
             Text(
-                text = counterpart.nickname ?: "편지",
+                text = counterpart.nickname ?: stringResource(R.string.threads_letter_fallback),
                 style = MutterText.headline,
                 color = Ink,
             )
@@ -262,7 +271,7 @@ private fun ThreadSheetContent(
                     }
                 }
 
-                state.threadError != null -> {
+                state.threadLoadFailed -> {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -270,9 +279,15 @@ private fun ThreadSheetContent(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text(text = state.threadError, style = MutterText.bodyMedium, color = InkSoft)
+                        MutterIcon(id = DsR.drawable.warning, contentDescription = null, tint = Gold, size = 40.dp)
+                        Text(
+                            text = stringResource(R.string.threads_sheet_load_error),
+                            style = MutterText.bodyMedium,
+                            color = InkSoft,
+                            textAlign = TextAlign.Center,
+                        )
                         MutterButton(
-                            text = "다시 시도",
+                            text = stringResource(R.string.threads_retry),
                             onClick = onRetry,
                             style = MutterButtonStyle.Ghost,
                         )
@@ -287,7 +302,7 @@ private fun ThreadSheetContent(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "주고받은 편지가 없어요",
+                            text = stringResource(R.string.threads_sheet_empty),
                             style = MutterText.bodyMedium,
                             color = InkFaint,
                         )
@@ -314,7 +329,8 @@ private fun ThreadSheetContent(
         // 하단 편지 쓰기 바 — 탈퇴한 상대에게는 보낼 수 없어 숨긴다.
         if (!counterpart.isGone) {
             Divider(color = Hairline)
-            val buttonTitle = counterpart.nickname?.let { "${it}에게 편지 쓰기" } ?: "편지 쓰기"
+            val buttonTitle = counterpart.nickname?.let { stringResource(R.string.threads_write_to, it) }
+                ?: stringResource(R.string.threads_write)
             MutterButton(
                 text = buttonTitle,
                 onClick = { onReply(counterpart) },
@@ -364,14 +380,17 @@ private fun ThreadBubble(letter: ThreadLetter, onOpen: (String) -> Unit) {
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = letter.title.ifEmpty { "편지" },
+                        text = letter.title.ifEmpty { stringResource(R.string.threads_letter_fallback) },
                         style = MutterText.bodyMediumBold,
                         color = Ink,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    val locale = LocalConfiguration.current.locales[0]
+                    // 말풍선이 그려질 때(시트를 열 때) 한 번 계산한다 — 초 단위 실시간 갱신은 하지 않는다.
+                    val elapsed = remember(letter.sentAt, locale) { letter.sentAt.toElapsedDisplayTime(locale) }
                     Text(
-                        text = letter.sentAt.toRelativeDisplayTime(),
+                        text = elapsed,
                         style = MutterText.caption,
                         color = InkFaint,
                     )
@@ -383,13 +402,39 @@ private fun ThreadBubble(letter: ThreadLetter, onOpen: (String) -> Unit) {
     }
 }
 
-private fun java.time.Instant.toRelativeDisplayTime(): String {
-    val nowEpoch = java.time.Instant.now().epochSecond
-    val diffSec = nowEpoch - this.epochSecond
-    return when {
-        diffSec < 60 -> "방금"
-        diffSec < 3600 -> "${diffSec / 60}분 전"
-        diffSec < 86400 -> "${diffSec / 3600}시간 전"
-        else -> DateTimeFormatter.ofPattern("MM.dd").withZone(ZoneId.systemDefault()).format(this)
+/**
+ * 보낸 뒤 지난 시간을 날짜가 아닌 "경과 시간"으로, 가장 큰 단위와 바로 아래 단위(0이면 생략) 두 개로 보여 준다
+ * (iOS `Text(date, style: .relative)` 대응 — "2시간 23분", "3일 5시간", en "2 hours, 23 minutes").
+ * 년·월·일은 달력(시스템 시간대)으로 센다: 월 경계(1월 31일 → 3월 1일)가 고정 초 나눗셈과 어긋나지 않게
+ * [Period]로 꽉 찬 날짜 차를 구하고, 남은 시각 차(시·분·초)만 [Duration]으로 잰다. 몇 주·며칠이 지나도 날짜로 바뀌지 않는다.
+ */
+private fun Instant.toElapsedDisplayTime(locale: Locale): String {
+    val zone = ZoneId.systemDefault()
+    val sent = ZonedDateTime.ofInstant(this, zone)
+    val now = ZonedDateTime.now(zone)
+    if (!now.isAfter(sent)) return format(locale, Measure(0, MeasureUnit.SECOND))
+
+    // 날짜 차. 지금의 시각이 보낸 시각보다 이르면 마지막 하루는 아직 꽉 차지 않았으므로 하루를 뺀다.
+    var period = Period.between(sent.toLocalDate(), now.toLocalDate())
+    if (sent.plus(period).isAfter(now)) {
+        period = Period.between(sent.toLocalDate(), now.toLocalDate().minusDays(1))
     }
+    val seconds = Duration.between(sent.plus(period), now).seconds
+    val days = period.days
+    val units = listOf(
+        Measure(period.years, MeasureUnit.YEAR),
+        Measure(period.months, MeasureUnit.MONTH),
+        Measure(days / 7, MeasureUnit.WEEK),
+        Measure(days % 7, MeasureUnit.DAY),
+        Measure(seconds / 3600, MeasureUnit.HOUR),
+        Measure(seconds % 3600 / 60, MeasureUnit.MINUTE),
+        Measure(seconds % 60, MeasureUnit.SECOND),
+    )
+    val first = units.indexOfFirst { it.number.toLong() != 0L }
+    if (first < 0) return format(locale, Measure(0, MeasureUnit.SECOND))
+    val next = units.getOrNull(first + 1)?.takeIf { it.number.toLong() != 0L }
+    return format(locale, *listOfNotNull(units[first], next).toTypedArray())
 }
+
+private fun format(locale: Locale, vararg measures: Measure): String =
+    MeasureFormat.getInstance(ULocale.forLocale(locale), MeasureFormat.FormatWidth.WIDE).formatMeasures(*measures)

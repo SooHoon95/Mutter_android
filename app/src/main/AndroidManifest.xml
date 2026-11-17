@@ -1,10 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Android 13+ 는 알림 표시에 런타임 권한이 필요하다(MainActivity에서 요청). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      GA4는 광고 ID를 쓰지 않는다 — firebase-analytics(play-services-measurement)가 병합하는
+      광고 ID 권한(Play 서비스 AD_ID, Privacy Sandbox AdServices 광고 ID·기여 분석)을 뺀다.
+    -->
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_AD_ID"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
+        tools:node="remove" />
 
     <!-- KakaoTalk 로그인 가능 여부 확인/실행 (Android 11+ 패키지 가시성) -->
     <queries>
@@ -72,6 +86,21 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="mutter_default" />
+
+        <!--
+          GA4(Firebase Analytics) — 계약 docs/specs/2026-11-16-analytics.md(iOS 저장소).
+          자동 화면 기록은 액티비티 이름만 남아 끄고, 화면 이름은 ScreenTracking.kt가 직접 보낸다.
+          광고 ID 수집·광고 개인화 신호는 끈다.
+        -->
+        <meta-data
+            android:name="google_analytics_automatic_screen_reporting_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_default_allow_ad_personalization_signals"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
 
         <!-- Kakao 로그인 리다이렉트(kakao{nativeKey}://oauth) -->
         <activity

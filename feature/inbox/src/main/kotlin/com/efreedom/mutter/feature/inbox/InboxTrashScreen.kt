@@ -12,9 +12,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.domain.model.DeletedInboxItem
+import com.efreedom.mutter.uicomponent.R as DsR
 import com.efreedom.mutter.uicomponent.component.TrashLetterRow
 import com.efreedom.mutter.uicomponent.component.TrashScreenLayout
 import com.efreedom.mutter.uicomponent.theme.Danger
@@ -35,18 +37,22 @@ fun InboxTrashScreen(
 
     LaunchedEffect(Unit) { viewModel.load() }
 
+    val restoredMessage = stringResource(R.string.inbox_trash_restored)
+
     // 0은 초기값이라 건너뛴다. 연속 복구면 이전 스낵바를 취소(닫음)하고 새로 띄운다.
     LaunchedEffect(state.restoredCount) {
-        if (state.restoredCount > 0) snackbarHostState.showSnackbar("편지를 되살렸어요")
+        if (state.restoredCount > 0) snackbarHostState.showSnackbar(restoredMessage)
     }
 
     // 남은 일수 기준 시각은 목록이 바뀔 때 하나로 고정한다 — 행마다 now()를 부르면 경계에서 어긋난다.
     val now = remember(state.items) { Instant.now() }
 
     TrashScreenLayout(
-        title = "받은 편지 삭제함",
-        notice = "삭제한 편지는 30일 동안 보관된 뒤 받은 편지함에서 완전히 지워져요.",
-        isInitialLoading = state.items.isEmpty() && (state.isLoading || !state.hasLoaded),
+        title = stringResource(R.string.inbox_trash_title),
+        notice = stringResource(R.string.inbox_trash_notice),
+        isInitialLoading = state.items.isEmpty() && !state.hasLoaded,
+        isRefreshing = state.isLoading && state.hasLoaded,
+        onRefresh = viewModel::load,
         isEmpty = state.items.isEmpty(),
         error = state.error,
         snackbarHostState = snackbarHostState,
@@ -55,7 +61,10 @@ fun InboxTrashScreen(
         items(state.items, key = { it.letterId }) { item ->
             TrashLetterRow(
                 title = item.title,
-                detail = "보낸이: ${item.senderNickname?.takeIf { it.isNotBlank() } ?: "알 수 없음"}",
+                detail = stringResource(
+                    R.string.inbox_trash_sender,
+                    item.senderNickname?.takeIf { it.isNotBlank() } ?: stringResource(R.string.inbox_trash_unknown_sender),
+                ),
                 daysUntilPurge = item.daysUntilPurge(now),
                 isBusy = item.letterId in state.busyIds,
                 onRestore = { viewModel.restore(item.letterId) },
@@ -68,19 +77,19 @@ fun InboxTrashScreen(
     purgeTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { purgeTarget = null },
-            title = { Text("완전히 삭제할까요?") },
-            text = { Text("받은 편지함에서만 지워지고, 링크를 다시 열면 다시 담겨요.") },
+            title = { Text(stringResource(R.string.inbox_trash_purge_confirm)) },
+            text = { Text(stringResource(R.string.inbox_trash_purge_detail)) },
             confirmButton = {
                 TextButton(onClick = {
                     purgeTarget = null
                     viewModel.purge(target.letterId)
                 }) {
-                    Text("완전히 삭제", color = Danger)
+                    Text(stringResource(DsR.string.trash_purge), color = Danger)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { purgeTarget = null }) {
-                    Text("취소")
+                    Text(stringResource(R.string.inbox_cancel))
                 }
             },
         )

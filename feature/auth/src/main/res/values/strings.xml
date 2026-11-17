@@ -1,4 +1,18 @@
 <resources>
+    <!-- 로그인 화면(iOS AuthView). 값은 iOS Localizable.strings ko 원문. 영어는 values-en. -->
+    <string name="auth_email">이메일</string>
+    <string name="auth_get_code">코드 받기</string>
+    <string name="auth_code_sent">%1$s로 보낸 6자리 코드를 입력하세요</string>
+    <string name="auth_code_field">인증 코드</string>
+    <string name="auth_confirm">확인</string>
+    <string name="auth_reenter_email">이메일 다시 입력</string>
+    <string name="auth_password">비밀번호</string>
+    <string name="auth_login">로그인</string>
+    <string name="auth_or">또는</string>
+    <string name="auth_apple">Apple로 계속</string>
+    <string name="auth_google">Google로 계속</string>
+    <string name="auth_kakao">카카오로 계속</string>
+
     <!-- 로그인·회원가입 화면 2차(같은 스펙, 웹 구조와 맞춤) -->
     <string name="auth_code_login">코드로 로그인</string>
     <string name="auth_password_login">비밀번호로 로그인</string>
@@ -10,8 +24,14 @@
     <!-- 로그인 비밀번호 설정 단계(Mutter/docs/specs/2026-11-14-login-password.md, 세 플랫폼 동일) -->
     <string name="auth_set_password_title">비밀번호 설정</string>
     <string name="auth_set_password_guide">비밀번호를 정해 두면 다음부터 코드 없이 로그인할 수 있어요.</string>
-    <string name="auth_set_password_field">비밀번호</string>
+    <string name="auth_set_password_field">새 비밀번호 (6자 이상)</string>
     <string name="auth_set_password_confirm_field">비밀번호 확인</string>
     <string name="auth_set_password_save">저장하고 시작</string>
     <string name="auth_set_password_later">나중에 하기</string>
+
+    <!-- 닉네임 입력(소셜 가입 단계·가입 직후 온보딩 — iOS NicknameOnboardView) -->
+    <string name="auth_nickname_title">어떻게 불러드릴까요?</string>
+    <string name="auth_nickname_subtitle">받는 사람에게 보일 이름이에요</string>
+    <string name="auth_nickname_field">닉네임</string>
+    <string name="auth_nickname_start">시작하기</string>
 </resources>

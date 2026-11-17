@@ -38,5 +38,4 @@ sealed interface FeatureRoute {
     @Serializable data class Thread(val counterpartId: String) : FeatureRoute
 
     @Serializable data object Takedown : FeatureRoute
-    @Serializable data object Terms : FeatureRoute
 }

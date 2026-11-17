@@ -16,6 +16,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,11 +28,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.efreedom.mutter.core.navigation.FeatureRoute
 import com.efreedom.mutter.core.network.SupabaseProvider
+import com.efreedom.mutter.domain.analytics.Analytics
+import com.efreedom.mutter.domain.analytics.AnalyticsEvent
+import com.efreedom.mutter.domain.analytics.AnalyticsScreen
+import com.efreedom.mutter.domain.analytics.LoginMethod
 import com.efreedom.mutter.push.PushNotifications
 import com.efreedom.mutter.uicomponent.component.MutterSplashScreen
 import com.efreedom.mutter.uicomponent.theme.MutterTheme
 import com.efreedom.mutter.feature.auth.AuthScreen
+import com.efreedom.mutter.feature.auth.AuthViewModel
 import com.efreedom.mutter.feature.auth.NicknameOnboardScreen
+import com.efreedom.mutter.feature.auth.NicknameViewModel
 import com.efreedom.mutter.feature.viewer.ViewerScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
@@ -45,9 +52,13 @@ private enum class RootScreen { SPLASH, AUTH, NICKNAME, MAIN }
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var supabaseProvider: SupabaseProvider
+    @Inject lateinit var analytics: Analytics
 
     // 들어온 딥링크 이벤트(콜드스타트 intent + onNewIntent 공통). 컴포즈가 소비 후 null로 되돌린다.
     private val incomingDeeplink = MutableStateFlow<Deeplink?>(null)
+
+    // 받은 편지 알림(received_*) 탭으로 들어온 편지 토큰. 링크와 달리 로그인 뒤에 연다 — 컴포즈가 pendingLetterToken으로 옮기고 null로 되돌린다.
+    private val incomingPushLetterToken = MutableStateFlow<String?>(null)
 
     // 메인 NavHost로 보낼 목적지(알림 탭 → 보낸 편지 상세, 편지 오버레이 → 편지권). NavHost가 소비 후 null로 되돌린다.
     private val pendingRoute = MutableStateFlow<FeatureRoute?>(null)
@@ -80,140 +91,190 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         // 최초 실행에서만 파싱 — 회전/다크모드 등 구성 변경 재생성 때 같은 링크를 재처리하지 않도록.
         if (savedInstanceState == null) {
-            incomingDeeplink.value = Deeplink.parse(intent?.data) ?: pushLetter(intent)
+            routeIncoming(intent)
             pushRoute(intent)?.let { pendingRoute.value = it }
-            intent?.let { supabaseProvider.handleOAuthCallback(it) { oauthSessionBump.value++ } }
+            intent?.let { supabaseProvider.handleOAuthCallback(it, ::onOAuthSession) }
         }
         setContent {
             MutterTheme {
-                val appViewModel: AppViewModel = hiltViewModel()
-                val appState by appViewModel.state.collectAsStateWithLifecycle()
-                val forceUpdate by appViewModel.forceUpdate.collectAsStateWithLifecycle()
-                val deeplink by incomingDeeplink.collectAsStateWithLifecycle()
-                val oauthBump by oauthSessionBump.collectAsStateWithLifecycle()
-                val route by pendingRoute.collectAsStateWithLifecycle()
-                val whatsNew by appViewModel.whatsNew.collectAsStateWithLifecycle()
+                CompositionLocalProvider(LocalAnalytics provides analytics) {
+                    val appViewModel: AppViewModel = hiltViewModel()
+                    val appState by appViewModel.state.collectAsStateWithLifecycle()
+                    val forceUpdate by appViewModel.forceUpdate.collectAsStateWithLifecycle()
+                    val deeplink by incomingDeeplink.collectAsStateWithLifecycle()
+                    val pushLetterToken by incomingPushLetterToken.collectAsStateWithLifecycle()
+                    val oauthBump by oauthSessionBump.collectAsStateWithLifecycle()
+                    val route by pendingRoute.collectAsStateWithLifecycle()
+                    val whatsNew by appViewModel.whatsNew.collectAsStateWithLifecycle()
 
-                // OAuth(Apple 등) 리다이렉트로 세션이 확립되면 루트 상태를 갱신해 메인/닉네임으로 진입.
-                LaunchedEffect(oauthBump) {
-                    if (oauthBump > 0) appViewModel.refresh()
-                }
-
-                // 최소 스플래시 노출시간 — 세션 확인이 즉시 끝나도 로고가 잠깐 보이도록(iOS MainView 대응).
-                var minSplashDone by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) {
-                    // Lottie 스플래시(약 2.2초)가 끝까지 재생되도록 최소 노출시간 확보(iOS와 동일).
-                    delay(2300)
-                    minSplashDone = true
-                }
-
-                // 딥링크 라우팅 상태 — 편지는 즉시 전체화면 오버레이, 초대는 로그인까지 보관 후 소비.
-                // rememberSaveable — 구성 변경(회전 등)에도 유지돼, 닫은 뷰어가 다시 뜨거나 초대가 재이동되지 않게.
-                var letterToken by rememberSaveable { mutableStateOf<String?>(null) }
-                var pendingConnectToken by rememberSaveable { mutableStateOf<String?>(null) }
-                // 로그인해야 열리는 편지(봉투 → "편지 열기") — 로그인 화면을 보인 뒤 메인에 들어오면 같은 편지를 다시 띄운다.
-                var pendingLetterToken by rememberSaveable { mutableStateOf<String?>(null) }
-                LaunchedEffect(deeplink) {
-                    when (val d = deeplink) {
-                        is Deeplink.Letter -> letterToken = d.token
-                        is Deeplink.Connect -> pendingConnectToken = d.token
-                        null -> Unit
+                    // OAuth(Apple 등) 리다이렉트로 세션이 확립되면 루트 상태를 갱신해 메인/닉네임으로 진입.
+                    LaunchedEffect(oauthBump) {
+                        if (oauthBump > 0) appViewModel.refresh()
                     }
-                    if (deeplink != null) incomingDeeplink.value = null
-                }
 
-                val screen = when {
-                    !minSplashDone || appState == AppState.LOADING -> RootScreen.SPLASH
-                    appState == AppState.SIGNED_OUT -> RootScreen.AUTH
-                    appState == AppState.NEEDS_NICKNAME -> RootScreen.NICKNAME
-                    else -> RootScreen.MAIN
-                }
-
-                // 메인에 처음 도달했을 때만 알림 권한을 묻는다(로그인 전에는 맥락이 없다).
-                LaunchedEffect(screen) {
-                    if (screen == RootScreen.MAIN) requestNotificationPermissionIfNeeded()
-                }
-
-                // 봉투에서 로그인하러 간 편지 — 로그인(+닉네임)을 마치고 메인에 오면 같은 편지로 돌아간다.
-                LaunchedEffect(screen, pendingLetterToken) {
-                    val pending = pendingLetterToken ?: return@LaunchedEffect
-                    if (screen == RootScreen.MAIN) {
-                        pendingLetterToken = null
-                        letterToken = pending
+                    // 최소 스플래시 노출시간 — 세션 확인이 즉시 끝나도 로고가 잠깐 보이도록(iOS MainView 대응).
+                    var minSplashDone by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        // Lottie 스플래시(약 2.2초)가 끝까지 재생되도록 최소 노출시간 2.3초 확보(iOS MainView는 2.0초).
+                        delay(2300)
+                        minSplashDone = true
                     }
-                }
 
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Crossfade(targetState = screen, animationSpec = tween(300), label = "app-root") { s ->
-                        when (s) {
-                            RootScreen.SPLASH -> MutterSplashScreen()
-                            RootScreen.AUTH -> AuthScreen(onAuthenticated = { appViewModel.refresh() })
-                            RootScreen.NICKNAME -> NicknameOnboardScreen(onComplete = { appViewModel.refresh() })
-                            RootScreen.MAIN -> MutterNavHost(
-                                onSignedOut = { appViewModel.signOut() },
-                                pendingConnectToken = pendingConnectToken,
-                                onConnectConsumed = { pendingConnectToken = null },
-                                pendingRoute = route,
-                                onRouteConsumed = { pendingRoute.value = null },
-                                // 새 소식 안내 — 편지를 읽는 화면(딥링크 뷰어)이 떠 있거나 다른 화면으로 가는 중에는 미룬다.
-                                whatsNew = whatsNew.takeIf {
-                                    letterToken == null && pendingLetterToken == null &&
-                                        pendingConnectToken == null && route == null
-                                },
-                                onWhatsNewShown = appViewModel::markWhatsNewSeen,
-                                onWhatsNewClosed = appViewModel::dismissWhatsNew,
-                            )
+                    // 딥링크 라우팅 상태 — 편지는 즉시 전체화면 오버레이, 초대는 로그인까지 보관 후 소비.
+                    // rememberSaveable — 구성 변경(회전 등)에도 유지돼, 닫은 뷰어가 다시 뜨거나 초대가 재이동되지 않게.
+                    var letterToken by rememberSaveable { mutableStateOf<String?>(null) }
+                    var pendingConnectToken by rememberSaveable { mutableStateOf<String?>(null) }
+                    // 로그인해야 열리는 편지(봉투 → "편지 열기") — 로그인 화면을 보인 뒤 메인에 들어오면 같은 편지를 다시 띄운다.
+                    var pendingLetterToken by rememberSaveable { mutableStateOf<String?>(null) }
+                    LaunchedEffect(deeplink) {
+                        when (val d = deeplink) {
+                            is Deeplink.Letter -> letterToken = d.token
+                            is Deeplink.Connect -> pendingConnectToken = d.token
+                            null -> Unit
+                        }
+                        if (deeplink != null) incomingDeeplink.value = null
+                    }
+                    // 받은 편지 알림 탭 — 로그인해야 열리는 편지와 같은 길(pendingLetterToken). 로그인 상태면 메인에 오자마자 열리고,
+                    // 로그아웃 상태면 로그인(+닉네임) 뒤에 열린다(iOS pendingLetterToken).
+                    LaunchedEffect(pushLetterToken) {
+                        val token = pushLetterToken ?: return@LaunchedEffect
+                        pendingLetterToken = token
+                        incomingPushLetterToken.value = null
+                    }
+
+                    // 로그아웃하면 로그인·닉네임 화면을 새로 시작한다(iOS는 로그인 화면이 뜰 때마다 새 모델을 만든다).
+                    // 두 ViewModel은 Activity에 붙어 회전에도 입력을 지키지만, 그대로 두면 앞 로그인의 단계·입력이 남는다.
+                    // wasSignedIn은 rememberSaveable — 회전 뒤 다시 도는 효과가 로그아웃 상태의 입력을 지우지 않게 한다.
+                    val authViewModel: AuthViewModel = hiltViewModel()
+                    val nicknameViewModel: NicknameViewModel = hiltViewModel()
+                    var wasSignedIn by rememberSaveable { mutableStateOf(false) }
+                    LaunchedEffect(appState) {
+                        when (appState) {
+                            AppState.READY, AppState.NEEDS_NICKNAME -> wasSignedIn = true
+                            AppState.SIGNED_OUT -> if (wasSignedIn) {
+                                wasSignedIn = false
+                                authViewModel.reset()
+                                nicknameViewModel.reset()
+                            }
+                            AppState.LOADING -> Unit
                         }
                     }
 
-                    // 편지 링크 — 인증 상태와 무관하게 전체화면 뷰어로 덮는다(iOS unauthenticatedViewerCover 대응).
-                    // get_letter_by_token은 anon 허용이라 미로그인에서도 열람 가능. 뒤로가기로 오버레이 해제.
-                    letterToken?.let { token ->
-                        // 오버레이는 NavHost 백스택 밖이므로 시스템 뒤로가기를 직접 가로채 해제한다.
-                        // ViewerScreen에는 화면 내 뒤로 버튼이 없으므로 이 BackHandler가 유일한 이탈 경로다.
-                        BackHandler { letterToken = null }
-                        // 편지마다 ViewModel 보관소를 따로 둔다 — 앱이 떠 있는 동안 다른 편지 링크를 열면 그 편지가 새로 열린다.
-                        LetterOverlayScope(token = token, isChangingConfigurations = { isChangingConfigurations }) {
-                            ViewerScreen(
-                                token = token,
-                                // 로그아웃 상태의 봉투 → 오버레이를 걷어 로그인 화면을 보이고, 로그인 뒤 다시 연다.
-                                onLoginRequest = {
-                                    pendingLetterToken = token
-                                    letterToken = null
-                                },
-                                // 간직하려는데 편지권이 없으면 편지 위로 결제 안내 시트가 올라온다(편지·음악은 뒤에 그대로).
-                                ticketCheckout = ticketCheckoutSheet,
-                            )
+                    val screen = when {
+                        !minSplashDone || appState == AppState.LOADING -> RootScreen.SPLASH
+                        appState == AppState.SIGNED_OUT -> RootScreen.AUTH
+                        appState == AppState.NEEDS_NICKNAME -> RootScreen.NICKNAME
+                        else -> RootScreen.MAIN
+                    }
+
+                    // 메인에 처음 도달했을 때만 알림 권한을 묻는다(로그인 전에는 맥락이 없다).
+                    LaunchedEffect(screen) {
+                        if (screen == RootScreen.MAIN) requestNotificationPermissionIfNeeded()
+                    }
+
+                    // 봉투에서 로그인하러 간 편지 — 로그인(+닉네임)을 마치고 메인에 오면 같은 편지로 돌아간다.
+                    LaunchedEffect(screen, pendingLetterToken) {
+                        val pending = pendingLetterToken ?: return@LaunchedEffect
+                        if (screen == RootScreen.MAIN) {
+                            pendingLetterToken = null
+                            letterToken = pending
                         }
                     }
 
-                    // 강제 업데이트 — 최상위 차단 오버레이(편지 오버레이보다도 위).
-                    if (forceUpdate) ForceUpdateOverlay()
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Crossfade(targetState = screen, animationSpec = tween(300), label = "app-root") { s ->
+                            when (s) {
+                                RootScreen.SPLASH -> MutterSplashScreen()
+                                RootScreen.AUTH -> {
+                                    TrackScreen(AnalyticsScreen.SIGN_IN)
+                                    AuthScreen(onAuthenticated = { appViewModel.refresh() }, viewModel = authViewModel)
+                                }
+                                RootScreen.NICKNAME -> {
+                                    TrackScreen(AnalyticsScreen.ONBOARD_NICKNAME)
+                                    NicknameOnboardScreen(
+                                        onComplete = { appViewModel.refresh() },
+                                        viewModel = nicknameViewModel,
+                                    )
+                                }
+                                RootScreen.MAIN -> MutterNavHost(
+                                    onSignedOut = { appViewModel.signOut() },
+                                    pendingConnectToken = pendingConnectToken,
+                                    onConnectConsumed = { pendingConnectToken = null },
+                                    pendingRoute = route,
+                                    onRouteConsumed = { pendingRoute.value = null },
+                                    // 새 소식 안내 — 편지를 읽는 화면(딥링크 뷰어)이 떠 있거나 다른 화면으로 가는 중에는 미룬다.
+                                    whatsNew = whatsNew.takeIf {
+                                        letterToken == null && pendingLetterToken == null &&
+                                            pendingConnectToken == null && route == null
+                                    },
+                                    onWhatsNewShown = appViewModel::markWhatsNewSeen,
+                                    onWhatsNewClosed = appViewModel::dismissWhatsNew,
+                                )
+                            }
+                        }
+
+                        // 편지 링크 — 인증 상태와 무관하게 전체화면 뷰어로 덮는다(iOS unauthenticatedViewerCover 대응).
+                        // get_letter_by_token은 anon 허용이라 미로그인에서도 열람 가능. 뒤로가기로 오버레이 해제.
+                        letterToken?.let { token ->
+                            // 오버레이는 NavHost 백스택 밖이므로 시스템 뒤로가기를 직접 가로채 해제한다.
+                            // ViewerScreen에는 화면 내 뒤로 버튼이 없으므로 이 BackHandler가 유일한 이탈 경로다.
+                            BackHandler { letterToken = null }
+                            // 링크로 받은 편지 — 백스택 밖 오버레이라 NavHost 화면 기록에 안 잡힌다 → 여기서 기록.
+                            TrackScreen(AnalyticsScreen.VIEWER)
+                            // 편지마다 ViewModel 보관소를 따로 둔다 — 앱이 떠 있는 동안 다른 편지 링크를 열면 그 편지가 새로 열린다.
+                            LetterOverlayScope(token = token, isChangingConfigurations = { isChangingConfigurations }) {
+                                ViewerScreen(
+                                    token = token,
+                                    // 로그아웃 상태의 봉투 → 오버레이를 걷어 로그인 화면을 보이고, 로그인 뒤 다시 연다.
+                                    onLoginRequest = {
+                                        pendingLetterToken = token
+                                        letterToken = null
+                                    },
+                                    // 간직하려는데 편지권이 없으면 편지 위로 결제 안내 시트가 올라온다(편지·음악은 뒤에 그대로).
+                                    ticketCheckout = ticketCheckoutSheet,
+                                )
+                            }
+                        }
+
+                        // 강제 업데이트 — 최상위 차단 오버레이(편지 오버레이보다도 위).
+                        if (forceUpdate) ForceUpdateOverlay()
+                    }
                 }
             }
         }
     }
 
+    /** Apple 웹 OAuth로 세션이 확립됐다(이 콜백은 Apple만 쓴다) — 로그인 기록 후 루트 상태를 갱신하게 알린다. */
+    private fun onOAuthSession() {
+        analytics.log(AnalyticsEvent.Login(LoginMethod.APPLE))
+        oauthSessionBump.value++
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        incomingDeeplink.value = Deeplink.parse(intent.data) ?: pushLetter(intent)
+        routeIncoming(intent)
         pushRoute(intent)?.let { pendingRoute.value = it }
-        supabaseProvider.handleOAuthCallback(intent) { oauthSessionBump.value++ }
+        supabaseProvider.handleOAuthCallback(intent, ::onOAuthSession)
+    }
+
+    /** 링크(`/l/`·`/connect/`)는 즉시 처리하는 [incomingDeeplink]로, 받은 편지 알림 탭은 로그인 뒤에 여는 [incomingPushLetterToken]으로. */
+    private fun routeIncoming(intent: Intent?) {
+        val deeplink = Deeplink.parse(intent?.data)
+        if (deeplink != null) incomingDeeplink.value = deeplink else pushLetter(intent)?.let { incomingPushLetterToken.value = it }
     }
 
     /**
-     * 받은 편지 닫힘 예고·닫힘·삭제 예고(received_lock_soon·received_locked·received_purge_soon) 백그라운드 알림 탭
-     * → `/l/<token>` 딥링크와 같은 뷰어(닫힌 편지는 잠김 화면).
-     * 포그라운드 알림은 [PushNotifications]가 `mutter://l/<token>` URI로 싣으므로 [Deeplink.parse]가 처리한다.
+     * 받은 편지 닫힘 예고·닫힘·삭제 예고(received_lock_soon·received_locked·received_purge_soon) 알림 탭의 편지 토큰.
+     * 백그라운드 알림은 시스템이 data를 인텐트 extra로, 포그라운드 알림은 [PushNotifications]가 같은 키로 싣는다.
+     * 뷰어(닫힌 편지는 잠김 화면)는 로그인 상태에서 연다 — iOS처럼 로그아웃 상태면 로그인 뒤에 연다.
      */
-    private fun pushLetter(intent: Intent?): Deeplink? {
+    private fun pushLetter(intent: Intent?): String? {
         val extras = intent?.extras ?: return null
-        val token = PushNotifications.receivedLetterToken(
+        return PushNotifications.receivedLetterToken(
             extras.getString(PushNotifications.KEY_TYPE),
             extras.getString(PushNotifications.KEY_TOKEN),
-        ) ?: return null
-        return Deeplink.Letter(token)
+        )
     }
 
     /**
