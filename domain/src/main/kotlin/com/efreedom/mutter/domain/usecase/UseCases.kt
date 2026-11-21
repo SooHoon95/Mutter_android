@@ -243,7 +243,7 @@ class PushTokenUseCase @Inject constructor(private val repository: PushTokenRepo
 }
 
 class AppClientUseCase @Inject constructor(private val repository: AppClientRepository) {
-    /** [appVersion]=versionName, [build]=versionCode. 계정×플랫폼 한 행 upsert라 반복 호출해도 된다. */
+    /** [appVersion]=versionName, [build]=versionCode. 프로필에 최근 값을 덮어쓰는 것이라 반복 호출해도 된다. */
     suspend fun report(appVersion: String, build: String) =
         repository.report(platform = "android", appVersion = appVersion, build = build)
 }

@@ -8,7 +8,7 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import javax.inject.Inject
 
-/** report_app_client RPC. 계정×플랫폼 한 행 upsert(user_id는 서버가 auth.uid()로). */
+/** report_app_client RPC. 프로필(profiles.app_*)에 최근 값 하나를 남긴다(대상은 서버가 auth.uid()로). */
 class AppClientRepositoryImpl @Inject constructor(
     private val provider: SupabaseProvider,
 ) : AppClientRepository {

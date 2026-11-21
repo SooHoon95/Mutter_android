@@ -134,7 +134,7 @@ class AppViewModel @Inject constructor(
         }
     }
 
-    /** 서버 upsert라 refresh가 여러 번 불려도 된다. 버전 값은 빌드 설정(BuildConfig)에서 온다. */
+    /** 서버가 최근 값을 덮어쓰는 것이라 refresh가 여러 번 불려도 된다. 버전 값은 빌드 설정(BuildConfig)에서 온다. */
     private suspend fun reportAppClient() {
         runCatching {
             appClientUseCase.report(appVersion = BuildConfig.VERSION_NAME, build = BuildConfig.VERSION_CODE.toString())
