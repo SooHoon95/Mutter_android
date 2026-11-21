@@ -27,7 +27,7 @@ android {
         applicationId = "com.efreedom.mutter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
+        versionCode = 8
         versionName = "2.0.0"
         val kakaoKey = socialProps.getProperty("KAKAO_NATIVE_APP_KEY", "")
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"$kakaoKey\"")
