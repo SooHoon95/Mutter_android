@@ -27,3 +27,6 @@
 .claude/settings.local.json
 .omc/
 .kotlin/
+
+# 배포용 산출물(AAB·APK) — 저장소에 넣지 않는다
+/dist/
