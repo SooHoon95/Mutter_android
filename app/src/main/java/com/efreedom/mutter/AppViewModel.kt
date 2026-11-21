@@ -1,10 +1,12 @@
 package com.efreedom.mutter
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.efreedom.mutter.domain.SessionInvalidation
 import com.efreedom.mutter.domain.error.MutterError
 import com.efreedom.mutter.domain.model.Entitlements
+import com.efreedom.mutter.domain.usecase.AppClientUseCase
 import com.efreedom.mutter.domain.usecase.AppUpdateUseCase
 import com.efreedom.mutter.domain.usecase.AuthUseCase
 import com.efreedom.mutter.domain.usecase.ProfileUseCase
@@ -45,6 +47,7 @@ class AppViewModel @Inject constructor(
     private val profileUseCase: ProfileUseCase,
     private val appUpdateUseCase: AppUpdateUseCase,
     private val pushTokenRegistrar: PushTokenRegistrar,
+    private val appClientUseCase: AppClientUseCase,
     private val ticketUseCase: TicketUseCase,
     private val whatsNewStore: WhatsNewStore,
 ) : ViewModel() {
@@ -106,6 +109,8 @@ class AppViewModel @Inject constructor(
             // 이미 토큰이 있는 기기에서 로그인하면 이 경로가 유일한 등록 기회다.
             // 프로필 조회 결과와 상관없이(iOS처럼) 기다리지 않고 띄운다 — 오프라인에서 토큰 조회가 멈춰도 스플래시가 멈추지 않게.
             launch { pushTokenRegistrar.register() }
+            // 앱 버전·플랫폼 보고 — 푸시 권한·FCM 토큰과 무관하게 로그인 상태면 보낸다. 실패는 로그만(흐름에 영향 없음).
+            launch { reportAppClient() }
             // 검증·소비 못 하고 남은 편지권 거래를 다시 보낸다(서버 200 뒤에만 소비). 실패는 조용히 다음 기회로.
             launch { ticketUseCase.resendUnconsumed() }
             // 닉네임 게이트 — 프로필 조회는 읽기 전용(SELECT). 회원가입 쓰기 아님.
@@ -127,6 +132,13 @@ class AppViewModel @Inject constructor(
             val needsNickname = profileResult.getOrNull()?.nickname?.trim().isNullOrEmpty()
             _state.value = if (needsNickname) AppState.NEEDS_NICKNAME else AppState.READY
         }
+    }
+
+    /** 서버 upsert라 refresh가 여러 번 불려도 된다. 버전 값은 빌드 설정(BuildConfig)에서 온다. */
+    private suspend fun reportAppClient() {
+        runCatching {
+            appClientUseCase.report(appVersion = BuildConfig.VERSION_NAME, build = BuildConfig.VERSION_CODE.toString())
+        }.onFailure { Log.w(TAG, "앱 버전 보고 실패: ${it::class.simpleName}: ${it.message}") }
     }
 
     /**
@@ -167,5 +179,9 @@ class AppViewModel @Inject constructor(
             runCatching { authUseCase.signOut() }
             refresh()
         }
+    }
+
+    private companion object {
+        const val TAG = "MutterAppClient"
     }
 }

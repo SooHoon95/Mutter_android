@@ -146,6 +146,11 @@ interface PushTokenRepository {
     suspend fun upsert(token: String, platform: String, deviceId: String?)
 }
 
+/** 로그인 사용자의 앱 버전·플랫폼 보고(report_app_client RPC). */
+interface AppClientRepository {
+    suspend fun report(platform: String, appVersion: String, build: String)
+}
+
 /** SoundCloud oEmbed 검증(비-Supabase, 예외 없이 결과 반환). */
 interface SoundCloudRepository {
     suspend fun validate(url: String): ScValidation

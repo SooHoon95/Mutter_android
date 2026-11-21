@@ -3,6 +3,7 @@ package com.efreedom.mutter.data.di
 import com.efreedom.mutter.data.analytics.FirebaseAnalyticsTracker
 import com.efreedom.mutter.data.billing.PlayTicketStore
 import com.efreedom.mutter.domain.analytics.Analytics
+import com.efreedom.mutter.data.repository.AppClientRepositoryImpl
 import com.efreedom.mutter.data.repository.AppUpdateRepositoryImpl
 import com.efreedom.mutter.data.repository.AuthRepositoryImpl
 import com.efreedom.mutter.data.repository.ConnectionRepositoryImpl
@@ -19,6 +20,7 @@ import com.efreedom.mutter.data.repository.TakedownRepositoryImpl
 import com.efreedom.mutter.data.repository.ThreadRepositoryImpl
 import com.efreedom.mutter.data.repository.TicketRepositoryImpl
 import com.efreedom.mutter.data.service.SessionProviderImpl
+import com.efreedom.mutter.domain.repository.AppClientRepository
 import com.efreedom.mutter.domain.repository.AppUpdateRepository
 import com.efreedom.mutter.domain.repository.AuthRepository
 import com.efreedom.mutter.domain.repository.ConnectionRepository
@@ -88,6 +90,9 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindAppUpdateRepository(impl: AppUpdateRepositoryImpl): AppUpdateRepository
+
+    @Binds @Singleton
+    abstract fun bindAppClientRepository(impl: AppClientRepositoryImpl): AppClientRepository
 
     @Binds @Singleton
     abstract fun bindLetterAccessRepository(impl: LetterAccessRepositoryImpl): LetterAccessRepository
